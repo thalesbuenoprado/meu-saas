@@ -1047,21 +1047,23 @@ function PreviewRedeSocial({ tipo, formato = 'feed', conteudo, usuario, modoComp
     return (
       <div className="bg-black rounded-2xl overflow-hidden max-w-[280px] mx-auto shadow-2xl aspect-[9/16] relative">
         {/* Imagem de fundo fullscreen */}
-        <div className="absolute inset-0 z-0">
+        <div className="absolute inset-0 z-0 bg-black">
           {imagemPreview ? (
             <>
               {console.log('✅ [IMG TAG] Renderizando <img> com src:', imagemPreview.substring(0, 60))}
               <img
                 src={imagemPreview}
                 alt="Stories"
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover absolute inset-0"
+                style={{ zIndex: 0 }}
                 onLoad={() => console.log('✅ [IMG] Imagem carregada com sucesso!')}
                 onError={(e) => console.error('❌ [IMG] Erro ao carregar imagem:', e)}
               />
               {onVisualizarImagem && (
                 <button
                   onClick={onVisualizarImagem}
-                  className="absolute inset-0 bg-black/0 hover:bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-all cursor-pointer z-10"
+                  className="absolute inset-0 bg-black/0 hover:bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-all cursor-pointer"
+                  style={{ zIndex: 30 }}
                 >
                   <div className="bg-white/90 rounded-full p-3 shadow-lg">
                     <ZoomIn className="w-6 h-6 text-gray-700" />
