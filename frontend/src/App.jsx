@@ -1005,7 +1005,7 @@ function PerfilUsuarioModal({ isOpen, onClose }) {
   );
 }
 
-function PreviewRedeSocial({ tipo, formato = 'feed', conteudo, usuario, modoCompleto = false, imagemPreview = null, onPublicar = null, onVisualizarImagem = null }) {
+function PreviewRedeSocial({ tipo, formato = 'feed', conteudo, usuario, modoCompleto = false, imagemPreview = null, onPublicar = null, onVisualizarImagem = null, loadingImagem = false }) {
   const [expandido, setExpandido] = useState(false);
 
   if (!conteudo) return null;
@@ -2973,7 +2973,7 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            texto: conteudoGerado,
+            texto: textoUsar,
             tema: tema,
             area: areaAtuacao,
             template: templateStory,
@@ -3643,6 +3643,7 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
                     modoCompleto={true}
                     imagemPreview={imagemPreview}
                     onVisualizarImagem={imagemPreview ? () => setMostrarImagemFull(true) : null}
+                    loadingImagem={loadingImagem}
                   />
                 )
               ) : (
