@@ -1886,12 +1886,18 @@ function AnaliseLogoComponent() {
   useEffect(() => {
     const carregarPerfil = async () => {
       try {
-        const perfil = localStorage.getItem('perfil-visual-advogado');
+        let perfil;
+        try {
+          perfil = localStorage.getItem('perfil-visual-advogado');
+        } catch (e) {
+          console.log('Acesso ao localStorage bloqueado');
+        }
+
         if (perfil) {
           setPerfilVisual(JSON.parse(perfil));
         }
       } catch (error) {
-        console.log('Sem perfil visual salvo');
+        console.log('Erro ao carregar perfil visual:', error);
       }
     };
     carregarPerfil();
@@ -1938,7 +1944,11 @@ function AnaliseLogoComponent() {
         console.log('   - Cor acento:', perfil.cor_acento);
         console.log('   - Estilo:', perfil.estilo_visual);
 
-        localStorage.setItem('perfil-visual-advogado', JSON.stringify(perfil));
+        try {
+          localStorage.setItem('perfil-visual-advogado', JSON.stringify(perfil));
+        } catch (e) {
+          console.log('Não foi possível salvar no localStorage (acesso negado)');
+        }
         setPerfilVisual(perfil);
 
         // Mostrar cores no alerta
@@ -1963,7 +1973,11 @@ function AnaliseLogoComponent() {
 
   const removerPerfil = () => {
     if (confirm('Remover identidade visual?')) {
-      localStorage.removeItem('perfil-visual-advogado');
+      try {
+        localStorage.removeItem('perfil-visual-advogado');
+      } catch (e) {
+        console.log('Erro ao limpar localStorage');
+      }
       setPerfilVisual(null);
       setLogoPreview(null);
     }
