@@ -3119,7 +3119,7 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
             </div>
           </div>
 
-          <div className="flex gap-2 sm:gap-3 w-full sm:w-auto justify-center">
+          <div className="grid grid-cols-2 sm:flex gap-2 sm:gap-3 w-full sm:w-auto justify-center">
             {onAbrirGaleria && (
               <button
                 onClick={onAbrirGaleria}
@@ -3268,7 +3268,7 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
                   <label className="block text-sm font-medium text-slate-300 mb-3">
                     Formato do Post
                   </label>
-                  <div className="flex gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     {tipoSelecionado.formatos.map((formato) => (
                       <button
                         key={formato.id}
@@ -3432,7 +3432,7 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
             {/* Tamanho */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-slate-300 mb-3">Tamanho</label>
-              <div className="flex gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {DADOS.tamanhos.map((t) => (
                   <button
                     key={t.id}
