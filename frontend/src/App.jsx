@@ -2999,8 +2999,10 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
 
         if (storyData.success && storyData.imageUrl) {
           console.log('✅ Story gerado:', storyData.imageUrl);
+          console.log('📸 [STORIES] Atualizando estados com a imagem...');
           setImagemGerada(storyData.imageUrl);
           setImagemPreview(storyData.imageUrl);
+          console.log('✅ [STORIES] Estados atualizados! imagemPreview:', storyData.imageUrl.substring(0, 60));
 
           // Salvar no Supabase
           if (onSalvarImagem) {
