@@ -2406,7 +2406,7 @@ function CriadorCompleto({ user, onLogout, onAbrirGaleria, onAbrirPerfil, onSalv
   const [estiloImagem, setEstiloImagem] = useState('classico');
   const [templateStory, setTemplateStory] = useState('voce-sabia');
   const [imagemGerada, setImagemGerada] = useState(null);
-  const [imagemGerada, setImagemGerada] = useState(null);
+
   const [loadingImagem, setLoadingImagem] = useState(false);
   const [imagemCarregada, setImagemCarregada] = useState(false);
   const [linkCopiado, setLinkCopiado] = useState(false);
