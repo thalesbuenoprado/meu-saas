@@ -1626,6 +1626,14 @@ function PreviewRedeSocial({ tipo, formato = 'feed', conteudo, usuario, modoComp
           </span>
         </div>
         {renderPreview()}
+        {loadingImagem && (
+          <div className="absolute inset-0 bg-black/20 flex items-center justify-center z-50 rounded-xl pointer-events-none">
+            <div className="bg-white/90 px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
+              <span className="text-sm font-medium text-slate-700">Criando imagem...</span>
+            </div>
+          </div>
+        )}
         <p className="text-xs text-slate-500 text-center mt-4">
           * Esta é uma simulação. O visual real pode variar.
         </p>
@@ -2553,6 +2561,14 @@ function CriadorCompleto({ user, onLogout, onAbrirGaleria, onAbrirPerfil, onSalv
           previewSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
       }, 100);
+
+      // Auto-gerar imagem (Agilizar o processo)
+      const formatoAuto = (formatoPost === 'stories' || formatoPost === 'reels') ? 'stories' :
+        (tipoConteudo === 'post-facebook') ? 'landscape' : 'quadrado';
+
+      // Chamar geração de imagem sem bloquear a UI (async)
+      console.log('🚀 Iniciando geração de imagem automática:', formatoAuto);
+      gerarImagem(limparConteudo(data.content), formatoAuto);
     } catch (error) {
       console.error('Erro:', error);
       alert('❌ Erro ao gerar conteúdo: ' + error.message);
