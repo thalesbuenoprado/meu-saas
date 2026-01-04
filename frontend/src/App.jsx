@@ -1055,7 +1055,18 @@ function PreviewRedeSocial({ tipo, formato = 'feed', conteudo, usuario, modoComp
                 src={imagemPreview}
                 alt="Stories"
                 className="w-full h-full object-cover absolute inset-0"
-                style={{ zIndex: 0 }}
+                style={{
+                  zIndex: 0,
+                  display: 'block',
+                  opacity: 1,
+                  visibility: 'visible',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover'
+                }}
                 onLoad={() => console.log('✅ [IMG] Imagem carregada com sucesso!')}
                 onError={(e) => console.error('❌ [IMG] Erro ao carregar imagem:', e)}
               />
