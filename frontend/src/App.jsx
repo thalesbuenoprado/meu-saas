@@ -2403,6 +2403,7 @@ function CriadorCompleto({ user, onLogout, onAbrirGaleria, onAbrirPerfil, onSalv
   const [copiado, setCopiado] = useState(false);
   const [modoEdicao, setModoEdicao] = useState(false);
   const [imagemPreview, setImagemPreview] = useState(null);
+  const imagemPreviewRef = useRef(null); // Ref para persistir a URL da imagem
   const [mostrarImagemFull, setMostrarImagemFull] = useState(false);
   const [mostrarDicasAssunto, setMostrarDicasAssunto] = useState(false);
   const [mostrarDicasPublico, setMostrarDicasPublico] = useState(false);
@@ -3006,6 +3007,7 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
         if (storyData.success && storyData.imageUrl) {
           console.log('✅ Story gerado:', storyData.imageUrl);
           console.log('📸 [STORIES] Atualizando estados com a imagem...');
+          imagemPreviewRef.current = storyData.imageUrl; // Salva no ref PRIMEIRO
           setImagemGerada(storyData.imageUrl);
           setImagemPreview(storyData.imageUrl);
           console.log('✅ [STORIES] Estados atualizados! imagemPreview:', storyData.imageUrl.substring(0, 60));
@@ -3658,13 +3660,13 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
                 ) : (
                   /* MODO PREVIEW */
                   <PreviewRedeSocial
-                    key={imagemPreview || 'no-image'} // Força re-render quando imagem muda
+                    key={imagemPreviewRef.current || imagemPreview || 'no-image'} // Força re-render quando imagem muda
                     tipo={tipoConteudo}
                     formato={formatoPost || 'feed'}
                     conteudo={conteudoGerado}
                     usuario={user}
                     modoCompleto={true}
-                    imagemPreview={imagemPreview}
+                    imagemPreview={imagemPreviewRef.current || imagemPreview}
                     onVisualizarImagem={imagemPreview ? () => setMostrarImagemFull(true) : null}
                     loadingImagem={loadingImagem}
                   />
