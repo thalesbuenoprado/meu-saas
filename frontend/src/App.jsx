@@ -2586,30 +2586,51 @@ TOM: ${tom} (${tom === 'profissional' ? 'autoridade e credibilidade' : tom === '
       const isStoriesReels = formatoPost === 'stories' || formatoPost === 'reels';
 
       if (isStoriesReels) {
-        prompt += `FORMATO INSTAGRAM ${formatoPost.toUpperCase()} - TEXTO CURTO E IMPACTANTE:
+        // Obter template selecionado para stories
+        const template = DADOS.templatesStory.find(t => t.id === templateStory) || DADOS.templatesStory[0];
+
+        prompt += `FORMATO INSTAGRAM ${formatoPost.toUpperCase()} - TEMPLATE: ${template.nome.toUpperCase()}:
 
 TEMA: ${tema} (área: ${areaNome})
 FORMATO: ${formatoPost === 'stories' ? 'Stories (vertical 9:16)' : 'Reels (vídeo vertical 9:16)'}
+ESTILO VISUAL: ${template.desc}
 
 ⚠️ REGRA PRINCIPAL: Para ${formatoPost}, o texto deve ser MUITO CURTO e VISUAL.
 As pessoas passam rapidamente pelos stories/reels, então cada palavra conta!
 
-ESTRUTURA:
-1. GANCHO (1-2 linhas) - Frase de impacto que prende atenção
-2. PONTO PRINCIPAL (2-3 linhas) - A informação mais importante
-3. CTA (1 linha) - "Arrasta pra cima", "Salva esse stories", etc.
+ESTRUTURA PARA ESTE TEMPLATE (${template.nome}):
+`;
 
-REGRAS PARA ${formatoPost.toUpperCase()}:
+        if (template.id === 'voce-sabia') {
+          prompt += `1. PERGUNTA DE CURIOSIDADE (Ex: "Você sabia que...?")
+2. RESPOSTA DIRETA E CURTA
+3. CTA SIMPLES ("Responda aqui")`;
+        } else if (template.id === 'bullets') {
+          prompt += `1. TÍTULO ("3 Direitos que você tem...")
+2. LISTA DE 3 PONTOS (Frases curtíssimas)
+3. CTA DE SALVAMENTO`;
+        } else if (template.id === 'estatistica') {
+          prompt += `1. DADO IMPACTANTE ("80% dos casos...")
+2. EXPLICAÇÃO EM 1 FRASE
+3. CTA DE COMPARTILHAMENTO`;
+        } else if (template.id === 'urgente') {
+          prompt += `1. ALERTA ("Prazo acabando!", "Cuidado!")
+2. O QUE FAZER AGORA (Instrução ultra rápida)
+3. CTA DE URGÊNCIA`;
+        } else {
+          prompt += `1. GANCHO (1-2 linhas)
+2. PONTO PRINCIPAL (2-3 linhas)
+3. CTA (1 linha)`;
+        }
+
+        prompt += `
+
+REGRAS GERAIS:
 - Máximo 50-80 palavras no total
 - Frases MUITO curtas (máximo 10 palavras por frase)
 - Use emojis para dar destaque
 - Linguagem direta e urgente
 - Pense que o texto vai aparecer sobre uma imagem
-
-EXEMPLO DE ESTILO (NÃO COPIE):
-🚨 ATENÇÃO!
-[Ponto principal em 2 linhas]
-Salva esse stories! ⚖️
 
 Crie o texto agora sobre "${tema}":`;
       } else {
@@ -3409,44 +3430,71 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
               )}
             </div>
 
-            {/* Tom */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-slate-300 mb-3">Tom do Conteúdo</label>
-              <div className="grid grid-cols-2 gap-2">
-                {DADOS.tons.map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => setTom(t.id)}
-                    className={`p-3 rounded-lg border transition-all ${tom === t.id
-                      ? 'border-amber-400 bg-amber-400/10 text-amber-400'
-                      : 'border-slate-600 hover:border-slate-500 bg-slate-700/50 text-slate-300'
-                      }`}
-                  >
-                    <div className="font-medium text-sm">{t.nome}</div>
-                  </button>
-                ))}
+            {/* TIPO DE STORY/TEMPLATE - Apenas para stories/reels */}
+            {(formatoPost === 'stories' || formatoPost === 'reels') ? (
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-slate-300 mb-3">Estilo do {formatoPost === 'stories' ? 'Story' : 'Reels'}</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {DADOS.templatesStory.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => setTemplateStory(t.id)}
+                      className={`p-3 rounded-lg border transition-all text-left flex items-start gap-3 ${templateStory === t.id
+                        ? 'border-amber-400 bg-amber-400/10 text-amber-400'
+                        : 'border-slate-600 hover:border-slate-500 bg-slate-700/50 text-slate-300'
+                        }`}
+                    >
+                      <span className="text-xl">{t.icon}</span>
+                      <div>
+                        <div className="font-medium text-sm">{t.nome}</div>
+                        <div className={`text-xs mt-0.5 ${templateStory === t.id ? 'text-amber-400/70' : 'text-slate-500'}`}>{t.desc}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            ) : (
+              <>
+                {/* Tom - Apenas para posts que não são stories */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-slate-300 mb-3">Tom do Conteúdo</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {DADOS.tons.map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => setTom(t.id)}
+                        className={`p-3 rounded-lg border transition-all ${tom === t.id
+                          ? 'border-amber-400 bg-amber-400/10 text-amber-400'
+                          : 'border-slate-600 hover:border-slate-500 bg-slate-700/50 text-slate-300'
+                          }`}
+                      >
+                        <div className="font-medium text-sm">{t.nome}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-            {/* Tamanho */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-slate-300 mb-3">Tamanho</label>
-              <div className="grid grid-cols-3 gap-2">
-                {DADOS.tamanhos.map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => setTamanho(t.id)}
-                    className={`flex-1 p-3 rounded-lg border transition-all ${tamanho === t.id
-                      ? 'border-amber-400 bg-amber-400/10 text-amber-400'
-                      : 'border-slate-600 hover:border-slate-500 bg-slate-700/50 text-slate-300'
-                      }`}
-                  >
-                    <div className="font-medium text-sm">{t.nome}</div>
-                    <div className={`text-xs mt-0.5 ${tamanho === t.id ? 'text-amber-400/70' : 'text-slate-500'}`}>{t.desc}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
+                {/* Tamanho - Apenas para posts que não são stories */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-slate-300 mb-3">Tamanho</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {DADOS.tamanhos.map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => setTamanho(t.id)}
+                        className={`flex-1 p-3 rounded-lg border transition-all ${tamanho === t.id
+                          ? 'border-amber-400 bg-amber-400/10 text-amber-400'
+                          : 'border-slate-600 hover:border-slate-500 bg-slate-700/50 text-slate-300'
+                          }`}
+                      >
+                        <div className="font-medium text-sm">{t.nome}</div>
+                        <div className={`text-xs mt-0.5 ${tamanho === t.id ? 'text-amber-400/70' : 'text-slate-500'}`}>{t.desc}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* Botão Gerar */}
             <button
