@@ -1047,7 +1047,7 @@ function PreviewRedeSocial({ tipo, formato = 'feed', conteudo, usuario, modoComp
     return (
       <div className="bg-black rounded-2xl overflow-hidden max-w-[280px] mx-auto shadow-2xl aspect-[9/16] relative">
         {/* Imagem de fundo fullscreen */}
-        <div className="absolute inset-0">
+        <div className="absolute inset-0 z-0">
           {imagemPreview ? (
             <>
               {console.log('✅ [IMG TAG] Renderizando <img> com src:', imagemPreview.substring(0, 60))}
