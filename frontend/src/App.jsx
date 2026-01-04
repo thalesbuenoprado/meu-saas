@@ -1048,48 +1048,28 @@ function PreviewRedeSocial({ tipo, formato = 'feed', conteudo, usuario, modoComp
       <div className="bg-black rounded-2xl overflow-hidden max-w-[280px] mx-auto shadow-2xl aspect-[9/16] relative">
         {/* Imagem de fundo fullscreen */}
         <div className="absolute inset-0 z-0 bg-black">
-          {imagemPreview ? (
-            <>
-              {console.log('✅ [IMG TAG] Renderizando <img> com src:', imagemPreview.substring(0, 60))}
-              <img
-                src={imagemPreview}
-                alt="Stories"
-                className="w-full h-full object-cover absolute inset-0"
-                style={{
-                  zIndex: 0,
-                  display: 'block',
-                  opacity: 1,
-                  visibility: 'visible',
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover'
-                }}
-                onLoad={() => console.log('✅ [IMG] Imagem carregada com sucesso!')}
-                onError={(e) => console.error('❌ [IMG] Erro ao carregar imagem:', e)}
-              />
-              {onVisualizarImagem && (
-                <button
-                  onClick={onVisualizarImagem}
-                  className="absolute inset-0 bg-black/0 hover:bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-all cursor-pointer"
-                  style={{ zIndex: 30 }}
-                >
-                  <div className="bg-white/90 rounded-full p-3 shadow-lg">
-                    <ZoomIn className="w-6 h-6 text-gray-700" />
-                  </div>
-                </button>
-              )}
-            </>
-          ) : (
-            <div className="w-full h-full bg-gradient-to-b from-purple-600 via-pink-500 to-orange-400 flex items-center justify-center">
-              <div className="text-center text-white/80">
-                <ImageIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">Sua imagem aqui</p>
-              </div>
-            </div>
-          )}
+          {console.log('🔍 [DEBUG] imagemPreview value:', imagemPreview)}
+          {/* SEMPRE renderiza a imagem, mesmo sem URL (para teste) */}
+          <img
+            src={imagemPreview || 'https://via.placeholder.com/400x800/FF0000/FFFFFF?text=TESTE'}
+            alt="Stories"
+            className="w-full h-full object-cover absolute inset-0"
+            style={{
+              zIndex: 0,
+              display: 'block',
+              opacity: 1,
+              visibility: 'visible',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              border: '5px solid red' // Borda vermelha para debug
+            }}
+            onLoad={() => console.log('✅ [IMG] Imagem carregada:', imagemPreview || 'placeholder')}
+            onError={(e) => console.error('❌ [IMG] Erro ao carregar:', e)}
+          />
         </div>
 
         {/* Header Stories */}
