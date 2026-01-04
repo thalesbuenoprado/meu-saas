@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+pnpm-lock.yaml
+yarn.lock
+
+# Environment variables (Sensitive!)
+.env
+.env.*
+!.env.example
+
+# Build outputs
+dist/
+build/
+
+# Logs and backups
+*.log
+*.backup
+*.backup2
+*.save
+*.save.*
+npm-debug.log*
+
+# System
+.DS_Store
+Thumbs.db
