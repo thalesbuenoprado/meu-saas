@@ -1050,10 +1050,13 @@ function PreviewRedeSocial({ tipo, formato = 'feed', conteudo, usuario, modoComp
         <div className="absolute inset-0">
           {imagemPreview ? (
             <>
+              {console.log('✅ [IMG TAG] Renderizando <img> com src:', imagemPreview.substring(0, 60))}
               <img
                 src={imagemPreview}
                 alt="Stories"
                 className="w-full h-full object-cover"
+                onLoad={() => console.log('✅ [IMG] Imagem carregada com sucesso!')}
+                onError={(e) => console.error('❌ [IMG] Erro ao carregar imagem:', e)}
               />
               {onVisualizarImagem && (
                 <button
