@@ -1587,6 +1587,14 @@ function PreviewRedeSocial({ tipo, formato = 'feed', conteudo, usuario, modoComp
       return (
         <div className="flex flex-col items-center">
           {renderPreview()}
+          {loadingImagem && (
+            <div className="absolute inset-0 bg-black/20 flex items-center justify-center z-50 rounded-xl pointer-events-none">
+              <div className="bg-white/90 px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
+                <span className="text-sm font-medium text-slate-700">Criando imagem...</span>
+              </div>
+            </div>
+          )}
           <p className="text-xs text-slate-500 text-center mt-4">
             * Simulação de como ficará o post. Clique em "mais" para expandir.
           </p>
@@ -2929,8 +2937,11 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
     link.click();
   };
 
-  const gerarImagem = async () => {
-    if (!conteudoGerado) {
+  const gerarImagem = async (textoOverride = null, formatoOverride = null) => {
+    const textoUsar = textoOverride || conteudoGerado;
+    const formatoUsar = formatoOverride || formatoImagem;
+
+    if (!textoUsar) {
       alert('Gere o conteúdo primeiro!');
       return;
     }
@@ -2939,7 +2950,7 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
 
     try {
       // Se for Stories, usar nova API de templates
-      if (formatoImagem === 'stories') {
+      if (formatoUsar === 'stories') {
         console.log('📱 Gerando Story com template:', templateStory);
 
         const storyResponse = await fetch('https://blasterskd.com.br/api/gerar-story', {
@@ -3002,8 +3013,8 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
           tema: tema,
           area: areaAtuacao,
           estilo: estiloImagem,
-          formato: formatoImagem,
-          texto: conteudoGerado,
+          formato: formatoUsar,
+          texto: textoUsar,
           perfil_visual: perfilVisual
         })
       });
@@ -3100,7 +3111,7 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
           oab: user.oab,
           email: '',
           telefone: '',
-          formato: formatoImagem,
+          formato: formatoUsar,
           estilo: estiloImagem,
           logo: logoUser,
           bullet1: bullet1,
