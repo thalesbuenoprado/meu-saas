@@ -2957,12 +2957,18 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
     const textoUsar = textoOverride || conteudoGerado;
     const formatoUsar = formatoOverride || formatoImagem;
 
+    console.log('🎨 [INICIO] gerarImagem chamado');
+    console.log('   - textoOverride:', textoOverride ? 'SIM' : 'NÃO');
+    console.log('   - formatoOverride:', formatoOverride);
+    console.log('   - formatoUsar:', formatoUsar);
+
     if (!textoUsar) {
       alert('Gere o conteúdo primeiro!');
       return;
     }
 
     setLoadingImagem(true);
+    console.log('✅ Loading iniciado');
 
     try {
       // Se for Stories, usar nova API de templates
@@ -3146,10 +3152,16 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
       }
 
       const backendData = await backendResponse.json();
-      console.log('✅ Imagem final:', backendData.imageUrl);
+      console.log('✅ Imagem final recebida:', backendData.imageUrl);
 
+      if (!backendData.imageUrl) {
+        throw new Error('URL da imagem não retornada pela API');
+      }
+
+      console.log('📸 Atualizando estados com a imagem...');
       setImagemGerada(backendData.imageUrl);
       setImagemPreview(backendData.imageUrl);
+      console.log('✅ Estados atualizados! imagemPreview agora é:', backendData.imageUrl.substring(0, 50));
       setMostrarModalImagem(false); // Fecha o modal
       setModoEdicao(false); // Garante que está no modo preview
 
@@ -3170,9 +3182,11 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
       }
 
     } catch (error) {
-      console.error('❌ Erro:', error);
-      alert('Erro ao gerar imagem: ' + error.message);
+      console.error('❌ ERRO na geração de imagem:', error);
+      console.error('   Stack:', error.stack);
+      alert('❌ Erro ao gerar imagem: ' + error.message);
     } finally {
+      console.log('🏁 Finalizando geração de imagem (setLoadingImagem = false)');
       setLoadingImagem(false);
     }
   };
