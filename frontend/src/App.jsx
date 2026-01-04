@@ -3127,7 +3127,7 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
                 title="Minhas Imagens"
               >
                 <ImageIcon className="w-5 h-5" />
-                <span className="hidden sm:inline">Galeria</span>
+                <span>Galeria</span>
               </button>
             )}
             {onAbrirPerfil && (
@@ -3137,7 +3137,7 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
                 title="Meu Perfil"
               >
                 <Settings className="w-5 h-5" />
-                <span className="hidden sm:inline">Perfil</span>
+                <span>Perfil</span>
               </button>
             )}
             <button
@@ -3145,7 +3145,7 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
               className="flex items-center gap-2 px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 rounded-lg text-amber-400 transition-all"
             >
               <Palette className="w-5 h-5" />
-              <span className="hidden sm:inline">Visual</span>
+              <span>Visual</span>
             </button>
             <button
               onClick={() => {
@@ -3159,7 +3159,7 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
               className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-red-600/80 rounded-lg text-white transition-all"
             >
               <LogOut className="w-5 h-5" />
-              <span className="hidden sm:inline">Sair</span>
+              <span>Sair</span>
             </button>
           </div>
         </div>
