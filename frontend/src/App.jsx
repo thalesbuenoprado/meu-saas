@@ -1087,15 +1087,18 @@ function PreviewRedeSocial({ tipo, formato = 'feed', conteudo, usuario, modoComp
         </div>
       </div>
 
-      {/* Texto na parte inferior */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 via-black/40 to-transparent z-20">
-        <p className="text-white text-sm leading-relaxed line-clamp-4">
-          {gancho}{temMais && '...'}
+      {/* Texto na parte inferior (SAFE ZONE) */}
+      <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 p-8 z-20 text-center">
+        <p className="text-white text-xl font-bold drop-shadow-lg leading-relaxed typing-effect">
+          {gancho}
         </p>
-        {hashtags && (
-          <p className="text-blue-300 text-xs mt-2 line-clamp-1">{hashtags}</p>
-        )}
+        <div className="mt-4 inline-block bg-white text-black font-semibold px-4 py-2 rounded-lg text-sm shadow-lg transform -rotate-2">
+          {hashtags ? hashtags.split(' ')[0] : 'Saiba mais'}
+        </div>
       </div>
+
+      {/* Footer gradiente para legibilidade (se necessário) */}
+      <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-black/60 to-transparent z-10" />
 
       {/* Indicador Stories/Reels */}
       <div className="absolute top-12 left-0 right-0 flex justify-center z-20">
@@ -2534,6 +2537,14 @@ function CriadorCompleto({ user, onLogout, onAbrirGaleria, onAbrirPerfil, onSalv
       setConteudoGerado(limparConteudo(data.content));
       setImagemPreview(null); // Limpa a imagem anterior ao gerar novo conteúdo
       setModoEdicao(false); // Volta para modo preview
+
+      // Scroll automático para o preview
+      setTimeout(() => {
+        const previewSection = document.getElementById('preview-section');
+        if (previewSection) {
+          previewSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
     } catch (error) {
       console.error('Erro:', error);
       alert('❌ Erro ao gerar conteúdo: ' + error.message);
@@ -3517,7 +3528,7 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
           </div>
 
           {/* COLUNA DIREITA - PREVIEW */}
-          <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
+          <div id="preview-section" className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-white flex items-center gap-2">
                 {tipoConteudo === 'post-instagram' ? <Instagram className="w-6 h-6 text-pink-400" /> :
