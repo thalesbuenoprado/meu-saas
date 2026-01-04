@@ -1778,7 +1778,7 @@ function TrendingTopicsComponent({ onSelectTema, areaAtuacao }) {
       </div>
 
       {/* Conteúdo expandível - Layout Horizontal */}
-      <div className={`transition-all duration-400 ease-out overflow-hidden ${expandido ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
+      <div className={`transition-all duration-400 ease-out overflow-hidden ${expandido ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
         <div className="px-4 pb-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
             {trending.map((item, idx) => (
@@ -3181,7 +3181,7 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {DADOS.tiposConteudo
-                  .filter(tipo => tipo.principal || mostrarMaisTipos)
+                  .filter(tipo => ['post-instagram', 'post-facebook'].includes(tipo.id))
                   .map((tipo) => {
                     // Função para renderizar o ícone correto
                     const renderIcon = () => {
@@ -3236,26 +3236,6 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
                     );
                   })}
               </div>
-              <button
-                onClick={() => setMostrarMaisTipos(!mostrarMaisTipos)}
-                className="mt-2 text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1 transition-colors"
-              >
-                {mostrarMaisTipos ? (
-                  <>
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                    </svg>
-                    Menos opções
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                    Mais opções (LinkedIn, Blog, Thread)
-                  </>
-                )}
-              </button>
             </div>
 
             {/* SELEÇÃO DE FORMATO DO POST */}
@@ -3304,6 +3284,11 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
               onSelectTema={handleSelectTrending}
               areaAtuacao={areaAtuacao}
             />
+
+            {/* IDENTIDADE VISUAL - MOVIDO PARA CIMA */}
+            <div className="mb-6">
+              <AnaliseLogoComponent />
+            </div>
 
             {/* Área de Atuação */}
             <div id="campo-areaAtuacao" className={`mb-6 p-3 rounded-lg transition-all ${camposComErro.includes('areaAtuacao') ? 'bg-red-500/10 border border-red-500/50 ring-2 ring-red-500/30' : ''}`}>
@@ -3578,7 +3563,7 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
         </div>
 
         <div className="mt-6">
-          <AnaliseLogoComponent />
+
         </div>
 
         {/* MODAL DE VISUALIZAÇÃO DA IMAGEM */}
@@ -3787,6 +3772,6 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
           </div>
         )}
       </div>
-    </div>
+    </div >
   );
 }
