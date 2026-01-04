@@ -3655,6 +3655,7 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
                 ) : (
                   /* MODO PREVIEW */
                   <PreviewRedeSocial
+                    key={imagemPreview || 'no-image'} // Força re-render quando imagem muda
                     tipo={tipoConteudo}
                     formato={formatoPost || 'feed'}
                     conteudo={conteudoGerado}
