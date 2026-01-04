@@ -1110,175 +1110,262 @@ function PreviewRedeSocial({ tipo, formato = 'feed', conteudo, usuario, modoComp
         </div>
       </div>
     );
+  };
 
-    // Preview Instagram Feed (quadrado)
-    const PreviewInstagram = () => (
-      <div className="bg-white rounded-xl overflow-hidden max-w-[360px] mx-auto shadow-2xl">
-        {/* Header do Post */}
-        <div className="flex items-center gap-3 p-3 border-b border-gray-100">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 via-pink-500 to-purple-600 p-0.5">
-            <div className="w-full h-full rounded-full bg-white flex items-center justify-center">
-              <span className="text-xs font-bold text-gray-700">
-                {usuario?.nome?.[0] || 'A'}
-              </span>
-            </div>
-          </div>
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-gray-900">{usuario?.nome?.toLowerCase().replace(/\s+/g, '') || 'advogado'}</p>
-            <p className="text-xs text-gray-500">Patrocinado</p>
-          </div>
-          <svg className="w-5 h-5 text-gray-900" fill="currentColor" viewBox="0 0 24 24">
-            <circle cx="12" cy="6" r="1.5" />
-            <circle cx="12" cy="12" r="1.5" />
-            <circle cx="12" cy="18" r="1.5" />
-          </svg>
-        </div>
-
-        {/* Imagem */}
-        <div className="aspect-square bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center overflow-hidden relative group">
-          {imagemPreview ? (
-            <>
-              <img
-                src={imagemPreview}
-                alt="Imagem do post"
-                className="w-full h-full object-cover"
-              />
-              {onVisualizarImagem && (
-                <button
-                  onClick={onVisualizarImagem}
-                  className="absolute inset-0 bg-black/0 group-hover:bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
-                >
-                  <div className="bg-white/90 rounded-full p-3 shadow-lg transform scale-90 group-hover:scale-100 transition-transform">
-                    <ZoomIn className="w-6 h-6 text-gray-700" />
-                  </div>
-                </button>
-              )}
-            </>
-          ) : (
-            <div className="text-center p-6">
-              <ImageIcon className="w-12 h-12 text-slate-400 mx-auto mb-2" />
-              <p className="text-sm text-slate-500">Sua imagem aqui</p>
-              <p className="text-xs text-slate-400 mt-1">Clique em "Imagem"</p>
-            </div>
-          )}
-        </div>
-
-        {/* Ações */}
-        <div className="p-3">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-4">
-              <svg className="w-6 h-6 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-              </svg>
-              <svg className="w-6 h-6 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-              <svg className="w-6 h-6 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-              </svg>
-            </div>
-            <svg className="w-6 h-6 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
-            </svg>
-          </div>
-
-          <p className="text-sm font-semibold text-gray-900 mb-1">1.234 curtidas</p>
-
-          {/* Texto do Post - Mostra apenas 125 caracteres (limite real do Instagram) */}
-          <div className="text-sm text-gray-900">
-            <span className="font-semibold">{usuario?.nome?.toLowerCase().replace(/\s+/g, '') || 'advogado'} </span>
-            {expandido ? (
-              <>
-                <span className="whitespace-pre-line">{texto}</span>
-                {hashtags && <span className="text-blue-900 block mt-2">{hashtags}</span>}
-                <button
-                  onClick={() => setExpandido(false)}
-                  className="text-gray-400 block mt-1"
-                >
-                  ...menos
-                </button>
-              </>
-            ) : (
-              <>
-                <span className="whitespace-pre-line">{gancho}</span>
-                {temMais && (
-                  <span
-                    className="text-gray-400 ml-1 cursor-pointer hover:text-gray-600"
-                    onClick={() => setExpandido(true)}
-                  >
-                    ... <span className="underline">mais</span>
-                  </span>
-                )}
-              </>
-            )}
-          </div>
-
-          {/* Indicador de caracteres do gancho */}
-          {!expandido && (
-            <div className={`mt-2 text-xs px-2 py-1 rounded-full inline-flex items-center gap-1 ${gancho.length <= 125 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
-              <span className="font-medium">Gancho:</span> {gancho.length}/125 caracteres
-              {gancho.length <= 125 ? ' ✓' : ' (ideal: até 125)'}
-            </div>
-          )}
-
-          {/* Hashtags quando não expandido */}
-          {!expandido && hashtags && (
-            <p className="text-sm text-blue-900 mt-2 line-clamp-1">{hashtags}</p>
-          )}
-
-          <p className="text-xs text-gray-400 mt-2 uppercase">Há 2 horas</p>
-        </div>
-      </div>
-    );
-
-    // Preview Facebook
-    const PreviewFacebook = () => (
-      <div className="bg-white rounded-xl overflow-hidden max-w-[400px] mx-auto shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center gap-3 p-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center">
-            <span className="text-sm font-bold text-white">
+  // Preview Instagram Feed (quadrado)
+  const PreviewInstagram = () => (
+    <div className="bg-white rounded-xl overflow-hidden max-w-[360px] mx-auto shadow-2xl">
+      {/* Header do Post */}
+      <div className="flex items-center gap-3 p-3 border-b border-gray-100">
+        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 via-pink-500 to-purple-600 p-0.5">
+          <div className="w-full h-full rounded-full bg-white flex items-center justify-center">
+            <span className="text-xs font-bold text-gray-700">
               {usuario?.nome?.[0] || 'A'}
             </span>
           </div>
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-gray-900">{usuario?.nome || 'Advogado'}</p>
-            <div className="flex items-center gap-1 text-xs text-gray-500">
-              <span>2 h</span>
-              <span>·</span>
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
-              </svg>
-            </div>
+        </div>
+        <div className="flex-1">
+          <p className="text-sm font-semibold text-gray-900">{usuario?.nome?.toLowerCase().replace(/\s+/g, '') || 'advogado'}</p>
+          <p className="text-xs text-gray-500">Patrocinado</p>
+        </div>
+        <svg className="w-5 h-5 text-gray-900" fill="currentColor" viewBox="0 0 24 24">
+          <circle cx="12" cy="6" r="1.5" />
+          <circle cx="12" cy="12" r="1.5" />
+          <circle cx="12" cy="18" r="1.5" />
+        </svg>
+      </div>
+
+      {/* Imagem */}
+      <div className="aspect-square bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center overflow-hidden relative group">
+        {imagemPreview ? (
+          <>
+            <img
+              src={imagemPreview}
+              alt="Imagem do post"
+              className="w-full h-full object-cover"
+            />
+            {onVisualizarImagem && (
+              <button
+                onClick={onVisualizarImagem}
+                className="absolute inset-0 bg-black/0 group-hover:bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+              >
+                <div className="bg-white/90 rounded-full p-3 shadow-lg transform scale-90 group-hover:scale-100 transition-transform">
+                  <ZoomIn className="w-6 h-6 text-gray-700" />
+                </div>
+              </button>
+            )}
+          </>
+        ) : (
+          <div className="text-center p-6">
+            <ImageIcon className="w-12 h-12 text-slate-400 mx-auto mb-2" />
+            <p className="text-sm text-slate-500">Sua imagem aqui</p>
+            <p className="text-xs text-slate-400 mt-1">Clique em "Imagem"</p>
           </div>
-          <svg className="w-6 h-6 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
-            <circle cx="12" cy="6" r="2" />
-            <circle cx="12" cy="12" r="2" />
-            <circle cx="12" cy="18" r="2" />
+        )}
+      </div>
+
+      {/* Ações */}
+      <div className="p-3">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-4">
+            <svg className="w-6 h-6 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+            </svg>
+            <svg className="w-6 h-6 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            <svg className="w-6 h-6 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+            </svg>
+          </div>
+          <svg className="w-6 h-6 text-gray-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
           </svg>
         </div>
 
-        {/* Texto do Post */}
-        <div className="px-3 pb-3">
-          <p className="text-sm text-gray-900 whitespace-pre-line">{texto}</p>
-          {hashtags && (
-            <p className="text-sm text-blue-600 mt-2">{hashtags}</p>
+        <p className="text-sm font-semibold text-gray-900 mb-1">1.234 curtidas</p>
+
+        {/* Texto do Post - Mostra apenas 125 caracteres (limite real do Instagram) */}
+        <div className="text-sm text-gray-900">
+          <span className="font-semibold">{usuario?.nome?.toLowerCase().replace(/\s+/g, '') || 'advogado'} </span>
+          {expandido ? (
+            <>
+              <span className="whitespace-pre-line">{texto}</span>
+              {hashtags && <span className="text-blue-900 block mt-2">{hashtags}</span>}
+              <button
+                onClick={() => setExpandido(false)}
+                className="text-gray-400 block mt-1"
+              >
+                ...menos
+              </button>
+            </>
+          ) : (
+            <>
+              <span className="whitespace-pre-line">{gancho}</span>
+              {temMais && (
+                <span
+                  className="text-gray-400 ml-1 cursor-pointer hover:text-gray-600"
+                  onClick={() => setExpandido(true)}
+                >
+                  ... <span className="underline">mais</span>
+                </span>
+              )}
+            </>
           )}
         </div>
 
-        {/* Imagem */}
-        <div className="aspect-video bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center overflow-hidden relative group">
+        {/* Indicador de caracteres do gancho */}
+        {!expandido && (
+          <div className={`mt-2 text-xs px-2 py-1 rounded-full inline-flex items-center gap-1 ${gancho.length <= 125 ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+            <span className="font-medium">Gancho:</span> {gancho.length}/125 caracteres
+            {gancho.length <= 125 ? ' ✓' : ' (ideal: até 125)'}
+          </div>
+        )}
+
+        {/* Hashtags quando não expandido */}
+        {!expandido && hashtags && (
+          <p className="text-sm text-blue-900 mt-2 line-clamp-1">{hashtags}</p>
+        )}
+
+        <p className="text-xs text-gray-400 mt-2 uppercase">Há 2 horas</p>
+      </div>
+    </div>
+  );
+
+  // Preview Facebook
+  const PreviewFacebook = () => (
+    <div className="bg-white rounded-xl overflow-hidden max-w-[400px] mx-auto shadow-2xl">
+      {/* Header */}
+      <div className="flex items-center gap-3 p-3">
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center">
+          <span className="text-sm font-bold text-white">
+            {usuario?.nome?.[0] || 'A'}
+          </span>
+        </div>
+        <div className="flex-1">
+          <p className="text-sm font-semibold text-gray-900">{usuario?.nome || 'Advogado'}</p>
+          <div className="flex items-center gap-1 text-xs text-gray-500">
+            <span>2 h</span>
+            <span>·</span>
+            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z" />
+            </svg>
+          </div>
+        </div>
+        <svg className="w-6 h-6 text-gray-500" fill="currentColor" viewBox="0 0 24 24">
+          <circle cx="12" cy="6" r="2" />
+          <circle cx="12" cy="12" r="2" />
+          <circle cx="12" cy="18" r="2" />
+        </svg>
+      </div>
+
+      {/* Texto do Post */}
+      <div className="px-3 pb-3">
+        <p className="text-sm text-gray-900 whitespace-pre-line">{texto}</p>
+        {hashtags && (
+          <p className="text-sm text-blue-600 mt-2">{hashtags}</p>
+        )}
+      </div>
+
+      {/* Imagem */}
+      <div className="aspect-video bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center overflow-hidden relative group">
+        {imagemPreview ? (
+          <>
+            <img
+              src={imagemPreview}
+              alt="Imagem do post"
+              className="w-full h-full object-cover"
+            />
+            {onVisualizarImagem && (
+              <button
+                onClick={onVisualizarImagem}
+                className="absolute inset-0 bg-black/0 group-hover:bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+              >
+                <div className="bg-white/90 rounded-full p-3 shadow-lg transform scale-90 group-hover:scale-100 transition-transform">
+                  <ZoomIn className="w-6 h-6 text-gray-700" />
+                </div>
+              </button>
+            )}
+          </>
+        ) : (
+          <div className="text-center p-6">
+            <ImageIcon className="w-12 h-12 text-slate-400 mx-auto mb-2" />
+            <p className="text-sm text-slate-500">Sua imagem aqui</p>
+          </div>
+        )}
+      </div>
+
+      {/* Reações */}
+      <div className="p-3 border-t border-gray-100">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-1">
+            <div className="flex -space-x-1">
+              <span className="text-sm">👍</span>
+              <span className="text-sm">❤️</span>
+              <span className="text-sm">😮</span>
+            </div>
+            <span className="text-sm text-gray-500 ml-1">256</span>
+          </div>
+          <div className="text-sm text-gray-500">
+            <span>42 comentários</span>
+            <span className="mx-1">·</span>
+            <span>18 compartilhamentos</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-1 pt-2 border-t border-gray-100">
+          <button className="flex items-center justify-center gap-2 py-2 text-gray-600 hover:bg-gray-50 rounded-lg">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+            </svg>
+            <span className="text-sm font-medium">Curtir</span>
+          </button>
+          <button className="flex items-center justify-center gap-2 py-2 text-gray-600 hover:bg-gray-50 rounded-lg">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            <span className="text-sm font-medium">Comentar</span>
+          </button>
+          <button className="flex items-center justify-center gap-2 py-2 text-gray-600 hover:bg-gray-50 rounded-lg">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+            </svg>
+            <span className="text-sm font-medium">Enviar</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Preview TikTok
+  const PreviewTikTok = () => {
+    // Extrair roteiro e legenda do TikTok
+    const extrairLegendaTikTok = (texto) => {
+      const legendaMatch = texto.match(/LEGENDA[:\s]*([\s\S]*?)(?:---|$)/i);
+      if (legendaMatch) return legendaMatch[1].trim();
+
+      // Se não tiver formato de roteiro, pegar últimas linhas
+      const linhas = texto.split('\n').filter(l => l.trim());
+      return linhas.slice(-3).join(' ').substring(0, 150);
+    };
+
+    const legenda = extrairLegendaTikTok(conteudo);
+
+    return (
+      <div className="bg-black rounded-2xl overflow-hidden max-w-[280px] mx-auto shadow-2xl aspect-[9/16] relative">
+        {/* Área do vídeo */}
+        <div className="absolute inset-0 bg-gradient-to-b from-slate-800 via-slate-900 to-black flex items-center justify-center group">
           {imagemPreview ? (
             <>
               <img
                 src={imagemPreview}
-                alt="Imagem do post"
+                alt="Thumbnail do vídeo"
                 className="w-full h-full object-cover"
               />
               {onVisualizarImagem && (
                 <button
                   onClick={onVisualizarImagem}
-                  className="absolute inset-0 bg-black/0 group-hover:bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+                  className="absolute inset-0 bg-black/0 group-hover:bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer z-10"
                 >
                   <div className="bg-white/90 rounded-full p-3 shadow-lg transform scale-90 group-hover:scale-100 transition-transform">
                     <ZoomIn className="w-6 h-6 text-gray-700" />
@@ -1287,346 +1374,221 @@ function PreviewRedeSocial({ tipo, formato = 'feed', conteudo, usuario, modoComp
               )}
             </>
           ) : (
-            <div className="text-center p-6">
-              <ImageIcon className="w-12 h-12 text-slate-400 mx-auto mb-2" />
-              <p className="text-sm text-slate-500">Sua imagem aqui</p>
+            <div className="text-center">
+              <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-3">
+                <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </div>
+              <p className="text-white/60 text-xs">Seu vídeo aqui</p>
             </div>
           )}
         </div>
 
-        {/* Reações */}
-        <div className="p-3 border-t border-gray-100">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-1">
-              <div className="flex -space-x-1">
-                <span className="text-sm">👍</span>
-                <span className="text-sm">❤️</span>
-                <span className="text-sm">😮</span>
-              </div>
-              <span className="text-sm text-gray-500 ml-1">256</span>
-            </div>
-            <div className="text-sm text-gray-500">
-              <span>42 comentários</span>
-              <span className="mx-1">·</span>
-              <span>18 compartilhamentos</span>
-            </div>
-          </div>
+        {/* Overlay gradient */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
 
-          <div className="grid grid-cols-3 gap-1 pt-2 border-t border-gray-100">
-            <button className="flex items-center justify-center gap-2 py-2 text-gray-600 hover:bg-gray-50 rounded-lg">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
-              </svg>
-              <span className="text-sm font-medium">Curtir</span>
-            </button>
-            <button className="flex items-center justify-center gap-2 py-2 text-gray-600 hover:bg-gray-50 rounded-lg">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-              <span className="text-sm font-medium">Comentar</span>
-            </button>
-            <button className="flex items-center justify-center gap-2 py-2 text-gray-600 hover:bg-gray-50 rounded-lg">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-              </svg>
-              <span className="text-sm font-medium">Enviar</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-
-    // Preview TikTok
-    const PreviewTikTok = () => {
-      // Extrair roteiro e legenda do TikTok
-      const extrairLegendaTikTok = (texto) => {
-        const legendaMatch = texto.match(/LEGENDA[:\s]*([\s\S]*?)(?:---|$)/i);
-        if (legendaMatch) return legendaMatch[1].trim();
-
-        // Se não tiver formato de roteiro, pegar últimas linhas
-        const linhas = texto.split('\n').filter(l => l.trim());
-        return linhas.slice(-3).join(' ').substring(0, 150);
-      };
-
-      const legenda = extrairLegendaTikTok(conteudo);
-
-      return (
-        <div className="bg-black rounded-2xl overflow-hidden max-w-[280px] mx-auto shadow-2xl aspect-[9/16] relative">
-          {/* Área do vídeo */}
-          <div className="absolute inset-0 bg-gradient-to-b from-slate-800 via-slate-900 to-black flex items-center justify-center group">
-            {imagemPreview ? (
-              <>
-                <img
-                  src={imagemPreview}
-                  alt="Thumbnail do vídeo"
-                  className="w-full h-full object-cover"
-                />
-                {onVisualizarImagem && (
-                  <button
-                    onClick={onVisualizarImagem}
-                    className="absolute inset-0 bg-black/0 group-hover:bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all cursor-pointer z-10"
-                  >
-                    <div className="bg-white/90 rounded-full p-3 shadow-lg transform scale-90 group-hover:scale-100 transition-transform">
-                      <ZoomIn className="w-6 h-6 text-gray-700" />
-                    </div>
-                  </button>
-                )}
-              </>
-            ) : (
-              <div className="text-center">
-                <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-3">
-                  <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                </div>
-                <p className="text-white/60 text-xs">Seu vídeo aqui</p>
-              </div>
-            )}
-          </div>
-
-          {/* Overlay gradient */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
-
-          {/* Ícones laterais */}
-          <div className="absolute right-3 bottom-32 flex flex-col items-center gap-5">
-            {/* Perfil */}
-            <div className="relative">
-              <div className="w-11 h-11 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center border-2 border-white">
-                <span className="text-sm font-bold text-white">{usuario?.nome?.[0] || 'A'}</span>
-              </div>
-              <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-red-500 flex items-center justify-center">
-                <span className="text-white text-xs font-bold">+</span>
-              </div>
-            </div>
-
-            {/* Curtir */}
-            <div className="flex flex-col items-center">
-              <div className="w-10 h-10 flex items-center justify-center">
-                <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
-                </svg>
-              </div>
-              <span className="text-white text-xs font-medium">45.2K</span>
-            </div>
-
-            {/* Comentários */}
-            <div className="flex flex-col items-center">
-              <div className="w-10 h-10 flex items-center justify-center">
-                <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M21 6h-2v9H6v2c0 .55.45 1 1 1h11l4 4V7c0-.55-.45-1-1-1zm-4 6V3c0-.55-.45-1-1-1H3c-.55 0-1 .45-1 1v14l4-4h10c.55 0 1-.45 1-1z" />
-                </svg>
-              </div>
-              <span className="text-white text-xs font-medium">892</span>
-            </div>
-
-            {/* Salvar */}
-            <div className="flex flex-col items-center">
-              <div className="w-10 h-10 flex items-center justify-center">
-                <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z" />
-                </svg>
-              </div>
-              <span className="text-white text-xs font-medium">12.3K</span>
-            </div>
-
-            {/* Compartilhar */}
-            <div className="flex flex-col items-center">
-              <div className="w-10 h-10 flex items-center justify-center">
-                <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z" />
-                </svg>
-              </div>
-              <span className="text-white text-xs font-medium">3.1K</span>
-            </div>
-
-            {/* Disco de música */}
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-800 to-gray-900 border-2 border-gray-700 flex items-center justify-center animate-spin" style={{ animationDuration: '3s' }}>
-              <div className="w-4 h-4 rounded-full bg-gradient-to-br from-amber-400 to-amber-600" />
-            </div>
-          </div>
-
-          {/* Informações do post */}
-          <div className="absolute bottom-4 left-3 right-16">
-            <p className="text-white font-semibold text-sm mb-1">@{usuario?.nome?.toLowerCase().replace(/\s+/g, '_') || 'advogado'}</p>
-            <p className="text-white text-xs leading-relaxed line-clamp-3">{legenda}</p>
-
-            {/* Música */}
-            <div className="flex items-center gap-2 mt-2">
-              <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
-              </svg>
-              <p className="text-white text-xs">Som original - {usuario?.nome || 'Advogado'}</p>
-            </div>
-          </div>
-        </div>
-      );
-    };
-
-    // Renderizar preview baseado no tipo e formato
-    const renderPreview = () => {
-      switch (tipo) {
-        case 'post-instagram':
-          if (formato === 'stories' || formato === 'reels') {
-            return <PreviewInstagramStories />;
-          }
-          return <PreviewInstagram />;
-        case 'post-facebook':
-          if (formato === 'stories') {
-            return <PreviewFacebookStories />;
-          }
-          return <PreviewFacebook />;
-        case 'post-tiktok':
-          return <PreviewTikTok />;
-        default:
-          return null;
-      }
-    };
-
-    // Preview Facebook Stories
-    const PreviewFacebookStories = () => (
-      <div className="bg-black rounded-2xl overflow-hidden max-w-[280px] mx-auto shadow-2xl aspect-[9/16] relative">
-        {/* Imagem de fundo fullscreen */}
-        <div className="absolute inset-0">
-          {imagemPreview ? (
-            <>
-              <img
-                src={imagemPreview}
-                alt="Stories"
-                className="w-full h-full object-cover"
-              />
-              {onVisualizarImagem && (
-                <button
-                  onClick={onVisualizarImagem}
-                  className="absolute inset-0 bg-black/0 hover:bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-all cursor-pointer z-10"
-                >
-                  <div className="bg-white/90 rounded-full p-3 shadow-lg">
-                    <ZoomIn className="w-6 h-6 text-gray-700" />
-                  </div>
-                </button>
-              )}
-            </>
-          ) : (
-            <div className="w-full h-full bg-gradient-to-b from-blue-600 via-blue-500 to-blue-400 flex items-center justify-center">
-              <div className="text-center text-white/80">
-                <ImageIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">Sua imagem aqui</p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Header Stories */}
-        <div className="absolute top-0 left-0 right-0 p-3 bg-gradient-to-b from-black/50 to-transparent z-20">
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center border-2 border-blue-400">
+        {/* Ícones laterais */}
+        <div className="absolute right-3 bottom-32 flex flex-col items-center gap-5">
+          {/* Perfil */}
+          <div className="relative">
+            <div className="w-11 h-11 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center border-2 border-white">
               <span className="text-sm font-bold text-white">{usuario?.nome?.[0] || 'A'}</span>
             </div>
-            <div>
-              <span className="text-white text-sm font-medium block">{usuario?.nome || 'Advogado'}</span>
-              <span className="text-white/60 text-xs">2h atrás</span>
+            <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-5 h-5 rounded-full bg-red-500 flex items-center justify-center">
+              <span className="text-white text-xs font-bold">+</span>
             </div>
+          </div>
+
+          {/* Curtir */}
+          <div className="flex flex-col items-center">
+            <div className="w-10 h-10 flex items-center justify-center">
+              <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+              </svg>
+            </div>
+            <span className="text-white text-xs font-medium">45.2K</span>
+          </div>
+
+          {/* Comentários */}
+          <div className="flex flex-col items-center">
+            <div className="w-10 h-10 flex items-center justify-center">
+              <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M21 6h-2v9H6v2c0 .55.45 1 1 1h11l4 4V7c0-.55-.45-1-1-1zm-4 6V3c0-.55-.45-1-1-1H3c-.55 0-1 .45-1 1v14l4-4h10c.55 0 1-.45 1-1z" />
+              </svg>
+            </div>
+            <span className="text-white text-xs font-medium">892</span>
+          </div>
+
+          {/* Salvar */}
+          <div className="flex flex-col items-center">
+            <div className="w-10 h-10 flex items-center justify-center">
+              <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M17 3H7c-1.1 0-2 .9-2 2v16l7-3 7 3V5c0-1.1-.9-2-2-2z" />
+              </svg>
+            </div>
+            <span className="text-white text-xs font-medium">12.3K</span>
+          </div>
+
+          {/* Compartilhar */}
+          <div className="flex flex-col items-center">
+            <div className="w-10 h-10 flex items-center justify-center">
+              <svg className="w-7 h-7 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92-1.31-2.92-2.92-2.92z" />
+              </svg>
+            </div>
+            <span className="text-white text-xs font-medium">3.1K</span>
+          </div>
+
+          {/* Disco de música */}
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-800 to-gray-900 border-2 border-gray-700 flex items-center justify-center animate-spin" style={{ animationDuration: '3s' }}>
+            <div className="w-4 h-4 rounded-full bg-gradient-to-br from-amber-400 to-amber-600" />
           </div>
         </div>
 
-        {/* Texto na parte inferior */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 via-black/40 to-transparent z-20">
-          <p className="text-white text-sm leading-relaxed line-clamp-4">
-            {gancho}{temMais && '...'}
-          </p>
-        </div>
+        {/* Informações do post */}
+        <div className="absolute bottom-4 left-3 right-16">
+          <p className="text-white font-semibold text-sm mb-1">@{usuario?.nome?.toLowerCase().replace(/\s+/g, '_') || 'advogado'}</p>
+          <p className="text-white text-xs leading-relaxed line-clamp-3">{legenda}</p>
 
-        {/* Indicador Stories */}
-        <div className="absolute top-14 left-0 right-0 flex justify-center z-20">
-          <span className="bg-blue-500/80 backdrop-blur-sm px-3 py-1 rounded-full text-white text-xs font-medium">
-            📱 Stories
-          </span>
+          {/* Música */}
+          <div className="flex items-center gap-2 mt-2">
+            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+            </svg>
+            <p className="text-white text-xs">Som original - {usuario?.nome || 'Advogado'}</p>
+          </div>
         </div>
       </div>
     );
+  };
 
-    // Preview genérico para tipos sem visualização específica (LinkedIn, Blog, Thread)
-    const PreviewGenerico = () => {
-      const linhas = conteudo.split('\n');
-      const primeiraLinha = linhas[0];
-      const resto = linhas.slice(1).join('\n');
-      const hashtagsTexto = resto.match(/#\w+/g)?.join(' ') || '';
-      const textoSemHashtags = resto.replace(/#\w+/g, '').trim();
+  // Renderizar preview baseado no tipo e formato
+  const renderPreview = () => {
+    switch (tipo) {
+      case 'post-instagram':
+        if (formato === 'stories' || formato === 'reels') {
+          return <PreviewInstagramStories />;
+        }
+        return <PreviewInstagram />;
+      case 'post-facebook':
+        if (formato === 'stories') {
+          return <PreviewFacebookStories />;
+        }
+        return <PreviewFacebook />;
+      case 'post-tiktok':
+        return <PreviewTikTok />;
+      default:
+        return null;
+    }
+  };
 
-      return (
-        <div className="bg-white rounded-xl p-6 max-w-[500px] mx-auto shadow-xl">
-          <div className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-100">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center">
-              <span className="text-lg font-bold text-white">{usuario?.nome?.[0] || 'A'}</span>
-            </div>
-            <div>
-              <p className="font-semibold text-gray-900">{usuario?.nome || 'Advogado'}</p>
-              <p className="text-sm text-gray-500">
-                {tipo === 'post-linkedin' ? 'LinkedIn' :
-                  tipo === 'artigo' ? 'Blog/Artigo' :
-                    tipo === 'thread' ? 'Thread X' : 'Post'}
-              </p>
-            </div>
-          </div>
-
-          <div className="text-gray-800">
-            <p className="font-semibold text-lg mb-3">{primeiraLinha}</p>
-            <p className="whitespace-pre-line leading-relaxed text-gray-600">{textoSemHashtags}</p>
-          </div>
-
-          {hashtagsTexto && (
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              <p className="text-blue-600 text-sm">{hashtagsTexto}</p>
-            </div>
-          )}
-        </div>
-      );
-    };
-
-    // MODO COMPLETO - Renderiza direto como preview principal
-    if (modoCompleto) {
-      // Para tipos com preview específico
-      if (['post-instagram', 'post-facebook', 'post-tiktok'].includes(tipo)) {
-        return (
-          <div className="flex flex-col items-center">
-            {renderPreview()}
-            {loadingImagem && (
-              <div className="absolute inset-0 bg-black/20 flex items-center justify-center z-50 rounded-xl pointer-events-none">
-                <div className="bg-white/90 px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
-                  <span className="text-sm font-medium text-slate-700">Criando imagem...</span>
+  // Preview Facebook Stories
+  const PreviewFacebookStories = () => (
+    <div className="bg-black rounded-2xl overflow-hidden max-w-[280px] mx-auto shadow-2xl aspect-[9/16] relative">
+      {/* Imagem de fundo fullscreen */}
+      <div className="absolute inset-0">
+        {imagemPreview ? (
+          <>
+            <img
+              src={imagemPreview}
+              alt="Stories"
+              className="w-full h-full object-cover"
+            />
+            {onVisualizarImagem && (
+              <button
+                onClick={onVisualizarImagem}
+                className="absolute inset-0 bg-black/0 hover:bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-all cursor-pointer z-10"
+              >
+                <div className="bg-white/90 rounded-full p-3 shadow-lg">
+                  <ZoomIn className="w-6 h-6 text-gray-700" />
                 </div>
-              </div>
+              </button>
             )}
-            <p className="text-xs text-slate-500 text-center mt-4">
-              * Simulação de como ficará o post. Clique em "mais" para expandir.
-            </p>
+          </>
+        ) : (
+          <div className="w-full h-full bg-gradient-to-b from-blue-600 via-blue-500 to-blue-400 flex items-center justify-center">
+            <div className="text-center text-white/80">
+              <ImageIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">Sua imagem aqui</p>
+            </div>
           </div>
-        );
-      }
-      // Para tipos sem preview específico
-      return (
-        <div className="flex flex-col items-center">
-          <PreviewGenerico />
-          <p className="text-xs text-slate-500 text-center mt-4">
-            * Preview do conteúdo formatado.
-          </p>
-        </div>
-      );
-    }
+        )}
+      </div>
 
-    // MODO TOGGLE (antigo) - não usado mais, mas mantido para compatibilidade
-    if (!['post-instagram', 'post-facebook', 'post-tiktok'].includes(tipo)) {
-      return null;
-    }
+      {/* Header Stories */}
+      <div className="absolute top-0 left-0 right-0 p-3 bg-gradient-to-b from-black/50 to-transparent z-20">
+        <div className="flex items-center gap-2">
+          <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center border-2 border-blue-400">
+            <span className="text-sm font-bold text-white">{usuario?.nome?.[0] || 'A'}</span>
+          </div>
+          <div>
+            <span className="text-white text-sm font-medium block">{usuario?.nome || 'Advogado'}</span>
+            <span className="text-white/60 text-xs">2h atrás</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Texto na parte inferior */}
+      <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 via-black/40 to-transparent z-20">
+        <p className="text-white text-sm leading-relaxed line-clamp-4">
+          {gancho}{temMais && '...'}
+        </p>
+      </div>
+
+      {/* Indicador Stories */}
+      <div className="absolute top-14 left-0 right-0 flex justify-center z-20">
+        <span className="bg-blue-500/80 backdrop-blur-sm px-3 py-1 rounded-full text-white text-xs font-medium">
+          📱 Stories
+        </span>
+      </div>
+    </div>
+  );
+
+  // Preview genérico para tipos sem visualização específica (LinkedIn, Blog, Thread)
+  const PreviewGenerico = () => {
+    const linhas = conteudo.split('\n');
+    const primeiraLinha = linhas[0];
+    const resto = linhas.slice(1).join('\n');
+    const hashtagsTexto = resto.match(/#\w+/g)?.join(' ') || '';
+    const textoSemHashtags = resto.replace(/#\w+/g, '').trim();
 
     return (
-      <div className="mt-6">
-        <div className="bg-slate-900/50 rounded-xl p-6 border border-slate-700">
-          <div className="text-center mb-4">
-            <span className="text-xs text-slate-400 uppercase tracking-wider">
-              Pré-visualização - {tipo === 'post-instagram' ? 'Instagram' : tipo === 'post-facebook' ? 'Facebook' : 'TikTok'}
-            </span>
+      <div className="bg-white rounded-xl p-6 max-w-[500px] mx-auto shadow-xl">
+        <div className="flex items-center gap-3 mb-4 pb-4 border-b border-gray-100">
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center">
+            <span className="text-lg font-bold text-white">{usuario?.nome?.[0] || 'A'}</span>
           </div>
+          <div>
+            <p className="font-semibold text-gray-900">{usuario?.nome || 'Advogado'}</p>
+            <p className="text-sm text-gray-500">
+              {tipo === 'post-linkedin' ? 'LinkedIn' :
+                tipo === 'artigo' ? 'Blog/Artigo' :
+                  tipo === 'thread' ? 'Thread X' : 'Post'}
+            </p>
+          </div>
+        </div>
+
+        <div className="text-gray-800">
+          <p className="font-semibold text-lg mb-3">{primeiraLinha}</p>
+          <p className="whitespace-pre-line leading-relaxed text-gray-600">{textoSemHashtags}</p>
+        </div>
+
+        {hashtagsTexto && (
+          <div className="mt-4 pt-4 border-t border-gray-100">
+            <p className="text-blue-600 text-sm">{hashtagsTexto}</p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // MODO COMPLETO - Renderiza direto como preview principal
+  if (modoCompleto) {
+    // Para tipos com preview específico
+    if (['post-instagram', 'post-facebook', 'post-tiktok'].includes(tipo)) {
+      return (
+        <div className="flex flex-col items-center">
           {renderPreview()}
           {loadingImagem && (
             <div className="absolute inset-0 bg-black/20 flex items-center justify-center z-50 rounded-xl pointer-events-none">
@@ -1637,974 +1599,1013 @@ function PreviewRedeSocial({ tipo, formato = 'feed', conteudo, usuario, modoComp
             </div>
           )}
           <p className="text-xs text-slate-500 text-center mt-4">
-            * Esta é uma simulação. O visual real pode variar.
+            * Simulação de como ficará o post. Clique em "mais" para expandir.
           </p>
-        </div>
-      </div>
-    );
-  }
-
-  // ====================================
-  // COMPONENTE DE TRENDING TOPICS
-  // ====================================
-  function TrendingTopicsComponent({ onSelectTema, areaAtuacao }) {
-    const [trending, setTrending] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [dataAtualizacao, setDataAtualizacao] = useState(null);
-    const [atualizando, setAtualizando] = useState(false);
-    const [expandido, setExpandido] = useState(false);
-    const [tempoRestante, setTempoRestante] = useState(10);
-    const [fonte, setFonte] = useState(null);
-
-    const carregarTrending = async () => {
-      try {
-        // Buscar direto do webhook do n8n
-        const response = await fetch('https://blasterskd.com.br/api/n8n/webhook/trending-juridico-manual');
-        if (response.ok) {
-          const data = await response.json();
-          setTrending(data.trending || []);
-          setDataAtualizacao(data.dataAtualizacao);
-          setFonte(data.fonte || null);
-          // Salvar em cache local
-          localStorage.setItem('trending-juridico-cache', JSON.stringify({
-            trending: data.trending,
-            dataAtualizacao: data.dataAtualizacao,
-            fonte: data.fonte,
-            cachedAt: new Date().toISOString()
-          }));
-        }
-      } catch (error) {
-        console.log('Erro ao carregar trending:', error);
-        // Tentar carregar do cache
-        const cache = localStorage.getItem('trending-juridico-cache');
-        if (cache) {
-          const dados = JSON.parse(cache);
-          setTrending(dados.trending || []);
-          setDataAtualizacao(dados.dataAtualizacao);
-          setFonte(dados.fonte || null);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    const forcarAtualizacao = async () => {
-      setAtualizando(true);
-      try {
-        // Chamar direto o webhook do n8n
-        const response = await fetch('https://blasterskd.com.br/api/n8n/webhook/trending-juridico-manual');
-        if (response.ok) {
-          const data = await response.json();
-          setTrending(data.trending || []);
-          setDataAtualizacao(data.dataAtualizacao);
-          setFonte(data.fonte || null);
-          // Atualizar cache
-          localStorage.setItem('trending-juridico-cache', JSON.stringify({
-            trending: data.trending,
-            dataAtualizacao: data.dataAtualizacao,
-            fonte: data.fonte,
-            cachedAt: new Date().toISOString()
-          }));
-        }
-      } catch (error) {
-        console.log('Erro ao atualizar:', error);
-      } finally {
-        setAtualizando(false);
-      }
-    };
-
-    useEffect(() => {
-      carregarTrending();
-    }, []);
-
-    // Timer countdown enquanto carrega
-    useEffect(() => {
-      if (loading && tempoRestante > 0) {
-        const timer = setTimeout(() => setTempoRestante(tempoRestante - 1), 1000);
-        return () => clearTimeout(timer);
-      }
-    }, [loading, tempoRestante]);
-
-    const formatarData = (dataISO) => {
-      if (!dataISO) return '';
-      const data = new Date(dataISO);
-      return data.toLocaleDateString('pt-BR', {
-        day: '2-digit',
-        month: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    };
-
-    if (loading) {
-      return (
-        <div className="bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 backdrop-blur rounded-xl p-4 border border-amber-500/30 mb-6">
-          <div className="flex items-center justify-center gap-4">
-            <div className="relative">
-              <Loader2 className="w-6 h-6 text-amber-400 animate-spin" />
-              <div className="absolute inset-0 bg-amber-400/20 rounded-full blur-md animate-pulse" />
-            </div>
-            <div className="text-center">
-              <span className="text-slate-300 text-sm block">Buscando temas em alta...</span>
-              <div className="flex items-center justify-center gap-2 mt-1">
-                <div className="w-16 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-1000"
-                    style={{ width: `${(10 - tempoRestante) * 10}%` }}
-                  />
-                </div>
-                <span className="text-xs text-amber-400 font-mono">{tempoRestante}s</span>
-              </div>
-            </div>
-          </div>
         </div>
       );
     }
-
+    // Para tipos sem preview específico
     return (
-      <div className="relative overflow-hidden bg-gradient-to-br from-slate-800/80 via-slate-800/60 to-slate-900/80 backdrop-blur-xl rounded-xl border border-amber-500/40 mb-6 shadow-lg shadow-amber-500/5">
-        {/* Header compacto */}
-        <div
-          className="relative flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-slate-700/30 transition-colors"
-          onClick={() => setExpandido(!expandido)}
-        >
-          <div className="flex items-center gap-2">
-            <div className="bg-gradient-to-br from-amber-400 to-orange-500 p-1.5 rounded-lg">
-              <Flame className="w-4 h-4 text-white" />
-            </div>
-            <h3 className="text-sm font-semibold text-white flex items-center gap-1.5">
-              Temas em Alta
-              <Sparkles className="w-3 h-3 text-amber-400" />
-            </h3>
-          </div>
+      <div className="flex flex-col items-center">
+        <PreviewGenerico />
+        <p className="text-xs text-slate-500 text-center mt-4">
+          * Preview do conteúdo formatado.
+        </p>
+      </div>
+    );
+  }
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                forcarAtualizacao();
-              }}
-              disabled={atualizando}
-              className="p-1.5 text-slate-400 hover:text-amber-400 hover:bg-slate-700/50 rounded-lg transition-all disabled:opacity-50"
-              title="Atualizar temas"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${atualizando ? 'animate-spin' : ''}`} />
-            </button>
-            <div className={`transform transition-transform duration-300 ${expandido ? 'rotate-180' : ''}`}>
-              <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </div>
-          </div>
+  // MODO TOGGLE (antigo) - não usado mais, mas mantido para compatibilidade
+  if (!['post-instagram', 'post-facebook', 'post-tiktok'].includes(tipo)) {
+    return null;
+  }
+
+  return (
+    <div className="mt-6">
+      <div className="bg-slate-900/50 rounded-xl p-6 border border-slate-700">
+        <div className="text-center mb-4">
+          <span className="text-xs text-slate-400 uppercase tracking-wider">
+            Pré-visualização - {tipo === 'post-instagram' ? 'Instagram' : tipo === 'post-facebook' ? 'Facebook' : 'TikTok'}
+          </span>
         </div>
-
-        {/* Conteúdo expandível - Layout Horizontal */}
-        <div className={`transition-all duration-400 ease-out overflow-hidden ${expandido ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
-          <div className="px-4 pb-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-              {trending.map((item, idx) => (
-                <div
-                  key={idx}
-                  className="group relative overflow-hidden bg-slate-900/50 hover:bg-slate-800/80 border border-slate-700/50 hover:border-amber-500/50 rounded-lg p-3 text-left transition-all duration-300 hover:shadow-md hover:shadow-amber-500/10"
-                >
-                  {/* Badge de posição */}
-                  <span className={`absolute top-2 right-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${idx === 0 ? 'bg-amber-500/20 text-amber-400' :
-                    idx === 1 ? 'bg-slate-500/20 text-slate-300' :
-                      'bg-orange-500/20 text-orange-400'
-                    }`}>
-                    #{idx + 1}
-                  </span>
-
-                  {/* Ícone e Conteúdo */}
-                  <div className="text-xl mb-1.5 group-hover:scale-110 transition-transform duration-300">
-                    {item.icone || '📌'}
-                  </div>
-
-                  <h4 className="font-medium text-xs text-white group-hover:text-amber-400 transition-colors line-clamp-2 leading-tight mb-1 pr-6">
-                    {item.tema}
-                  </h4>
-
-                  {/* Descrição/Justificativa */}
-                  {item.descricao && (
-                    <p className="text-[9px] text-slate-400 line-clamp-2 mb-1.5 leading-relaxed">
-                      {item.descricao}
-                    </p>
-                  )}
-
-                  <div className="flex items-center gap-1 flex-wrap mb-2">
-                    <span className="text-[10px] bg-slate-700/50 text-slate-400 px-1.5 py-0.5 rounded-full">
-                      {item.area}
-                    </span>
-                    {item.data && (
-                      <span className="text-[10px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                        <Calendar className="w-2.5 h-2.5" />
-                        {item.data}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Botões de ação */}
-                  <div className="flex items-center gap-1 pt-2 border-t border-slate-700/30">
-                    <button
-                      onClick={() => onSelectTema(item.tema, item.area)}
-                      className="flex-1 text-[10px] bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 px-2 py-1 rounded transition-colors"
-                    >
-                      Usar tema
-                    </button>
-                    {item.link && (
-                      <a
-                        href={item.link}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        className="p-1 bg-slate-700/50 hover:bg-slate-600/50 text-slate-400 hover:text-white rounded transition-colors"
-                        title="Ver notícia original"
-                      >
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    )}
-                  </div>
-
-                  {/* Efeito de hover */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-amber-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
-                </div>
-              ))}
+        {renderPreview()}
+        {loadingImagem && (
+          <div className="absolute inset-0 bg-black/20 flex items-center justify-center z-50 rounded-xl pointer-events-none">
+            <div className="bg-white/90 px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
+              <span className="text-sm font-medium text-slate-700">Criando imagem...</span>
             </div>
+          </div>
+        )}
+        <p className="text-xs text-slate-500 text-center mt-4">
+          * Esta é uma simulação. O visual real pode variar.
+        </p>
+      </div>
+    </div>
+  );
+}
 
-            {/* Link da fonte */}
-            {fonte && (
-              <div className="mt-3 pt-3 border-t border-slate-700/50 flex items-center justify-between">
-                <span className="text-[10px] text-slate-500">
-                  Fonte: {fonte.nome}
-                </span>
-                <a
-                  href={fonte.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={(e) => e.stopPropagation()}
-                  className="flex items-center gap-1 text-[10px] text-amber-400/70 hover:text-amber-400 transition-colors"
-                >
-                  <ExternalLink className="w-3 h-3" />
-                  Ver notícias
-                </a>
+// ====================================
+// COMPONENTE DE TRENDING TOPICS
+// ====================================
+function TrendingTopicsComponent({ onSelectTema, areaAtuacao }) {
+  const [trending, setTrending] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [dataAtualizacao, setDataAtualizacao] = useState(null);
+  const [atualizando, setAtualizando] = useState(false);
+  const [expandido, setExpandido] = useState(false);
+  const [tempoRestante, setTempoRestante] = useState(10);
+  const [fonte, setFonte] = useState(null);
+
+  const carregarTrending = async () => {
+    try {
+      // Buscar direto do webhook do n8n
+      const response = await fetch('https://blasterskd.com.br/api/n8n/webhook/trending-juridico-manual');
+      if (response.ok) {
+        const data = await response.json();
+        setTrending(data.trending || []);
+        setDataAtualizacao(data.dataAtualizacao);
+        setFonte(data.fonte || null);
+        // Salvar em cache local
+        localStorage.setItem('trending-juridico-cache', JSON.stringify({
+          trending: data.trending,
+          dataAtualizacao: data.dataAtualizacao,
+          fonte: data.fonte,
+          cachedAt: new Date().toISOString()
+        }));
+      }
+    } catch (error) {
+      console.log('Erro ao carregar trending:', error);
+      // Tentar carregar do cache
+      const cache = localStorage.getItem('trending-juridico-cache');
+      if (cache) {
+        const dados = JSON.parse(cache);
+        setTrending(dados.trending || []);
+        setDataAtualizacao(dados.dataAtualizacao);
+        setFonte(dados.fonte || null);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const forcarAtualizacao = async () => {
+    setAtualizando(true);
+    try {
+      // Chamar direto o webhook do n8n
+      const response = await fetch('https://blasterskd.com.br/api/n8n/webhook/trending-juridico-manual');
+      if (response.ok) {
+        const data = await response.json();
+        setTrending(data.trending || []);
+        setDataAtualizacao(data.dataAtualizacao);
+        setFonte(data.fonte || null);
+        // Atualizar cache
+        localStorage.setItem('trending-juridico-cache', JSON.stringify({
+          trending: data.trending,
+          dataAtualizacao: data.dataAtualizacao,
+          fonte: data.fonte,
+          cachedAt: new Date().toISOString()
+        }));
+      }
+    } catch (error) {
+      console.log('Erro ao atualizar:', error);
+    } finally {
+      setAtualizando(false);
+    }
+  };
+
+  useEffect(() => {
+    carregarTrending();
+  }, []);
+
+  // Timer countdown enquanto carrega
+  useEffect(() => {
+    if (loading && tempoRestante > 0) {
+      const timer = setTimeout(() => setTempoRestante(tempoRestante - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, tempoRestante]);
+
+  const formatarData = (dataISO) => {
+    if (!dataISO) return '';
+    const data = new Date(dataISO);
+    return data.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 backdrop-blur rounded-xl p-4 border border-amber-500/30 mb-6">
+        <div className="flex items-center justify-center gap-4">
+          <div className="relative">
+            <Loader2 className="w-6 h-6 text-amber-400 animate-spin" />
+            <div className="absolute inset-0 bg-amber-400/20 rounded-full blur-md animate-pulse" />
+          </div>
+          <div className="text-center">
+            <span className="text-slate-300 text-sm block">Buscando temas em alta...</span>
+            <div className="flex items-center justify-center gap-2 mt-1">
+              <div className="w-16 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-1000"
+                  style={{ width: `${(10 - tempoRestante) * 10}%` }}
+                />
               </div>
-            )}
+              <span className="text-xs text-amber-400 font-mono">{tempoRestante}s</span>
+            </div>
           </div>
         </div>
       </div>
     );
   }
 
-  // ====================================
-  // COMPONENTE DE IDENTIDADE VISUAL
-  // ====================================
-  function AnaliseLogoComponent() {
-    const [perfilVisual, setPerfilVisual] = useState(null);
-    const [logoPreview, setLogoPreview] = useState(null);
-    const [loadingAnalise, setLoadingAnalise] = useState(false);
-    const [mostrarConfig, setMostrarConfig] = useState(false);
-
-    useEffect(() => {
-      const carregarPerfil = async () => {
-        try {
-          let perfil;
-          try {
-            perfil = localStorage.getItem('perfil-visual-advogado');
-          } catch (e) {
-            console.log('Acesso ao localStorage bloqueado');
-          }
-
-          if (perfil) {
-            setPerfilVisual(JSON.parse(perfil));
-          }
-        } catch (error) {
-          console.log('Erro ao carregar perfil visual:', error);
-        }
-      };
-      carregarPerfil();
-    }, []);
-
-    const handleLogoUpload = async (event) => {
-      const file = event.target.files[0];
-      if (!file || !file.type.startsWith('image/')) return;
-
-      setLogoPreview(URL.createObjectURL(file));
-      setLoadingAnalise(true);
-
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        try {
-          const base64 = e.target.result.split(',')[1];
-          console.log('📤 Enviando logo para análise...');
-
-          // Usar backend local (evita problemas de CORS)
-          const response = await fetch('https://blasterskd.com.br/api/analisar-logo', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ logo: base64 })
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.details || 'Erro ao analisar logo');
-          }
-
-          const data = await response.json();
-          console.log('✅ Resposta da análise:', data);
-
-          const perfil = data.perfil_visual;
-          if (!perfil) {
-            throw new Error('Perfil visual não retornado');
-          }
-
-          // Log detalhado das cores extraídas
-          console.log('🎨 Cores extraídas:');
-          console.log('   - Cores principais:', perfil.cores_principais);
-          console.log('   - Cor primária:', perfil.cor_primaria);
-          console.log('   - Cor secundária:', perfil.cor_secundaria);
-          console.log('   - Cor acento:', perfil.cor_acento);
-          console.log('   - Estilo:', perfil.estilo_visual);
-
-          try {
-            localStorage.setItem('perfil-visual-advogado', JSON.stringify(perfil));
-          } catch (e) {
-            console.log('Não foi possível salvar no localStorage (acesso negado)');
-          }
-          setPerfilVisual(perfil);
-
-          // Mostrar cores no alerta
-          const coresTxt = perfil.cores_principais?.slice(0, 3).join(', ') || 'não identificadas';
-          alert(`✅ Logo analisada!\n\nCores: ${coresTxt}\nEstilo: ${perfil.estilo_visual || 'clássico'}\n\nSuas imagens usarão essas cores!`);
-        } catch (error) {
-          console.error('❌ Erro na análise:', error);
-          alert('Erro ao analisar logo: ' + error.message);
-        } finally {
-          setLoadingAnalise(false);
-        }
-      };
-
-      reader.onerror = () => {
-        console.error('❌ Erro ao ler arquivo');
-        alert('Erro ao ler arquivo da logo');
-        setLoadingAnalise(false);
-      };
-
-      reader.readAsDataURL(file);
-    };
-
-    const removerPerfil = () => {
-      if (confirm('Remover identidade visual?')) {
-        try {
-          localStorage.removeItem('perfil-visual-advogado');
-        } catch (e) {
-          console.log('Erro ao limpar localStorage');
-        }
-        setPerfilVisual(null);
-        setLogoPreview(null);
-      }
-    };
-
-    return (
-      <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-white flex items-center gap-2">
-            <Palette className="w-5 h-5 text-amber-400" />
-            Identidade Visual
+  return (
+    <div className="relative overflow-hidden bg-gradient-to-br from-slate-800/80 via-slate-800/60 to-slate-900/80 backdrop-blur-xl rounded-xl border border-amber-500/40 mb-6 shadow-lg shadow-amber-500/5">
+      {/* Header compacto */}
+      <div
+        className="relative flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-slate-700/30 transition-colors"
+        onClick={() => setExpandido(!expandido)}
+      >
+        <div className="flex items-center gap-2">
+          <div className="bg-gradient-to-br from-amber-400 to-orange-500 p-1.5 rounded-lg">
+            <Flame className="w-4 h-4 text-white" />
+          </div>
+          <h3 className="text-sm font-semibold text-white flex items-center gap-1.5">
+            Temas em Alta
+            <Sparkles className="w-3 h-3 text-amber-400" />
           </h3>
-          <button
-            onClick={() => setMostrarConfig(!mostrarConfig)}
-            className="text-sm text-amber-400 hover:text-amber-300 transition-colors"
-          >
-            {mostrarConfig ? 'Ocultar' : 'Configurar'}
-          </button>
         </div>
 
-        {mostrarConfig && (
-          <div className="space-y-4">
-            {!perfilVisual && (
-              <div className="relative border-2 border-dashed border-slate-600 rounded-lg p-8 hover:border-amber-400 transition-colors">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleLogoUpload}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  disabled={loadingAnalise}
-                />
-                <div className="text-center">
-                  {loadingAnalise ? (
-                    <div className="flex flex-col items-center gap-3">
-                      <Loader2 className="w-10 h-10 text-amber-400 animate-spin" />
-                      <p className="text-slate-300 text-sm">Analisando logo...</p>
-                    </div>
-                  ) : (
-                    <>
-                      <Upload className="w-10 h-10 text-slate-400 mx-auto mb-3" />
-                      <p className="text-slate-300 text-sm">Arraste sua logo aqui</p>
-                      <p className="text-slate-500 text-xs mt-1">PNG, JPG • Máx 5MB</p>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              forcarAtualizacao();
+            }}
+            disabled={atualizando}
+            className="p-1.5 text-slate-400 hover:text-amber-400 hover:bg-slate-700/50 rounded-lg transition-all disabled:opacity-50"
+            title="Atualizar temas"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${atualizando ? 'animate-spin' : ''}`} />
+          </button>
+          <div className={`transform transition-transform duration-300 ${expandido ? 'rotate-180' : ''}`}>
+            <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </div>
+      </div>
 
-            {perfilVisual && (
-              <div className="bg-slate-900/50 rounded-lg p-4 border border-amber-500/30">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Check className="w-5 h-5 text-green-400" />
-                    <span className="text-sm font-semibold text-green-400">Logo analisada!</span>
-                  </div>
-                  <button onClick={removerPerfil} className="text-slate-400 hover:text-red-400">
-                    <X className="w-4 h-4" />
-                  </button>
+      {/* Conteúdo expandível - Layout Horizontal */}
+      <div className={`transition-all duration-400 ease-out overflow-hidden ${expandido ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+        <div className="px-4 pb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {trending.map((item, idx) => (
+              <div
+                key={idx}
+                className="group relative overflow-hidden bg-slate-900/50 hover:bg-slate-800/80 border border-slate-700/50 hover:border-amber-500/50 rounded-lg p-3 text-left transition-all duration-300 hover:shadow-md hover:shadow-amber-500/10"
+              >
+                {/* Badge de posição */}
+                <span className={`absolute top-2 right-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${idx === 0 ? 'bg-amber-500/20 text-amber-400' :
+                  idx === 1 ? 'bg-slate-500/20 text-slate-300' :
+                    'bg-orange-500/20 text-orange-400'
+                  }`}>
+                  #{idx + 1}
+                </span>
+
+                {/* Ícone e Conteúdo */}
+                <div className="text-xl mb-1.5 group-hover:scale-110 transition-transform duration-300">
+                  {item.icone || '📌'}
                 </div>
 
-                {logoPreview && (
-                  <div className="mb-4 flex justify-center">
-                    <img src={logoPreview} alt="Logo" className="max-h-24 rounded" />
-                  </div>
+                <h4 className="font-medium text-xs text-white group-hover:text-amber-400 transition-colors line-clamp-2 leading-tight mb-1 pr-6">
+                  {item.tema}
+                </h4>
+
+                {/* Descrição/Justificativa */}
+                {item.descricao && (
+                  <p className="text-[9px] text-slate-400 line-clamp-2 mb-1.5 leading-relaxed">
+                    {item.descricao}
+                  </p>
                 )}
 
-                <div className="space-y-3 text-sm">
-                  <div>
-                    <span className="text-slate-400">Cores:</span>
-                    <div className="flex gap-2 mt-2">
-                      {perfilVisual.cores_principais?.map((cor, idx) => (
-                        <div key={idx} className="flex flex-col items-center gap-1">
-                          <div className="w-14 h-14 rounded-lg border-2 border-slate-600" style={{ backgroundColor: cor }} />
-                          <span className="text-xs text-slate-500">{cor}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <span className="text-slate-400">Estilo:</span>
-                    <span className="text-white">{perfilVisual.estilo_visual}</span>
-                  </div>
+                <div className="flex items-center gap-1 flex-wrap mb-2">
+                  <span className="text-[10px] bg-slate-700/50 text-slate-400 px-1.5 py-0.5 rounded-full">
+                    {item.area}
+                  </span>
+                  {item.data && (
+                    <span className="text-[10px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                      <Calendar className="w-2.5 h-2.5" />
+                      {item.data}
+                    </span>
+                  )}
                 </div>
 
-                <div className="mt-4 p-3 bg-amber-500/10 rounded-lg border border-amber-500/30">
-                  <p className="text-xs text-amber-400">
-                    ✨ Suas imagens usarão as cores da sua marca!
-                  </p>
+                {/* Botões de ação */}
+                <div className="flex items-center gap-1 pt-2 border-t border-slate-700/30">
+                  <button
+                    onClick={() => onSelectTema(item.tema, item.area)}
+                    className="flex-1 text-[10px] bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 px-2 py-1 rounded transition-colors"
+                  >
+                    Usar tema
+                  </button>
+                  {item.link && (
+                    <a
+                      href={item.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="p-1 bg-slate-700/50 hover:bg-slate-600/50 text-slate-400 hover:text-white rounded transition-colors"
+                      title="Ver notícia original"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
                 </div>
+
+                {/* Efeito de hover */}
+                <div className="absolute inset-0 bg-gradient-to-t from-amber-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
               </div>
-            )}
+            ))}
           </div>
-        )}
 
-        {!mostrarConfig && perfilVisual && (
-          <div className="flex items-center gap-3">
-            <Check className="w-4 h-4 text-green-400" />
-            <div className="flex gap-1.5">
-              {perfilVisual.cores_principais?.slice(0, 3).map((cor, idx) => (
-                <div key={idx} className="w-7 h-7 rounded border-2 border-slate-600" style={{ backgroundColor: cor }} />
-              ))}
-            </div>
-            <span className="text-sm text-slate-300">{perfilVisual.estilo_visual}</span>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-
-  // ====================================
-  // COMPONENTE DE CONFIGURAÇÕES DE LOGO
-  // ====================================
-  function ConfiguracoesLogo({ user, onSaveLogo, onClose }) {
-    const [logo, setLogo] = useState(user.logo || null);
-    const [previewLogo, setPreviewLogo] = useState(user.logo || null);
-    const [salvando, setSalvando] = useState(false);
-
-    const handleUploadLogo = (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-
-      if (!file.type.startsWith('image/')) {
-        alert('❌ Apenas imagens são permitidas');
-        return;
-      }
-
-      if (file.size > 2 * 1024 * 1024) {
-        alert('❌ Imagem muito grande! Máximo 2MB');
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result;
-        setPreviewLogo(base64);
-        setLogo(base64);
-      };
-      reader.readAsDataURL(file);
-    };
-
-    const removerLogo = () => {
-      setLogo(null);
-      setPreviewLogo(null);
-    };
-
-    const salvarLogo = () => {
-      setSalvando(true);
-      setTimeout(() => {
-        const userData = localStorage.getItem(`user:${user.usuario}`);
-        if (userData) {
-          const userObj = JSON.parse(userData);
-          userObj.logo = logo;
-          localStorage.setItem(`user:${user.usuario}`, JSON.stringify(userObj));
-
-          const sessao = JSON.parse(localStorage.getItem('sessao-ativa'));
-          sessao.logo = logo;
-          localStorage.setItem('sessao-ativa', JSON.stringify(sessao));
-
-          onSaveLogo(logo);
-        }
-        setSalvando(false);
-        alert('✅ Logo salva com sucesso!');
-        onClose();
-      }, 500);
-    };
-
-    return (
-      <div className="space-y-4">
-        {previewLogo ? (
-          <div className="flex flex-col items-center gap-3">
-            <div className="relative">
-              <img
-                src={previewLogo}
-                alt="Logo"
-                className="w-32 h-32 object-contain rounded-lg bg-white p-2"
-              />
-              <button
-                onClick={removerLogo}
-                className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 transition-all"
+          {/* Link da fonte */}
+          {fonte && (
+            <div className="mt-3 pt-3 border-t border-slate-700/50 flex items-center justify-between">
+              <span className="text-[10px] text-slate-500">
+                Fonte: {fonte.nome}
+              </span>
+              <a
+                href={fonte.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="flex items-center gap-1 text-[10px] text-amber-400/70 hover:text-amber-400 transition-colors"
               >
-                <X className="w-4 h-4" />
-              </button>
+                <ExternalLink className="w-3 h-3" />
+                Ver notícias
+              </a>
             </div>
-            <p className="text-slate-400 text-sm">Logo atual</p>
-          </div>
-        ) : (
-          <div className="border-2 border-dashed border-slate-600 rounded-lg p-8 text-center">
-            <Upload className="w-12 h-12 text-slate-500 mx-auto mb-3" />
-            <p className="text-slate-400 mb-2">Nenhuma logo configurada</p>
-            <p className="text-slate-500 text-sm">Faça upload abaixo</p>
-          </div>
-        )}
-
-        <div>
-          <label className="block w-full">
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleUploadLogo}
-              className="hidden"
-            />
-            <div className="w-full bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded-lg px-4 py-3 text-white text-center cursor-pointer transition-all flex items-center justify-center gap-2">
-              <Upload className="w-5 h-5" />
-              {previewLogo ? 'Trocar Logo' : 'Fazer Upload'}
-            </div>
-          </label>
-          <p className="text-slate-500 text-xs mt-2">
-            Formatos: PNG, JPG, SVG • Tamanho máximo: 2MB • Recomendado: fundo transparente
-          </p>
-        </div>
-
-        {logo && (
-          <button
-            onClick={salvarLogo}
-            disabled={salvando}
-            className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-slate-600 text-white font-semibold py-3 rounded-lg transition-all flex items-center justify-center gap-2"
-          >
-            {salvando ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Salvando...
-              </>
-            ) : (
-              <>
-                <Check className="w-5 h-5" />
-                Salvar Logo
-              </>
-            )}
-          </button>
-        )}
-
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
-          <p className="text-amber-400 text-sm font-medium mb-1">💡 Dica:</p>
-          <p className="text-slate-300 text-xs">
-            Sua logo será adicionada automaticamente em todas as imagens geradas.
-            Use logo com fundo transparente (PNG) para melhor resultado.
-          </p>
+          )}
         </div>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
-  // ====================================
-  // COMPONENTE DE LOGIN
-  // ====================================
-  function CriadorCompleto({ user, onLogout, onAbrirGaleria, onAbrirPerfil, onSalvarImagem }) {
-    // DADOS ESTÁTICOS
-    const DADOS = {
-      tiposConteudo: [
-        {
-          id: 'post-instagram',
-          nome: 'Instagram',
-          icon: 'instagram',
-          principal: true,
-          formatos: [
-            { id: 'feed', nome: 'Feed', desc: 'Post quadrado 1:1', aspectRatio: '1:1', previewClass: 'aspect-square' },
-            { id: 'stories', nome: 'Stories', desc: 'Vertical 9:16', aspectRatio: '9:16', previewClass: 'aspect-[9/16]' },
-            { id: 'reels', nome: 'Reels', desc: 'Vertical 9:16', aspectRatio: '9:16', previewClass: 'aspect-[9/16]' }
-          ]
-        },
-        {
-          id: 'post-facebook',
-          nome: 'Facebook',
-          icon: 'facebook',
-          principal: true,
-          formatos: [
-            { id: 'feed', nome: 'Feed', desc: 'Post horizontal 16:9', aspectRatio: '16:9', previewClass: 'aspect-video' },
-            { id: 'stories', nome: 'Stories', desc: 'Vertical 9:16', aspectRatio: '9:16', previewClass: 'aspect-[9/16]' }
-          ]
-        },
-        {
-          id: 'post-tiktok',
-          nome: 'TikTok',
-          icon: 'tiktok',
-          principal: true,
-          formatos: [
-            { id: 'video', nome: 'Vídeo', desc: 'Vertical 9:16', aspectRatio: '9:16', previewClass: 'aspect-[9/16]' }
-          ]
-        },
-        {
-          id: 'post-linkedin',
-          nome: 'LinkedIn',
-          icon: 'linkedin',
-          principal: false,
-          formatos: [
-            { id: 'feed', nome: 'Post', desc: 'Feed padrão', aspectRatio: '1:1', previewClass: 'aspect-square' }
-          ]
-        },
-        { id: 'artigo', nome: 'Artigo Blog', icon: 'blog', principal: false, formatos: [] },
-        { id: 'thread', nome: 'Thread X', icon: 'twitter', principal: false, formatos: [] }
-      ],
-      areasAtuacao: [
-        'Direito Civil', 'Direito Penal', 'Direito Trabalhista',
-        'Direito Empresarial', 'Direito do Consumidor', 'Direito de Família',
-        'Direito Tributário', 'Direito Imobiliário', 'Direito Previdenciário', 'Direito Digital'
-      ],
-      tons: [
-        { id: 'profissional', nome: 'Profissional' },
-        { id: 'didatico', nome: 'Didático' },
-        { id: 'acessivel', nome: 'Acessível' },
-        { id: 'inspirador', nome: 'Inspirador' }
-      ],
-      tamanhos: [
-        { id: 'curto', nome: 'Curto', desc: '~100 palavras' },
-        { id: 'medio', nome: 'Médio', desc: '~250 palavras' },
-        { id: 'longo', nome: 'Longo', desc: '~500 palavras' }
-      ],
-      sugestoesAssuntos: {
-        'Direito Civil': ['Como funciona a usucapião', 'Direitos do inquilino', 'Responsabilidade civil', 'Contratos de compra e venda', 'Prescrição de dívidas'],
-        'Direito Penal': ['Flagrante vs prisão preventiva', 'Direitos do preso', 'Legítima defesa', 'Crimes contra a honra', 'Acordo de não persecução'],
-        'Direito Trabalhista': ['Rescisão indireta', 'Horas extras', 'Assédio moral', 'Acordo trabalhista', 'Home office'],
-        'Direito Empresarial': ['MEI vs ME vs EPP', 'Proteger marca', 'Sociedade entre sócios', 'Recuperação judicial', 'Due diligence'],
-        'Direito do Consumidor': ['Produto com defeito', 'Cancelar compras online', 'Nome negativado', 'Cobrança abusiva', 'Voo atrasado'],
-        'Direito de Família': ['Divórcio consensual', 'Pensão alimentícia', 'Guarda compartilhada', 'Reconhecimento de paternidade', 'União estável'],
-        'Direito Tributário': ['Contestar auto de infração', 'Malha fina', 'Parcelamento', 'ISS, ICMS, IPI', 'Planejamento tributário'],
-        'Direito Imobiliário': ['Documentos para comprar imóvel', 'Distrato', 'Problemas com construtora', 'ITBI', 'Condomínio'],
-        'Direito Previdenciário': ['Aposentadoria', 'INSS negou benefício', 'Revisão da vida toda', 'BPC-LOAS', 'Auxílio-doença'],
-        'Direito Digital': ['LGPD', 'Vazamento de dados', 'Crimes virtuais', 'Contratos digitais', 'Direito ao esquecimento']
-      },
-      sugestoesPublico: [
-        'Empresários', 'Profissionais liberais', 'Trabalhadores CLT', 'Consumidores',
-        'Pessoas físicas', 'MEI', 'Gestores RH', 'Síndicos', 'Aposentados',
-        'Jovens profissionais', 'Proprietários', 'Locadores', 'Pais', 'Vítimas de acidentes'
-      ],
-      formatosImagem: [
-        {
-          id: 'quadrado',
-          nome: 'Quadrado',
-          desc: 'Feed Instagram/LinkedIn',
-          dimensoes: { width: 1080, height: 1080 },
-          icon: '⬜'
-        },
-        {
-          id: 'stories',
-          nome: 'Stories',
-          desc: 'Instagram/Facebook Stories',
-          dimensoes: { width: 1080, height: 1920 },
-          icon: '📱'
-        },
-        {
-          id: 'landscape',
-          nome: 'Paisagem',
-          desc: 'YouTube/LinkedIn',
-          dimensoes: { width: 1920, height: 1080 },
-          icon: '🖥️'
-        }
-      ],
-      templatesStory: [
-        { id: 'voce-sabia', nome: 'Você Sabia?', desc: 'Perguntas e curiosidades', icon: '❓' },
-        { id: 'bullets', nome: 'Dicas/Lista', desc: 'Lista de direitos ou dicas', icon: '📋' },
-        { id: 'estatistica', nome: 'Estatística', desc: 'Dados e números impactantes', icon: '📊' },
-        { id: 'urgente', nome: 'Urgente/Alerta', desc: 'Prazos e avisos importantes', icon: '🚨' },
-        { id: 'premium', nome: 'Premium', desc: 'Elegante e sofisticado', icon: '✨' }
-      ],
-      estilosImagem: [
-        {
-          id: 'classico',
-          nome: 'Escritório Clássico',
-          desc: 'Tradicional com livros e madeira',
-          icone: '📚',
-          cores: 'Marrom e dourado'
-        },
-        {
-          id: 'moderno',
-          nome: 'Escritório Moderno',
-          desc: 'Clean e minimalista',
-          icone: '💼',
-          cores: 'Branco e preto'
-        },
-        {
-          id: 'executivo',
-          nome: 'Escritório Executivo',
-          desc: 'Luxuoso e sofisticado',
-          icone: '🏛️',
-          cores: 'Mogno e couro'
-        },
-        {
-          id: 'acolhedor',
-          nome: 'Ambiente Acolhedor',
-          desc: 'Humanizado e próximo',
-          icone: '🤝',
-          cores: 'Tons quentes'
-        }
-      ]
-    };
+// ====================================
+// COMPONENTE DE IDENTIDADE VISUAL
+// ====================================
+function AnaliseLogoComponent() {
+  const [perfilVisual, setPerfilVisual] = useState(null);
+  const [logoPreview, setLogoPreview] = useState(null);
+  const [loadingAnalise, setLoadingAnalise] = useState(false);
+  const [mostrarConfig, setMostrarConfig] = useState(false);
 
-    // ESTADOS
-    const [tipoConteudo, setTipoConteudo] = useState('');
-    const [formatoPost, setFormatoPost] = useState(''); // feed, stories, reels, video
-    const [areaAtuacao, setAreaAtuacao] = useState('');
-    const [tema, setTema] = useState('');
-    const [publicoAlvo, setPublicoAlvo] = useState('');
-    const [tom, setTom] = useState('profissional');
-    const [tamanho, setTamanho] = useState('medio');
-    const [conteudoGerado, setConteudoGerado] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [copiado, setCopiado] = useState(false);
-    const [modoEdicao, setModoEdicao] = useState(false);
-    const [imagemPreview, setImagemPreview] = useState(null);
-    const [mostrarImagemFull, setMostrarImagemFull] = useState(false);
-    const [mostrarDicasAssunto, setMostrarDicasAssunto] = useState(false);
-    const [mostrarDicasPublico, setMostrarDicasPublico] = useState(false);
-
-    // Estados para imagens
-    const [mostrarModalImagem, setMostrarModalImagem] = useState(false);
-    const [estiloImagem, setEstiloImagem] = useState('classico');
-    const [templateStory, setTemplateStory] = useState('voce-sabia');
-    const [imagemGerada, setImagemGerada] = useState(null);
-
-    const [loadingImagem, setLoadingImagem] = useState(false);
-    const [imagemCarregada, setImagemCarregada] = useState(false);
-    const [linkCopiado, setLinkCopiado] = useState(false);
-    const [perfilVisual, setPerfilVisual] = useState(null);
-
-    // Derivar formatoImagem do formatoPost selecionado
-    const formatoImagem = (() => {
-      if (formatoPost === 'stories' || formatoPost === 'reels' || formatoPost === 'video') {
-        return 'stories'; // 9:16
-      } else if (tipoConteudo === 'post-facebook' && formatoPost === 'feed') {
-        return 'landscape'; // 16:9
-      }
-      return 'quadrado'; // 1:1
-    })();
-
-    useEffect(() => {
-      const carregarPerfil = () => {
-        try {
-          const perfil = localStorage.getItem("perfil-visual-advogado");
-          if (perfil) {
-            const perfilParsed = JSON.parse(perfil);
-            setPerfilVisual(perfilParsed);
-
-            // Mapear estilo_visual para estiloImagem
-            if (perfilParsed.estilo_visual) {
-              const estiloMap = {
-                'classico': 'classico',
-                'clássico': 'classico',
-                'moderno': 'moderno',
-                'contemporâneo': 'moderno',
-                'contemporaneo': 'moderno',
-                'executivo': 'executivo',
-                'corporativo': 'executivo',
-                'profissional': 'executivo',
-                'acolhedor': 'acolhedor',
-                'humanizado': 'acolhedor',
-                'minimalista': 'moderno'
-              };
-              const estiloLower = perfilParsed.estilo_visual.toLowerCase();
-              const novoEstilo = estiloMap[estiloLower] || 'classico';
-              setEstiloImagem(novoEstilo);
-              console.log('🎨 Estilo visual aplicado:', perfilParsed.estilo_visual, '→', novoEstilo);
-            }
-          }
-        } catch (error) {
-          console.log("Sem perfil visual salvo");
-        }
-      };
-      carregarPerfil();
-    }, []);
-
-    // Estados para configurações e logo
-    const [mostrarConfig, setMostrarConfig] = useState(false);
-    const [logoUser, setLogoUser] = useState(user.logo || null);
-    const [mostrarMaisTipos, setMostrarMaisTipos] = useState(false);
-    const [camposComErro, setCamposComErro] = useState([]);
-
-    // Atualizar logoUser quando user.logo mudar (ex: após upload no perfil)
-    useEffect(() => {
-      if (user.logo) {
-        console.log('🖼️ Logo atualizada:', user.logo.substring(0, 50) + '...');
-        setLogoUser(user.logo);
-      }
-    }, [user.logo]);
-    // Handler para selecionar tema do trending
-    const handleSelectTrending = (temaEscolhido, areaEscolhida) => {
-      setTema(temaEscolhido);
-      if (areaEscolhida && DADOS.areasAtuacao.includes(areaEscolhida)) {
-        setAreaAtuacao(areaEscolhida);
-      }
-    };
-
-    // FUNÇÕES
-
-    // Função para limpar hashtags corrompidas e marcações indesejadas
-    const limparConteudo = (texto) => {
-      if (!texto) return '';
-
-      let limpo = texto
-        // Remove marcações entre colchetes como [GANCHO], [HISTÓRIA], [CTA], etc
-        .replace(/\[(GANCHO|HISTÓRIA|SITUAÇÃO|EXPLICAÇÃO|SOLUÇÃO|DICA|CTA|HASHTAGS|JURÍDICA|PRÁTICA)[^\]]*\]/gi, '')
-        // Remove marcações de instrução que a IA pode ter incluído
-        .replace(/📍\s*(LINHA|RESTANTE|GANCHO|HOOK).*?:/gi, '')
-        .replace(/\[?(ROTEIRO DO VÍDEO|LEGENDA PRONTA|EXEMPLO|INSTRUÇÕES|REGRAS)\]?:?/gi, '')
-        .replace(/^(GANCHO|HOOK|CTA|HISTÓRIA|EXPLICAÇÃO|SOLUÇÃO|SITUAÇÃO|DICA)(\s*-)?(\s*EMOCIONAL)?(\s*JURÍDICA)?(\s*PRÁTICA)?(\s*até \d+ caracteres)?:?\s*/gim, '')
-        .replace(/^\(?(ATÉ \d+ CARACTERES|VISÍVEL NO FEED|após o "mais"|máximo \d+ caracteres)\)?:?\s*/gim, '')
-        // Remove hashtags corrompidas (fragmentos sem sentido como #ção, #ídicas, etc)
-        .replace(/#[çãõáéíóúâêîôûàèìòùäëïöü][a-zA-ZçãõáéíóúâêîôûàèìòùäëïöüÇÃÕÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÄËÏÖÜ]*\b/gi, '')
-        // Remove hashtags muito curtas (menos de 4 caracteres após o #)
-        .replace(/#\w{1,3}\b/g, '')
-        // Remove linhas que contêm apenas hashtags corrompidas/fragmentos
-        .replace(/^\s*[çãõáéíóúâêîôû][a-zA-ZçãõáéíóúâêîôûàèìòùäëïöüÇÃÕÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÄËÏÖÜ]*(\s+[çãõáéíóúâêîôû][a-zA-ZçãõáéíóúâêîôûàèìòùäëïöüÇÃÕÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÄËÏÖÜ]*)*\s*$/gm, '')
-        // Remove múltiplos espaços
-        .replace(/  +/g, ' ')
-        // Remove linhas vazias extras
-        .replace(/\n\s*\n\s*\n/g, '\n\n')
-        // Remove linhas vazias no início
-        .replace(/^\s*\n+/, '')
-        .trim();
-
-      return limpo;
-    };
-
-    const gerarConteudo = async () => {
-      // Validação com destaque visual
-      const erros = [];
-      if (!tipoConteudo) erros.push('tipoConteudo');
-      if (!areaAtuacao) erros.push('areaAtuacao');
-      if (!tema) erros.push('tema');
-
-      if (erros.length > 0) {
-        setCamposComErro(erros);
-
-        // Scroll até o primeiro campo com erro
-        const nomeCampo = erros[0] === 'tipoConteudo' ? 'Tipo de Conteúdo' :
-          erros[0] === 'areaAtuacao' ? 'Área de Atuação' : 'Tema/Assunto';
-
-        // Encontrar e focar o elemento
-        const elemento = document.getElementById(`campo-${erros[0]}`);
-        if (elemento) {
-          elemento.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          elemento.focus?.();
-        }
-
-        return;
-      }
-
-      setCamposComErro([]);
-      setLoading(true);
-      setConteudoGerado('');
-
+  useEffect(() => {
+    const carregarPerfil = async () => {
       try {
-        const prompt = construirPrompt();
+        let perfil;
+        try {
+          perfil = localStorage.getItem('perfil-visual-advogado');
+        } catch (e) {
+          console.log('Acesso ao localStorage bloqueado');
+        }
 
-        const response = await fetch('https://blasterskd.com.br/api/gerar-conteudo', {
+        if (perfil) {
+          setPerfilVisual(JSON.parse(perfil));
+        }
+      } catch (error) {
+        console.log('Erro ao carregar perfil visual:', error);
+      }
+    };
+    carregarPerfil();
+  }, []);
+
+  const handleLogoUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file || !file.type.startsWith('image/')) return;
+
+    setLogoPreview(URL.createObjectURL(file));
+    setLoadingAnalise(true);
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const base64 = e.target.result.split(',')[1];
+        console.log('📤 Enviando logo para análise...');
+
+        // Usar backend local (evita problemas de CORS)
+        const response = await fetch('https://blasterskd.com.br/api/analisar-logo', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt })
+          body: JSON.stringify({ logo: base64 })
         });
 
-        if (!response.ok) throw new Error(`Erro: ${response.status}`);
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.details || 'Erro ao analisar logo');
+        }
 
         const data = await response.json();
-        setConteudoGerado(limparConteudo(data.content));
-        setImagemPreview(null); // Limpa a imagem anterior ao gerar novo conteúdo
-        setModoEdicao(false); // Volta para modo preview
+        console.log('✅ Resposta da análise:', data);
 
-        // Scroll automático para o preview
-        setTimeout(() => {
-          const previewSection = document.getElementById('preview-section');
-          if (previewSection) {
-            previewSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
-        }, 100);
+        const perfil = data.perfil_visual;
+        if (!perfil) {
+          throw new Error('Perfil visual não retornado');
+        }
 
-        // Auto-gerar imagem (Agilizar o processo)
-        const formatoAuto = (formatoPost === 'stories' || formatoPost === 'reels') ? 'stories' :
-          (tipoConteudo === 'post-facebook') ? 'landscape' : 'quadrado';
+        // Log detalhado das cores extraídas
+        console.log('🎨 Cores extraídas:');
+        console.log('   - Cores principais:', perfil.cores_principais);
+        console.log('   - Cor primária:', perfil.cor_primaria);
+        console.log('   - Cor secundária:', perfil.cor_secundaria);
+        console.log('   - Cor acento:', perfil.cor_acento);
+        console.log('   - Estilo:', perfil.estilo_visual);
 
-        // Chamar geração de imagem sem bloquear a UI (async)
-        console.log('🚀 Iniciando geração de imagem automática:', formatoAuto);
-        gerarImagem(limparConteudo(data.content), formatoAuto);
+        try {
+          localStorage.setItem('perfil-visual-advogado', JSON.stringify(perfil));
+        } catch (e) {
+          console.log('Não foi possível salvar no localStorage (acesso negado)');
+        }
+        setPerfilVisual(perfil);
+
+        // Mostrar cores no alerta
+        const coresTxt = perfil.cores_principais?.slice(0, 3).join(', ') || 'não identificadas';
+        alert(`✅ Logo analisada!\n\nCores: ${coresTxt}\nEstilo: ${perfil.estilo_visual || 'clássico'}\n\nSuas imagens usarão essas cores!`);
       } catch (error) {
-        console.error('Erro:', error);
-        alert('❌ Erro ao gerar conteúdo: ' + error.message);
+        console.error('❌ Erro na análise:', error);
+        alert('Erro ao analisar logo: ' + error.message);
       } finally {
-        setLoading(false);
+        setLoadingAnalise(false);
       }
     };
 
-    const construirPrompt = () => {
-      const tipo = DADOS.tiposConteudo.find(t => t.id === tipoConteudo);
-      const tam = DADOS.tamanhos.find(t => t.id === tamanho);
-      const areaNome = DADOS.areasAtuacao.find(a => a.id === areaAtuacao)?.nome || areaAtuacao;
+    reader.onerror = () => {
+      console.error('❌ Erro ao ler arquivo');
+      alert('Erro ao ler arquivo da logo');
+      setLoadingAnalise(false);
+    };
 
-      const tamanhoConfig = {
-        'curto': {
-          palavras: '80-150 palavras',
-          instrucao: 'Seja MUITO conciso e direto. Máximo 2-3 parágrafos curtos. Vá direto ao ponto.',
-          hashtags: '3-5 hashtags'
-        },
-        'medio': {
-          palavras: '200-350 palavras',
-          instrucao: 'Tamanho equilibrado. 4-5 parágrafos. Desenvolva o tema sem se alongar demais.',
-          hashtags: '5-8 hashtags'
-        },
-        'longo': {
-          palavras: '400-600 palavras',
-          instrucao: 'Conteúdo completo e detalhado. 6-8 parágrafos. Aprofunde o tema com exemplos.',
-          hashtags: '8-10 hashtags'
+    reader.readAsDataURL(file);
+  };
+
+  const removerPerfil = () => {
+    if (confirm('Remover identidade visual?')) {
+      try {
+        localStorage.removeItem('perfil-visual-advogado');
+      } catch (e) {
+        console.log('Erro ao limpar localStorage');
+      }
+      setPerfilVisual(null);
+      setLogoPreview(null);
+    }
+  };
+
+  return (
+    <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+          <Palette className="w-5 h-5 text-amber-400" />
+          Identidade Visual
+        </h3>
+        <button
+          onClick={() => setMostrarConfig(!mostrarConfig)}
+          className="text-sm text-amber-400 hover:text-amber-300 transition-colors"
+        >
+          {mostrarConfig ? 'Ocultar' : 'Configurar'}
+        </button>
+      </div>
+
+      {mostrarConfig && (
+        <div className="space-y-4">
+          {!perfilVisual && (
+            <div className="relative border-2 border-dashed border-slate-600 rounded-lg p-8 hover:border-amber-400 transition-colors">
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleLogoUpload}
+                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                disabled={loadingAnalise}
+              />
+              <div className="text-center">
+                {loadingAnalise ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <Loader2 className="w-10 h-10 text-amber-400 animate-spin" />
+                    <p className="text-slate-300 text-sm">Analisando logo...</p>
+                  </div>
+                ) : (
+                  <>
+                    <Upload className="w-10 h-10 text-slate-400 mx-auto mb-3" />
+                    <p className="text-slate-300 text-sm">Arraste sua logo aqui</p>
+                    <p className="text-slate-500 text-xs mt-1">PNG, JPG • Máx 5MB</p>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+
+          {perfilVisual && (
+            <div className="bg-slate-900/50 rounded-lg p-4 border border-amber-500/30">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Check className="w-5 h-5 text-green-400" />
+                  <span className="text-sm font-semibold text-green-400">Logo analisada!</span>
+                </div>
+                <button onClick={removerPerfil} className="text-slate-400 hover:text-red-400">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {logoPreview && (
+                <div className="mb-4 flex justify-center">
+                  <img src={logoPreview} alt="Logo" className="max-h-24 rounded" />
+                </div>
+              )}
+
+              <div className="space-y-3 text-sm">
+                <div>
+                  <span className="text-slate-400">Cores:</span>
+                  <div className="flex gap-2 mt-2">
+                    {perfilVisual.cores_principais?.map((cor, idx) => (
+                      <div key={idx} className="flex flex-col items-center gap-1">
+                        <div className="w-14 h-14 rounded-lg border-2 border-slate-600" style={{ backgroundColor: cor }} />
+                        <span className="text-xs text-slate-500">{cor}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <span className="text-slate-400">Estilo:</span>
+                  <span className="text-white">{perfilVisual.estilo_visual}</span>
+                </div>
+              </div>
+
+              <div className="mt-4 p-3 bg-amber-500/10 rounded-lg border border-amber-500/30">
+                <p className="text-xs text-amber-400">
+                  ✨ Suas imagens usarão as cores da sua marca!
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!mostrarConfig && perfilVisual && (
+        <div className="flex items-center gap-3">
+          <Check className="w-4 h-4 text-green-400" />
+          <div className="flex gap-1.5">
+            {perfilVisual.cores_principais?.slice(0, 3).map((cor, idx) => (
+              <div key={idx} className="w-7 h-7 rounded border-2 border-slate-600" style={{ backgroundColor: cor }} />
+            ))}
+          </div>
+          <span className="text-sm text-slate-300">{perfilVisual.estilo_visual}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// ====================================
+// COMPONENTE DE CONFIGURAÇÕES DE LOGO
+// ====================================
+function ConfiguracoesLogo({ user, onSaveLogo, onClose }) {
+  const [logo, setLogo] = useState(user.logo || null);
+  const [previewLogo, setPreviewLogo] = useState(user.logo || null);
+  const [salvando, setSalvando] = useState(false);
+
+  const handleUploadLogo = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('❌ Apenas imagens são permitidas');
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      alert('❌ Imagem muito grande! Máximo 2MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result;
+      setPreviewLogo(base64);
+      setLogo(base64);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removerLogo = () => {
+    setLogo(null);
+    setPreviewLogo(null);
+  };
+
+  const salvarLogo = () => {
+    setSalvando(true);
+    setTimeout(() => {
+      const userData = localStorage.getItem(`user:${user.usuario}`);
+      if (userData) {
+        const userObj = JSON.parse(userData);
+        userObj.logo = logo;
+        localStorage.setItem(`user:${user.usuario}`, JSON.stringify(userObj));
+
+        const sessao = JSON.parse(localStorage.getItem('sessao-ativa'));
+        sessao.logo = logo;
+        localStorage.setItem('sessao-ativa', JSON.stringify(sessao));
+
+        onSaveLogo(logo);
+      }
+      setSalvando(false);
+      alert('✅ Logo salva com sucesso!');
+      onClose();
+    }, 500);
+  };
+
+  return (
+    <div className="space-y-4">
+      {previewLogo ? (
+        <div className="flex flex-col items-center gap-3">
+          <div className="relative">
+            <img
+              src={previewLogo}
+              alt="Logo"
+              className="w-32 h-32 object-contain rounded-lg bg-white p-2"
+            />
+            <button
+              onClick={removerLogo}
+              className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 transition-all"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <p className="text-slate-400 text-sm">Logo atual</p>
+        </div>
+      ) : (
+        <div className="border-2 border-dashed border-slate-600 rounded-lg p-8 text-center">
+          <Upload className="w-12 h-12 text-slate-500 mx-auto mb-3" />
+          <p className="text-slate-400 mb-2">Nenhuma logo configurada</p>
+          <p className="text-slate-500 text-sm">Faça upload abaixo</p>
+        </div>
+      )}
+
+      <div>
+        <label className="block w-full">
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleUploadLogo}
+            className="hidden"
+          />
+          <div className="w-full bg-slate-700 hover:bg-slate-600 border border-slate-600 rounded-lg px-4 py-3 text-white text-center cursor-pointer transition-all flex items-center justify-center gap-2">
+            <Upload className="w-5 h-5" />
+            {previewLogo ? 'Trocar Logo' : 'Fazer Upload'}
+          </div>
+        </label>
+        <p className="text-slate-500 text-xs mt-2">
+          Formatos: PNG, JPG, SVG • Tamanho máximo: 2MB • Recomendado: fundo transparente
+        </p>
+      </div>
+
+      {logo && (
+        <button
+          onClick={salvarLogo}
+          disabled={salvando}
+          className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-slate-600 text-white font-semibold py-3 rounded-lg transition-all flex items-center justify-center gap-2"
+        >
+          {salvando ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              Salvando...
+            </>
+          ) : (
+            <>
+              <Check className="w-5 h-5" />
+              Salvar Logo
+            </>
+          )}
+        </button>
+      )}
+
+      <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+        <p className="text-amber-400 text-sm font-medium mb-1">💡 Dica:</p>
+        <p className="text-slate-300 text-xs">
+          Sua logo será adicionada automaticamente em todas as imagens geradas.
+          Use logo com fundo transparente (PNG) para melhor resultado.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ====================================
+// COMPONENTE DE LOGIN
+// ====================================
+function CriadorCompleto({ user, onLogout, onAbrirGaleria, onAbrirPerfil, onSalvarImagem }) {
+  // DADOS ESTÁTICOS
+  const DADOS = {
+    tiposConteudo: [
+      {
+        id: 'post-instagram',
+        nome: 'Instagram',
+        icon: 'instagram',
+        principal: true,
+        formatos: [
+          { id: 'feed', nome: 'Feed', desc: 'Post quadrado 1:1', aspectRatio: '1:1', previewClass: 'aspect-square' },
+          { id: 'stories', nome: 'Stories', desc: 'Vertical 9:16', aspectRatio: '9:16', previewClass: 'aspect-[9/16]' },
+          { id: 'reels', nome: 'Reels', desc: 'Vertical 9:16', aspectRatio: '9:16', previewClass: 'aspect-[9/16]' }
+        ]
+      },
+      {
+        id: 'post-facebook',
+        nome: 'Facebook',
+        icon: 'facebook',
+        principal: true,
+        formatos: [
+          { id: 'feed', nome: 'Feed', desc: 'Post horizontal 16:9', aspectRatio: '16:9', previewClass: 'aspect-video' },
+          { id: 'stories', nome: 'Stories', desc: 'Vertical 9:16', aspectRatio: '9:16', previewClass: 'aspect-[9/16]' }
+        ]
+      },
+      {
+        id: 'post-tiktok',
+        nome: 'TikTok',
+        icon: 'tiktok',
+        principal: true,
+        formatos: [
+          { id: 'video', nome: 'Vídeo', desc: 'Vertical 9:16', aspectRatio: '9:16', previewClass: 'aspect-[9/16]' }
+        ]
+      },
+      {
+        id: 'post-linkedin',
+        nome: 'LinkedIn',
+        icon: 'linkedin',
+        principal: false,
+        formatos: [
+          { id: 'feed', nome: 'Post', desc: 'Feed padrão', aspectRatio: '1:1', previewClass: 'aspect-square' }
+        ]
+      },
+      { id: 'artigo', nome: 'Artigo Blog', icon: 'blog', principal: false, formatos: [] },
+      { id: 'thread', nome: 'Thread X', icon: 'twitter', principal: false, formatos: [] }
+    ],
+    areasAtuacao: [
+      'Direito Civil', 'Direito Penal', 'Direito Trabalhista',
+      'Direito Empresarial', 'Direito do Consumidor', 'Direito de Família',
+      'Direito Tributário', 'Direito Imobiliário', 'Direito Previdenciário', 'Direito Digital'
+    ],
+    tons: [
+      { id: 'profissional', nome: 'Profissional' },
+      { id: 'didatico', nome: 'Didático' },
+      { id: 'acessivel', nome: 'Acessível' },
+      { id: 'inspirador', nome: 'Inspirador' }
+    ],
+    tamanhos: [
+      { id: 'curto', nome: 'Curto', desc: '~100 palavras' },
+      { id: 'medio', nome: 'Médio', desc: '~250 palavras' },
+      { id: 'longo', nome: 'Longo', desc: '~500 palavras' }
+    ],
+    sugestoesAssuntos: {
+      'Direito Civil': ['Como funciona a usucapião', 'Direitos do inquilino', 'Responsabilidade civil', 'Contratos de compra e venda', 'Prescrição de dívidas'],
+      'Direito Penal': ['Flagrante vs prisão preventiva', 'Direitos do preso', 'Legítima defesa', 'Crimes contra a honra', 'Acordo de não persecução'],
+      'Direito Trabalhista': ['Rescisão indireta', 'Horas extras', 'Assédio moral', 'Acordo trabalhista', 'Home office'],
+      'Direito Empresarial': ['MEI vs ME vs EPP', 'Proteger marca', 'Sociedade entre sócios', 'Recuperação judicial', 'Due diligence'],
+      'Direito do Consumidor': ['Produto com defeito', 'Cancelar compras online', 'Nome negativado', 'Cobrança abusiva', 'Voo atrasado'],
+      'Direito de Família': ['Divórcio consensual', 'Pensão alimentícia', 'Guarda compartilhada', 'Reconhecimento de paternidade', 'União estável'],
+      'Direito Tributário': ['Contestar auto de infração', 'Malha fina', 'Parcelamento', 'ISS, ICMS, IPI', 'Planejamento tributário'],
+      'Direito Imobiliário': ['Documentos para comprar imóvel', 'Distrato', 'Problemas com construtora', 'ITBI', 'Condomínio'],
+      'Direito Previdenciário': ['Aposentadoria', 'INSS negou benefício', 'Revisão da vida toda', 'BPC-LOAS', 'Auxílio-doença'],
+      'Direito Digital': ['LGPD', 'Vazamento de dados', 'Crimes virtuais', 'Contratos digitais', 'Direito ao esquecimento']
+    },
+    sugestoesPublico: [
+      'Empresários', 'Profissionais liberais', 'Trabalhadores CLT', 'Consumidores',
+      'Pessoas físicas', 'MEI', 'Gestores RH', 'Síndicos', 'Aposentados',
+      'Jovens profissionais', 'Proprietários', 'Locadores', 'Pais', 'Vítimas de acidentes'
+    ],
+    formatosImagem: [
+      {
+        id: 'quadrado',
+        nome: 'Quadrado',
+        desc: 'Feed Instagram/LinkedIn',
+        dimensoes: { width: 1080, height: 1080 },
+        icon: '⬜'
+      },
+      {
+        id: 'stories',
+        nome: 'Stories',
+        desc: 'Instagram/Facebook Stories',
+        dimensoes: { width: 1080, height: 1920 },
+        icon: '📱'
+      },
+      {
+        id: 'landscape',
+        nome: 'Paisagem',
+        desc: 'YouTube/LinkedIn',
+        dimensoes: { width: 1920, height: 1080 },
+        icon: '🖥️'
+      }
+    ],
+    templatesStory: [
+      { id: 'voce-sabia', nome: 'Você Sabia?', desc: 'Perguntas e curiosidades', icon: '❓' },
+      { id: 'bullets', nome: 'Dicas/Lista', desc: 'Lista de direitos ou dicas', icon: '📋' },
+      { id: 'estatistica', nome: 'Estatística', desc: 'Dados e números impactantes', icon: '📊' },
+      { id: 'urgente', nome: 'Urgente/Alerta', desc: 'Prazos e avisos importantes', icon: '🚨' },
+      { id: 'premium', nome: 'Premium', desc: 'Elegante e sofisticado', icon: '✨' }
+    ],
+    estilosImagem: [
+      {
+        id: 'classico',
+        nome: 'Escritório Clássico',
+        desc: 'Tradicional com livros e madeira',
+        icone: '📚',
+        cores: 'Marrom e dourado'
+      },
+      {
+        id: 'moderno',
+        nome: 'Escritório Moderno',
+        desc: 'Clean e minimalista',
+        icone: '💼',
+        cores: 'Branco e preto'
+      },
+      {
+        id: 'executivo',
+        nome: 'Escritório Executivo',
+        desc: 'Luxuoso e sofisticado',
+        icone: '🏛️',
+        cores: 'Mogno e couro'
+      },
+      {
+        id: 'acolhedor',
+        nome: 'Ambiente Acolhedor',
+        desc: 'Humanizado e próximo',
+        icone: '🤝',
+        cores: 'Tons quentes'
+      }
+    ]
+  };
+
+  // ESTADOS
+  const [tipoConteudo, setTipoConteudo] = useState('');
+  const [formatoPost, setFormatoPost] = useState(''); // feed, stories, reels, video
+  const [areaAtuacao, setAreaAtuacao] = useState('');
+  const [tema, setTema] = useState('');
+  const [publicoAlvo, setPublicoAlvo] = useState('');
+  const [tom, setTom] = useState('profissional');
+  const [tamanho, setTamanho] = useState('medio');
+  const [conteudoGerado, setConteudoGerado] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [copiado, setCopiado] = useState(false);
+  const [modoEdicao, setModoEdicao] = useState(false);
+  const [imagemPreview, setImagemPreview] = useState(null);
+  const [mostrarImagemFull, setMostrarImagemFull] = useState(false);
+  const [mostrarDicasAssunto, setMostrarDicasAssunto] = useState(false);
+  const [mostrarDicasPublico, setMostrarDicasPublico] = useState(false);
+
+  // Estados para imagens
+  const [mostrarModalImagem, setMostrarModalImagem] = useState(false);
+  const [estiloImagem, setEstiloImagem] = useState('classico');
+  const [templateStory, setTemplateStory] = useState('voce-sabia');
+  const [imagemGerada, setImagemGerada] = useState(null);
+
+  const [loadingImagem, setLoadingImagem] = useState(false);
+  const [imagemCarregada, setImagemCarregada] = useState(false);
+  const [linkCopiado, setLinkCopiado] = useState(false);
+  const [perfilVisual, setPerfilVisual] = useState(null);
+
+  // Derivar formatoImagem do formatoPost selecionado
+  const formatoImagem = (() => {
+    if (formatoPost === 'stories' || formatoPost === 'reels' || formatoPost === 'video') {
+      return 'stories'; // 9:16
+    } else if (tipoConteudo === 'post-facebook' && formatoPost === 'feed') {
+      return 'landscape'; // 16:9
+    }
+    return 'quadrado'; // 1:1
+  })();
+
+  useEffect(() => {
+    const carregarPerfil = () => {
+      try {
+        const perfil = localStorage.getItem("perfil-visual-advogado");
+        if (perfil) {
+          const perfilParsed = JSON.parse(perfil);
+          setPerfilVisual(perfilParsed);
+
+          // Mapear estilo_visual para estiloImagem
+          if (perfilParsed.estilo_visual) {
+            const estiloMap = {
+              'classico': 'classico',
+              'clássico': 'classico',
+              'moderno': 'moderno',
+              'contemporâneo': 'moderno',
+              'contemporaneo': 'moderno',
+              'executivo': 'executivo',
+              'corporativo': 'executivo',
+              'profissional': 'executivo',
+              'acolhedor': 'acolhedor',
+              'humanizado': 'acolhedor',
+              'minimalista': 'moderno'
+            };
+            const estiloLower = perfilParsed.estilo_visual.toLowerCase();
+            const novoEstilo = estiloMap[estiloLower] || 'classico';
+            setEstiloImagem(novoEstilo);
+            console.log('🎨 Estilo visual aplicado:', perfilParsed.estilo_visual, '→', novoEstilo);
+          }
         }
-      };
+      } catch (error) {
+        console.log("Sem perfil visual salvo");
+      }
+    };
+    carregarPerfil();
+  }, []);
 
-      const config = tamanhoConfig[tamanho] || tamanhoConfig['medio'];
+  // Estados para configurações e logo
+  const [mostrarConfig, setMostrarConfig] = useState(false);
+  const [logoUser, setLogoUser] = useState(user.logo || null);
+  const [mostrarMaisTipos, setMostrarMaisTipos] = useState(false);
+  const [camposComErro, setCamposComErro] = useState([]);
 
-      let prompt = `Você é um advogado brasileiro especialista em marketing jurídico e criação de conteúdo para redes sociais.
+  // Atualizar logoUser quando user.logo mudar (ex: após upload no perfil)
+  useEffect(() => {
+    if (user.logo) {
+      console.log('🖼️ Logo atualizada:', user.logo.substring(0, 50) + '...');
+      setLogoUser(user.logo);
+    }
+  }, [user.logo]);
+  // Handler para selecionar tema do trending
+  const handleSelectTrending = (temaEscolhido, areaEscolhida) => {
+    setTema(temaEscolhido);
+    if (areaEscolhida && DADOS.areasAtuacao.includes(areaEscolhida)) {
+      setAreaAtuacao(areaEscolhida);
+    }
+  };
+
+  // FUNÇÕES
+
+  // Função para limpar hashtags corrompidas e marcações indesejadas
+  const limparConteudo = (texto) => {
+    if (!texto) return '';
+
+    let limpo = texto
+      // Remove marcações entre colchetes como [GANCHO], [HISTÓRIA], [CTA], etc
+      .replace(/\[(GANCHO|HISTÓRIA|SITUAÇÃO|EXPLICAÇÃO|SOLUÇÃO|DICA|CTA|HASHTAGS|JURÍDICA|PRÁTICA)[^\]]*\]/gi, '')
+      // Remove marcações de instrução que a IA pode ter incluído
+      .replace(/📍\s*(LINHA|RESTANTE|GANCHO|HOOK).*?:/gi, '')
+      .replace(/\[?(ROTEIRO DO VÍDEO|LEGENDA PRONTA|EXEMPLO|INSTRUÇÕES|REGRAS)\]?:?/gi, '')
+      .replace(/^(GANCHO|HOOK|CTA|HISTÓRIA|EXPLICAÇÃO|SOLUÇÃO|SITUAÇÃO|DICA)(\s*-)?(\s*EMOCIONAL)?(\s*JURÍDICA)?(\s*PRÁTICA)?(\s*até \d+ caracteres)?:?\s*/gim, '')
+      .replace(/^\(?(ATÉ \d+ CARACTERES|VISÍVEL NO FEED|após o "mais"|máximo \d+ caracteres)\)?:?\s*/gim, '')
+      // Remove hashtags corrompidas (fragmentos sem sentido como #ção, #ídicas, etc)
+      .replace(/#[çãõáéíóúâêîôûàèìòùäëïöü][a-zA-ZçãõáéíóúâêîôûàèìòùäëïöüÇÃÕÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÄËÏÖÜ]*\b/gi, '')
+      // Remove hashtags muito curtas (menos de 4 caracteres após o #)
+      .replace(/#\w{1,3}\b/g, '')
+      // Remove linhas que contêm apenas hashtags corrompidas/fragmentos
+      .replace(/^\s*[çãõáéíóúâêîôû][a-zA-ZçãõáéíóúâêîôûàèìòùäëïöüÇÃÕÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÄËÏÖÜ]*(\s+[çãõáéíóúâêîôû][a-zA-ZçãõáéíóúâêîôûàèìòùäëïöüÇÃÕÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÄËÏÖÜ]*)*\s*$/gm, '')
+      // Remove múltiplos espaços
+      .replace(/  +/g, ' ')
+      // Remove linhas vazias extras
+      .replace(/\n\s*\n\s*\n/g, '\n\n')
+      // Remove linhas vazias no início
+      .replace(/^\s*\n+/, '')
+      .trim();
+
+    return limpo;
+  };
+
+  const gerarConteudo = async () => {
+    // Validação com destaque visual
+    const erros = [];
+    if (!tipoConteudo) erros.push('tipoConteudo');
+    if (!areaAtuacao) erros.push('areaAtuacao');
+    if (!tema) erros.push('tema');
+
+    if (erros.length > 0) {
+      setCamposComErro(erros);
+
+      // Scroll até o primeiro campo com erro
+      const nomeCampo = erros[0] === 'tipoConteudo' ? 'Tipo de Conteúdo' :
+        erros[0] === 'areaAtuacao' ? 'Área de Atuação' : 'Tema/Assunto';
+
+      // Encontrar e focar o elemento
+      const elemento = document.getElementById(`campo-${erros[0]}`);
+      if (elemento) {
+        elemento.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        elemento.focus?.();
+      }
+
+      return;
+    }
+
+    setCamposComErro([]);
+    setLoading(true);
+    setConteudoGerado('');
+
+    try {
+      const prompt = construirPrompt();
+
+      const response = await fetch('https://blasterskd.com.br/api/gerar-conteudo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt })
+      });
+
+      if (!response.ok) throw new Error(`Erro: ${response.status}`);
+
+      const data = await response.json();
+      setConteudoGerado(limparConteudo(data.content));
+      setImagemPreview(null); // Limpa a imagem anterior ao gerar novo conteúdo
+      setModoEdicao(false); // Volta para modo preview
+
+      // Scroll automático para o preview
+      setTimeout(() => {
+        const previewSection = document.getElementById('preview-section');
+        if (previewSection) {
+          previewSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }, 100);
+
+      // Auto-gerar imagem (Agilizar o processo)
+      const formatoAuto = (formatoPost === 'stories' || formatoPost === 'reels') ? 'stories' :
+        (tipoConteudo === 'post-facebook') ? 'landscape' : 'quadrado';
+
+      // Chamar geração de imagem sem bloquear a UI (async)
+      console.log('🚀 Iniciando geração de imagem automática:', formatoAuto);
+      gerarImagem(limparConteudo(data.content), formatoAuto);
+    } catch (error) {
+      console.error('Erro:', error);
+      alert('❌ Erro ao gerar conteúdo: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const construirPrompt = () => {
+    const tipo = DADOS.tiposConteudo.find(t => t.id === tipoConteudo);
+    const tam = DADOS.tamanhos.find(t => t.id === tamanho);
+    const areaNome = DADOS.areasAtuacao.find(a => a.id === areaAtuacao)?.nome || areaAtuacao;
+
+    const tamanhoConfig = {
+      'curto': {
+        palavras: '80-150 palavras',
+        instrucao: 'Seja MUITO conciso e direto. Máximo 2-3 parágrafos curtos. Vá direto ao ponto.',
+        hashtags: '3-5 hashtags'
+      },
+      'medio': {
+        palavras: '200-350 palavras',
+        instrucao: 'Tamanho equilibrado. 4-5 parágrafos. Desenvolva o tema sem se alongar demais.',
+        hashtags: '5-8 hashtags'
+      },
+      'longo': {
+        palavras: '400-600 palavras',
+        instrucao: 'Conteúdo completo e detalhado. 6-8 parágrafos. Aprofunde o tema com exemplos.',
+        hashtags: '8-10 hashtags'
+      }
+    };
+
+    const config = tamanhoConfig[tamanho] || tamanhoConfig['medio'];
+
+    let prompt = `Você é um advogado brasileiro especialista em marketing jurídico e criação de conteúdo para redes sociais.
 
 TAREFA: Criar um ${tipo?.nome} sobre "${tema}" na área de ${areaNome}.
 
@@ -2619,14 +2620,14 @@ TOM: ${tom} (${tom === 'profissional' ? 'autoridade e credibilidade' : tom === '
 
 `;
 
-      if (tipoConteudo === 'post-instagram') {
-        const isStoriesReels = formatoPost === 'stories' || formatoPost === 'reels';
+    if (tipoConteudo === 'post-instagram') {
+      const isStoriesReels = formatoPost === 'stories' || formatoPost === 'reels';
 
-        if (isStoriesReels) {
-          // Obter template selecionado para stories
-          const template = DADOS.templatesStory.find(t => t.id === templateStory) || DADOS.templatesStory[0];
+      if (isStoriesReels) {
+        // Obter template selecionado para stories
+        const template = DADOS.templatesStory.find(t => t.id === templateStory) || DADOS.templatesStory[0];
 
-          prompt += `FORMATO INSTAGRAM ${formatoPost.toUpperCase()} - TEMPLATE: ${template.nome.toUpperCase()}:
+        prompt += `FORMATO INSTAGRAM ${formatoPost.toUpperCase()} - TEMPLATE: ${template.nome.toUpperCase()}:
 
 TEMA: ${tema} (área: ${areaNome})
 FORMATO: ${formatoPost === 'stories' ? 'Stories (vertical 9:16)' : 'Reels (vídeo vertical 9:16)'}
@@ -2638,29 +2639,29 @@ As pessoas passam rapidamente pelos stories/reels, então cada palavra conta!
 ESTRUTURA PARA ESTE TEMPLATE (${template.nome}):
 `;
 
-          if (template.id === 'voce-sabia') {
-            prompt += `1. PERGUNTA DE CURIOSIDADE (Ex: "Você sabia que...?")
+        if (template.id === 'voce-sabia') {
+          prompt += `1. PERGUNTA DE CURIOSIDADE (Ex: "Você sabia que...?")
 2. RESPOSTA DIRETA E CURTA
 3. CTA SIMPLES ("Responda aqui")`;
-          } else if (template.id === 'bullets') {
-            prompt += `1. TÍTULO ("3 Direitos que você tem...")
+        } else if (template.id === 'bullets') {
+          prompt += `1. TÍTULO ("3 Direitos que você tem...")
 2. LISTA DE 3 PONTOS (Frases curtíssimas)
 3. CTA DE SALVAMENTO`;
-          } else if (template.id === 'estatistica') {
-            prompt += `1. DADO IMPACTANTE ("80% dos casos...")
+        } else if (template.id === 'estatistica') {
+          prompt += `1. DADO IMPACTANTE ("80% dos casos...")
 2. EXPLICAÇÃO EM 1 FRASE
 3. CTA DE COMPARTILHAMENTO`;
-          } else if (template.id === 'urgente') {
-            prompt += `1. ALERTA ("Prazo acabando!", "Cuidado!")
+        } else if (template.id === 'urgente') {
+          prompt += `1. ALERTA ("Prazo acabando!", "Cuidado!")
 2. O QUE FAZER AGORA (Instrução ultra rápida)
 3. CTA DE URGÊNCIA`;
-          } else {
-            prompt += `1. GANCHO (1-2 linhas)
+        } else {
+          prompt += `1. GANCHO (1-2 linhas)
 2. PONTO PRINCIPAL (2-3 linhas)
 3. CTA (1 linha)`;
-          }
+        }
 
-          prompt += `
+        prompt += `
 
 REGRAS GERAIS:
 - Máximo 50-80 palavras no total
@@ -2670,8 +2671,8 @@ REGRAS GERAIS:
 - Pense que o texto vai aparecer sobre uma imagem
 
 Crie o texto agora sobre "${tema}":`;
-        } else {
-          prompt += `FORMATO INSTAGRAM FEED - TEXTO FINAL PRONTO PARA PUBLICAÇÃO:
+      } else {
+        prompt += `FORMATO INSTAGRAM FEED - TEXTO FINAL PRONTO PARA PUBLICAÇÃO:
 
 TEMA DO POST: ${tema} (área: ${areaNome})
 
@@ -2718,9 +2719,9 @@ REGRAS FINAIS:
 - Parágrafos curtos (2-3 linhas)
 - ${config.hashtags} no final, SEM acentos
 - Tamanho total: ${config.palavras}`;
-        }
-      } else if (tipoConteudo === 'post-facebook') {
-        prompt += `FORMATO FACEBOOK - TEXTO FINAL PRONTO PARA PUBLICAÇÃO:
+      }
+    } else if (tipoConteudo === 'post-facebook') {
+      prompt += `FORMATO FACEBOOK - TEXTO FINAL PRONTO PARA PUBLICAÇÃO:
 
 TEMA DO POST: ${tema} (área: ${areaNome})
 
@@ -2745,8 +2746,8 @@ INSTRUÇÕES:
 - Termine com pergunta para gerar comentários
 - ${config.hashtags} no final, sem acentos
 - Parágrafos curtos, fáceis de ler no celular`;
-      } else if (tipoConteudo === 'post-tiktok') {
-        prompt += `FORMATO TIKTOK - ROTEIRO PRONTO PARA GRAVAR:
+    } else if (tipoConteudo === 'post-tiktok') {
+      prompt += `FORMATO TIKTOK - ROTEIRO PRONTO PARA GRAVAR:
 
 TEMA DO VÍDEO: ${tema} (área: ${areaNome})
 
@@ -2783,8 +2784,8 @@ INSTRUÇÕES:
 - Frases curtas e diretas
 - Indique expressões e gestos entre colchetes
 - Legenda separada com ${config.hashtags} sem acentos`;
-      } else if (tipoConteudo === 'post-linkedin') {
-        prompt += `FORMATO LINKEDIN - TEXTO FINAL PRONTO PARA PUBLICAÇÃO:
+    } else if (tipoConteudo === 'post-linkedin') {
+      prompt += `FORMATO LINKEDIN - TEXTO FINAL PRONTO PARA PUBLICAÇÃO:
 
 TEMA DO POST: ${tema} (área: ${areaNome})
 
@@ -2807,8 +2808,8 @@ INSTRUÇÕES:
 - Setas (→) para listar pontos
 - ${config.hashtags} profissionais no final, sem acentos
 - Termine com pergunta para gerar engajamento`;
-      } else if (tipoConteudo === 'artigo') {
-        prompt += `FORMATO ARTIGO/BLOG - TEXTO FINAL PRONTO PARA PUBLICAÇÃO:
+    } else if (tipoConteudo === 'artigo') {
+      prompt += `FORMATO ARTIGO/BLOG - TEXTO FINAL PRONTO PARA PUBLICAÇÃO:
 
 TEMA DO ARTIGO: ${tema} (área: ${areaNome})
 
@@ -2835,8 +2836,8 @@ INSTRUÇÕES:
 - Linguagem clara, evite juridiquês
 - Parágrafos de 3-4 linhas no máximo
 - Exemplos práticos quando possível`;
-      } else if (tipoConteudo === 'thread') {
-        prompt += `FORMATO THREAD X/TWITTER - TEXTO FINAL PRONTO PARA PUBLICAÇÃO:
+    } else if (tipoConteudo === 'thread') {
+      prompt += `FORMATO THREAD X/TWITTER - TEXTO FINAL PRONTO PARA PUBLICAÇÃO:
 
 TEMA DA THREAD: ${tema} (área: ${areaNome})
 
@@ -2861,9 +2862,9 @@ INSTRUÇÕES:
 - Primeiro tweet: gancho + "🧵"  
 - Último tweet: CTA + hashtags sem acentos
 - Tom direto e informal`;
-      }
+    }
 
-      prompt += `
+    prompt += `
 
 REGRAS OBRIGATÓRIAS:
 1. ⚠️ TEMA: O conteúdo DEVE ser 100% sobre "${tema}". NÃO fale sobre outro assunto!
@@ -2884,1013 +2885,1013 @@ REGRAS OBRIGATÓRIAS:
 
 Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
 
-      return prompt;
-    };
+    return prompt;
+  };
 
-    const copiarConteudo = () => {
-      navigator.clipboard.writeText(conteudoGerado);
-      setCopiado(true);
-      setTimeout(() => setCopiado(false), 2000);
-    };
+  const copiarConteudo = () => {
+    navigator.clipboard.writeText(conteudoGerado);
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 2000);
+  };
 
-    // Função para publicar nas redes sociais
-    const publicarNaRede = () => {
-      if (!conteudoGerado) return;
+  // Função para publicar nas redes sociais
+  const publicarNaRede = () => {
+    if (!conteudoGerado) return;
 
-      const textoEncoded = encodeURIComponent(conteudoGerado);
+    const textoEncoded = encodeURIComponent(conteudoGerado);
 
-      switch (tipoConteudo) {
-        case 'post-facebook':
-          // Facebook Share Dialog
-          window.open(
-            `https://www.facebook.com/sharer/sharer.php?quote=${textoEncoded}`,
-            '_blank',
-            'width=600,height=400'
-          );
-          break;
+    switch (tipoConteudo) {
+      case 'post-facebook':
+        // Facebook Share Dialog
+        window.open(
+          `https://www.facebook.com/sharer/sharer.php?quote=${textoEncoded}`,
+          '_blank',
+          'width=600,height=400'
+        );
+        break;
 
-        case 'post-linkedin':
-          // LinkedIn Share
-          window.open(
-            `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent('https://juriscontent.com')}&summary=${textoEncoded}`,
-            '_blank',
-            'width=600,height=400'
-          );
-          break;
+      case 'post-linkedin':
+        // LinkedIn Share
+        window.open(
+          `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent('https://juriscontent.com')}&summary=${textoEncoded}`,
+          '_blank',
+          'width=600,height=400'
+        );
+        break;
 
-        case 'thread':
-          // Twitter/X Intent
-          window.open(
-            `https://twitter.com/intent/tweet?text=${textoEncoded.substring(0, 280)}`,
-            '_blank',
-            'width=600,height=400'
-          );
-          break;
+      case 'thread':
+        // Twitter/X Intent
+        window.open(
+          `https://twitter.com/intent/tweet?text=${textoEncoded.substring(0, 280)}`,
+          '_blank',
+          'width=600,height=400'
+        );
+        break;
 
-        case 'post-instagram':
-        case 'post-tiktok':
-        default:
-          // Para Instagram e TikTok, copia o texto e abre o app
-          navigator.clipboard.writeText(conteudoGerado);
+      case 'post-instagram':
+      case 'post-tiktok':
+      default:
+        // Para Instagram e TikTok, copia o texto e abre o app
+        navigator.clipboard.writeText(conteudoGerado);
 
-          const rede = tipoConteudo === 'post-instagram' ? 'Instagram' :
-            tipoConteudo === 'post-tiktok' ? 'TikTok' : 'rede social';
+        const rede = tipoConteudo === 'post-instagram' ? 'Instagram' :
+          tipoConteudo === 'post-tiktok' ? 'TikTok' : 'rede social';
 
-          alert(`✅ Texto copiado!\n\nAgora:\n1. Abra o ${rede}\n2. Crie um novo post\n3. Cole o texto (Ctrl+V ou ⌘+V)\n\nO ${rede} não permite pré-preencher posts por link.`);
+        alert(`✅ Texto copiado!\n\nAgora:\n1. Abra o ${rede}\n2. Crie um novo post\n3. Cole o texto (Ctrl+V ou ⌘+V)\n\nO ${rede} não permite pré-preencher posts por link.`);
 
-          // Tentar abrir o app
-          if (tipoConteudo === 'post-instagram') {
-            window.open('https://instagram.com', '_blank');
-          } else if (tipoConteudo === 'post-tiktok') {
-            window.open('https://tiktok.com', '_blank');
+        // Tentar abrir o app
+        if (tipoConteudo === 'post-instagram') {
+          window.open('https://instagram.com', '_blank');
+        } else if (tipoConteudo === 'post-tiktok') {
+          window.open('https://tiktok.com', '_blank');
+        }
+        break;
+    }
+  };
+
+  const baixarImagem = () => {
+    const link = document.createElement('a');
+    link.download = `post-juridico-${Date.now()}.png`;
+    link.href = imagemGerada;
+    link.click();
+  };
+
+  const gerarImagem = async (textoOverride = null, formatoOverride = null) => {
+    const textoUsar = textoOverride || conteudoGerado;
+    const formatoUsar = formatoOverride || formatoImagem;
+
+    console.log('🎨 [INICIO] gerarImagem chamado');
+    console.log('   - textoOverride:', textoOverride ? 'SIM' : 'NÃO');
+    console.log('   - formatoOverride:', formatoOverride);
+    console.log('   - formatoUsar:', formatoUsar);
+
+    if (!textoUsar) {
+      alert('Gere o conteúdo primeiro!');
+      return;
+    }
+
+    setLoadingImagem(true);
+    console.log('✅ Loading iniciado');
+
+    try {
+      // Se for Stories, usar nova API de templates
+      if (formatoUsar === 'stories') {
+        console.log('📱 Gerando Story com template:', templateStory);
+
+        const storyResponse = await fetch('https://blasterskd.com.br/api/gerar-story', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            texto: textoUsar,
+            tema: tema,
+            area: areaAtuacao,
+            template: templateStory,
+            perfil_visual: perfilVisual,
+            nome_advogado: user?.nome || user?.nome || '',
+            oab: user?.oab || user?.oab || '',
+            telefone: user?.telefone || '',
+            instagram: user?.instagram || ''
+          })
+        });
+
+        if (!storyResponse.ok) {
+          throw new Error('Erro ao gerar Story');
+        }
+
+        const storyData = await storyResponse.json();
+
+        if (storyData.success && storyData.imageUrl) {
+          console.log('✅ Story gerado:', storyData.imageUrl);
+          console.log('📸 [STORIES] Atualizando estados com a imagem...');
+          setImagemGerada(storyData.imageUrl);
+          setImagemPreview(storyData.imageUrl);
+          console.log('✅ [STORIES] Estados atualizados! imagemPreview:', storyData.imageUrl.substring(0, 60));
+
+          // Salvar no Supabase
+          if (onSalvarImagem) {
+            try {
+              await onSalvarImagem({
+                url: storyData.imageUrl,
+                tema: tema,
+                area: areaAtuacao,
+                tipoConteudo: tipoConteudo,
+                formato: 'stories'
+              });
+              console.log('✅ Story salvo no Supabase');
+            } catch (e) {
+              console.log('⚠️ Erro ao salvar Story no Supabase:', e);
+            }
           }
-          break;
-      }
-    };
+        } else {
+          throw new Error('Falha ao gerar Story');
+        }
 
-    const baixarImagem = () => {
-      const link = document.createElement('a');
-      link.download = `post-juridico-${Date.now()}.png`;
-      link.href = imagemGerada;
-      link.click();
-    };
-
-    const gerarImagem = async (textoOverride = null, formatoOverride = null) => {
-      const textoUsar = textoOverride || conteudoGerado;
-      const formatoUsar = formatoOverride || formatoImagem;
-
-      console.log('🎨 [INICIO] gerarImagem chamado');
-      console.log('   - textoOverride:', textoOverride ? 'SIM' : 'NÃO');
-      console.log('   - formatoOverride:', formatoOverride);
-      console.log('   - formatoUsar:', formatoUsar);
-
-      if (!textoUsar) {
-        alert('Gere o conteúdo primeiro!');
+        setLoadingImagem(false);
         return;
       }
 
-      setLoadingImagem(true);
-      console.log('✅ Loading iniciado');
+      console.log('📝 Gerando prompt e bullets...');
 
-      try {
-        // Se for Stories, usar nova API de templates
-        if (formatoUsar === 'stories') {
-          console.log('📱 Gerando Story com template:', templateStory);
+      // Usar backend local (evita problemas de CORS)
+      const n8nResponse = await fetch('https://blasterskd.com.br/api/gerar-prompt-imagem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tema: tema,
+          area: areaAtuacao,
+          estilo: estiloImagem,
+          formato: formatoUsar,
+          texto: textoUsar,
+          perfil_visual: perfilVisual
+        })
+      });
 
-          const storyResponse = await fetch('https://blasterskd.com.br/api/gerar-story', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              texto: textoUsar,
-              tema: tema,
-              area: areaAtuacao,
-              template: templateStory,
-              perfil_visual: perfilVisual,
-              nome_advogado: user?.nome || user?.nome || '',
-              oab: user?.oab || user?.oab || '',
-              telefone: user?.telefone || '',
-              instagram: user?.instagram || ''
-            })
-          });
-
-          if (!storyResponse.ok) {
-            throw new Error('Erro ao gerar Story');
-          }
-
-          const storyData = await storyResponse.json();
-
-          if (storyData.success && storyData.imageUrl) {
-            console.log('✅ Story gerado:', storyData.imageUrl);
-            console.log('📸 [STORIES] Atualizando estados com a imagem...');
-            setImagemGerada(storyData.imageUrl);
-            setImagemPreview(storyData.imageUrl);
-            console.log('✅ [STORIES] Estados atualizados! imagemPreview:', storyData.imageUrl.substring(0, 60));
-
-            // Salvar no Supabase
-            if (onSalvarImagem) {
-              try {
-                await onSalvarImagem({
-                  url: storyData.imageUrl,
-                  tema: tema,
-                  area: areaAtuacao,
-                  tipoConteudo: tipoConteudo,
-                  formato: 'stories'
-                });
-                console.log('✅ Story salvo no Supabase');
-              } catch (e) {
-                console.log('⚠️ Erro ao salvar Story no Supabase:', e);
-              }
-            }
-          } else {
-            throw new Error('Falha ao gerar Story');
-          }
-
-          setLoadingImagem(false);
-          return;
-        }
-
-        console.log('📝 Gerando prompt e bullets...');
-
-        // Usar backend local (evita problemas de CORS)
-        const n8nResponse = await fetch('https://blasterskd.com.br/api/gerar-prompt-imagem', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            tema: tema,
-            area: areaAtuacao,
-            estilo: estiloImagem,
-            formato: formatoUsar,
-            texto: textoUsar,
-            perfil_visual: perfilVisual
-          })
-        });
-
-        if (!n8nResponse.ok) {
-          throw new Error('Erro ao gerar prompt');
-        }
-
-        const n8nData = await n8nResponse.json();
-        console.log('✅ Resposta n8n:', n8nData);
-
-        const promptFinal = n8nData.promptFinal || '';
-        let bullet1 = n8nData.bullet1 || '';
-        let bullet2 = n8nData.bullet2 || '';
-        let bullet3 = n8nData.bullet3 || '';
-        const imageUrl = n8nData.imageUrl || '';
-
-        // Se bullets forem genéricos, extrair do conteúdo gerado
-        const bulletsGenericos = ['informação jurídica relevante', 'direitos e deveres', 'orientação profissional'];
-        const bulletsSaoGenericos = bulletsGenericos.some(g =>
-          bullet1.toLowerCase().includes(g) ||
-          bullet2.toLowerCase().includes(g) ||
-          bullet3.toLowerCase().includes(g)
-        ) || (!bullet1 && !bullet2 && !bullet3);
-
-        if (bulletsSaoGenericos && conteudoGerado) {
-          console.log('⚠️ Bullets genéricos detectados, extraindo do conteúdo...');
-
-          // Extrair pontos-chave do conteúdo
-          const linhas = conteudoGerado.split('\n').filter(l => l.trim());
-          const pontosChave = [];
-
-          for (const linha of linhas) {
-            // Pegar linhas que começam com emoji ou bullet
-            if (/^[•✓✔️⚖️📌💡🔹▸➤]/.test(linha.trim()) || /^\d+[.)]/.test(linha.trim())) {
-              const textoLimpo = linha.replace(/^[•✓✔️⚖️📌💡🔹▸➤\d.)\s]+/, '').trim();
-              if (textoLimpo.length > 10 && textoLimpo.length < 80) {
-                pontosChave.push(textoLimpo);
-              }
-            }
-          }
-
-          // Se encontrou pontos, usar. Senão, extrair frases curtas do texto
-          if (pontosChave.length >= 3) {
-            bullet1 = pontosChave[0];
-            bullet2 = pontosChave[1];
-            bullet3 = pontosChave[2];
-          } else {
-            // Extrair frases curtas significativas
-            const frases = conteudoGerado
-              .replace(/#\w+/g, '') // remover hashtags
-              .split(/[.!?]/)
-              .map(f => f.trim())
-              .filter(f => f.length > 20 && f.length < 80 && !f.includes('\n'));
-
-            if (frases.length >= 3) {
-              // Pegar frases do meio do texto (não o gancho inicial)
-              const meio = Math.floor(frases.length / 3);
-              bullet1 = frases[meio] || '';
-              bullet2 = frases[meio + 1] || '';
-              bullet3 = frases[meio + 2] || '';
-            }
-          }
-
-          console.log('📝 Bullets extraídos:', { bullet1, bullet2, bullet3 });
-        }
-
-        console.log('📸 Bullets finais:', { bullet1, bullet2, bullet3 });
-
-        if (!imageUrl) {
-          throw new Error('Nenhuma imagem foi gerada');
-        }
-
-        console.log('🎨 Adicionando texto...');
-        console.log('🖼️ Logo a enviar:', logoUser ? (logoUser.substring(0, 60) + '...') : 'NENHUMA');
-        console.log('🎨 Estilo:', estiloImagem);
-        console.log('🎨 Perfil Visual:', perfilVisual ? 'SIM' : 'NÃO');
-
-        // Extrair cores do perfilVisual se existir
-        const corPrimaria = perfilVisual?.cor_primaria || perfilVisual?.cores_principais?.[0] || null;
-        const corSecundaria = perfilVisual?.cor_secundaria || perfilVisual?.cores_principais?.[1] || null;
-        const corAcento = perfilVisual?.cor_acento || perfilVisual?.cores_principais?.[0] || null;
-
-        console.log('🎨 Cores a enviar:', { corPrimaria, corSecundaria, corAcento });
-
-        const backendResponse = await fetch('https://blasterskd.com.br/api/gerar-imagem', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            imageUrl: imageUrl,
-            tema: tema,
-            area: areaAtuacao,
-            nomeAdvogado: user.nome,
-            oab: user.oab,
-            email: '',
-            telefone: '',
-            formato: formatoUsar,
-            estilo: estiloImagem,
-            logo: logoUser,
-            bullet1: bullet1,
-            bullet2: bullet2,
-            bullet3: bullet3,
-            // Cores customizadas da identidade visual
-            corPrimaria: corPrimaria,
-            corSecundaria: corSecundaria,
-            corAcento: corAcento
-          })
-        });
-
-        if (!backendResponse.ok) {
-          const errorData = await backendResponse.json();
-          throw new Error(errorData.details || 'Erro ao processar imagem');
-        }
-
-        const backendData = await backendResponse.json();
-        console.log('✅ Imagem final recebida:', backendData.imageUrl);
-
-        if (!backendData.imageUrl) {
-          throw new Error('URL da imagem não retornada pela API');
-        }
-
-        console.log('📸 Atualizando estados com a imagem...');
-        setImagemGerada(backendData.imageUrl);
-        setImagemPreview(backendData.imageUrl);
-        console.log('✅ Estados atualizados! imagemPreview agora é:', backendData.imageUrl.substring(0, 50));
-        setMostrarModalImagem(false); // Fecha o modal
-        setModoEdicao(false); // Garante que está no modo preview
-
-        // 🔷 SUPABASE: Salvar imagem automaticamente
-        if (onSalvarImagem) {
-          try {
-            await onSalvarImagem({
-              url: backendData.imageUrl,
-              tema: tema,
-              area: areaAtuacao,
-              tipoConteudo: tipoConteudo,
-              formato: formatoPost || formatoImagem
-            });
-            console.log('✅ Imagem salva no Supabase');
-          } catch (e) {
-            console.log('⚠️ Erro ao salvar no Supabase:', e);
-          }
-        }
-
-      } catch (error) {
-        console.error('❌ ERRO na geração de imagem:', error);
-        console.error('   Stack:', error.stack);
-        alert('❌ Erro ao gerar imagem: ' + error.message);
-      } finally {
-        console.log('🏁 Finalizando geração de imagem (setLoadingImagem = false)');
-        setLoadingImagem(false);
+      if (!n8nResponse.ok) {
+        throw new Error('Erro ao gerar prompt');
       }
-    };
 
-    // JSX RENDER...
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
-        <div className="max-w-7xl mx-auto">
-          {/* HEADER */}
-          {/* HEADER */}
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0 mb-6 sm:mb-8">
-            <div className="flex items-center gap-3 w-full sm:w-auto justify-center sm:justify-start">
-              <Scale className="w-10 h-10 text-amber-400" />
-              <div className="text-center sm:text-left">
-                <h1 className="text-2xl sm:text-3xl font-bold text-white leading-tight">Criador de Conteúdo</h1>
-                <p className="text-slate-300 text-sm">Olá, {user.nome}</p>
-              </div>
-            </div>
+      const n8nData = await n8nResponse.json();
+      console.log('✅ Resposta n8n:', n8nData);
 
-            <div className="grid grid-cols-2 sm:flex gap-2 sm:gap-3 w-full sm:w-auto justify-center">
-              {onAbrirGaleria && (
-                <button
-                  onClick={onAbrirGaleria}
-                  className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white transition-all"
-                  title="Minhas Imagens"
-                >
-                  <ImageIcon className="w-5 h-5" />
-                  <span>Galeria</span>
-                </button>
-              )}
-              {onAbrirPerfil && (
-                <button
-                  onClick={onAbrirPerfil}
-                  className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white transition-all"
-                  title="Meu Perfil"
-                >
-                  <Settings className="w-5 h-5" />
-                  <span>Perfil</span>
-                </button>
-              )}
-              <button
-                onClick={() => setMostrarConfig(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 rounded-lg text-amber-400 transition-all"
-              >
-                <Palette className="w-5 h-5" />
-                <span>Visual</span>
-              </button>
-              <button
-                onClick={() => {
-                  console.log('🚪 Botão Sair clicado');
-                  if (onLogout) {
-                    onLogout();
-                  } else {
-                    console.log('❌ onLogout não está definido!');
-                  }
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-red-600/80 rounded-lg text-white transition-all"
-              >
-                <LogOut className="w-5 h-5" />
-                <span>Sair</span>
-              </button>
+      const promptFinal = n8nData.promptFinal || '';
+      let bullet1 = n8nData.bullet1 || '';
+      let bullet2 = n8nData.bullet2 || '';
+      let bullet3 = n8nData.bullet3 || '';
+      const imageUrl = n8nData.imageUrl || '';
+
+      // Se bullets forem genéricos, extrair do conteúdo gerado
+      const bulletsGenericos = ['informação jurídica relevante', 'direitos e deveres', 'orientação profissional'];
+      const bulletsSaoGenericos = bulletsGenericos.some(g =>
+        bullet1.toLowerCase().includes(g) ||
+        bullet2.toLowerCase().includes(g) ||
+        bullet3.toLowerCase().includes(g)
+      ) || (!bullet1 && !bullet2 && !bullet3);
+
+      if (bulletsSaoGenericos && conteudoGerado) {
+        console.log('⚠️ Bullets genéricos detectados, extraindo do conteúdo...');
+
+        // Extrair pontos-chave do conteúdo
+        const linhas = conteudoGerado.split('\n').filter(l => l.trim());
+        const pontosChave = [];
+
+        for (const linha of linhas) {
+          // Pegar linhas que começam com emoji ou bullet
+          if (/^[•✓✔️⚖️📌💡🔹▸➤]/.test(linha.trim()) || /^\d+[.)]/.test(linha.trim())) {
+            const textoLimpo = linha.replace(/^[•✓✔️⚖️📌💡🔹▸➤\d.)\s]+/, '').trim();
+            if (textoLimpo.length > 10 && textoLimpo.length < 80) {
+              pontosChave.push(textoLimpo);
+            }
+          }
+        }
+
+        // Se encontrou pontos, usar. Senão, extrair frases curtas do texto
+        if (pontosChave.length >= 3) {
+          bullet1 = pontosChave[0];
+          bullet2 = pontosChave[1];
+          bullet3 = pontosChave[2];
+        } else {
+          // Extrair frases curtas significativas
+          const frases = conteudoGerado
+            .replace(/#\w+/g, '') // remover hashtags
+            .split(/[.!?]/)
+            .map(f => f.trim())
+            .filter(f => f.length > 20 && f.length < 80 && !f.includes('\n'));
+
+          if (frases.length >= 3) {
+            // Pegar frases do meio do texto (não o gancho inicial)
+            const meio = Math.floor(frases.length / 3);
+            bullet1 = frases[meio] || '';
+            bullet2 = frases[meio + 1] || '';
+            bullet3 = frases[meio + 2] || '';
+          }
+        }
+
+        console.log('📝 Bullets extraídos:', { bullet1, bullet2, bullet3 });
+      }
+
+      console.log('📸 Bullets finais:', { bullet1, bullet2, bullet3 });
+
+      if (!imageUrl) {
+        throw new Error('Nenhuma imagem foi gerada');
+      }
+
+      console.log('🎨 Adicionando texto...');
+      console.log('🖼️ Logo a enviar:', logoUser ? (logoUser.substring(0, 60) + '...') : 'NENHUMA');
+      console.log('🎨 Estilo:', estiloImagem);
+      console.log('🎨 Perfil Visual:', perfilVisual ? 'SIM' : 'NÃO');
+
+      // Extrair cores do perfilVisual se existir
+      const corPrimaria = perfilVisual?.cor_primaria || perfilVisual?.cores_principais?.[0] || null;
+      const corSecundaria = perfilVisual?.cor_secundaria || perfilVisual?.cores_principais?.[1] || null;
+      const corAcento = perfilVisual?.cor_acento || perfilVisual?.cores_principais?.[0] || null;
+
+      console.log('🎨 Cores a enviar:', { corPrimaria, corSecundaria, corAcento });
+
+      const backendResponse = await fetch('https://blasterskd.com.br/api/gerar-imagem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageUrl: imageUrl,
+          tema: tema,
+          area: areaAtuacao,
+          nomeAdvogado: user.nome,
+          oab: user.oab,
+          email: '',
+          telefone: '',
+          formato: formatoUsar,
+          estilo: estiloImagem,
+          logo: logoUser,
+          bullet1: bullet1,
+          bullet2: bullet2,
+          bullet3: bullet3,
+          // Cores customizadas da identidade visual
+          corPrimaria: corPrimaria,
+          corSecundaria: corSecundaria,
+          corAcento: corAcento
+        })
+      });
+
+      if (!backendResponse.ok) {
+        const errorData = await backendResponse.json();
+        throw new Error(errorData.details || 'Erro ao processar imagem');
+      }
+
+      const backendData = await backendResponse.json();
+      console.log('✅ Imagem final recebida:', backendData.imageUrl);
+
+      if (!backendData.imageUrl) {
+        throw new Error('URL da imagem não retornada pela API');
+      }
+
+      console.log('📸 Atualizando estados com a imagem...');
+      setImagemGerada(backendData.imageUrl);
+      setImagemPreview(backendData.imageUrl);
+      console.log('✅ Estados atualizados! imagemPreview agora é:', backendData.imageUrl.substring(0, 50));
+      setMostrarModalImagem(false); // Fecha o modal
+      setModoEdicao(false); // Garante que está no modo preview
+
+      // 🔷 SUPABASE: Salvar imagem automaticamente
+      if (onSalvarImagem) {
+        try {
+          await onSalvarImagem({
+            url: backendData.imageUrl,
+            tema: tema,
+            area: areaAtuacao,
+            tipoConteudo: tipoConteudo,
+            formato: formatoPost || formatoImagem
+          });
+          console.log('✅ Imagem salva no Supabase');
+        } catch (e) {
+          console.log('⚠️ Erro ao salvar no Supabase:', e);
+        }
+      }
+
+    } catch (error) {
+      console.error('❌ ERRO na geração de imagem:', error);
+      console.error('   Stack:', error.stack);
+      alert('❌ Erro ao gerar imagem: ' + error.message);
+    } finally {
+      console.log('🏁 Finalizando geração de imagem (setLoadingImagem = false)');
+      setLoadingImagem(false);
+    }
+  };
+
+  // JSX RENDER...
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* HEADER */}
+        {/* HEADER */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 sm:gap-0 mb-6 sm:mb-8">
+          <div className="flex items-center gap-3 w-full sm:w-auto justify-center sm:justify-start">
+            <Scale className="w-10 h-10 text-amber-400" />
+            <div className="text-center sm:text-left">
+              <h1 className="text-2xl sm:text-3xl font-bold text-white leading-tight">Criador de Conteúdo</h1>
+              <p className="text-slate-300 text-sm">Olá, {user.nome}</p>
             </div>
           </div>
 
-          {/* GRID PRINCIPAL */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* COLUNA ESQUERDA - FORMULÁRIO */}
-            <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
-              <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-2">
-                <Lightbulb className="w-6 h-6 text-amber-400" />
-                Configurar Conteúdo
-              </h2>
+          <div className="grid grid-cols-2 sm:flex gap-2 sm:gap-3 w-full sm:w-auto justify-center">
+            {onAbrirGaleria && (
+              <button
+                onClick={onAbrirGaleria}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white transition-all"
+                title="Minhas Imagens"
+              >
+                <ImageIcon className="w-5 h-5" />
+                <span>Galeria</span>
+              </button>
+            )}
+            {onAbrirPerfil && (
+              <button
+                onClick={onAbrirPerfil}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white transition-all"
+                title="Meu Perfil"
+              >
+                <Settings className="w-5 h-5" />
+                <span>Perfil</span>
+              </button>
+            )}
+            <button
+              onClick={() => setMostrarConfig(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 rounded-lg text-amber-400 transition-all"
+            >
+              <Palette className="w-5 h-5" />
+              <span>Visual</span>
+            </button>
+            <button
+              onClick={() => {
+                console.log('🚪 Botão Sair clicado');
+                if (onLogout) {
+                  onLogout();
+                } else {
+                  console.log('❌ onLogout não está definido!');
+                }
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-red-600/80 rounded-lg text-white transition-all"
+            >
+              <LogOut className="w-5 h-5" />
+              <span>Sair</span>
+            </button>
+          </div>
+        </div>
 
-              {/* Tipo de Conteúdo */}
-              <div id="campo-tipoConteudo" className={`mb-6 p-3 rounded-lg transition-all ${camposComErro.includes('tipoConteudo') ? 'bg-red-500/10 border border-red-500/50 ring-2 ring-red-500/30' : ''}`}>
-                <label className="block text-sm font-medium text-slate-300 mb-3">
-                  Tipo de Conteúdo *
-                  {camposComErro.includes('tipoConteudo') && <span className="text-red-400 ml-2 text-xs">← Selecione uma opção</span>}
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {DADOS.tiposConteudo
-                    .filter(tipo => ['post-instagram', 'post-facebook'].includes(tipo.id))
-                    .map((tipo) => {
-                      // Função para renderizar o ícone correto
-                      const renderIcon = () => {
-                        const iconClass = `w-6 h-6 ${tipoConteudo === tipo.id ? 'text-amber-400' : 'text-slate-300'}`;
-                        switch (tipo.icon) {
-                          case 'instagram':
-                            return <Instagram className={iconClass} />;
-                          case 'facebook':
-                            return <Facebook className={iconClass} />;
-                          case 'tiktok':
-                            return (
-                              <svg className={iconClass} viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
-                              </svg>
-                            );
-                          case 'linkedin':
-                            return <Linkedin className={iconClass} />;
-                          case 'blog':
-                            return <FileText className={iconClass} />;
-                          case 'twitter':
-                            return (
-                              <svg className={iconClass} viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
-                              </svg>
-                            );
-                          default:
-                            return <MessageCircle className={iconClass} />;
-                        }
-                      };
+        {/* GRID PRINCIPAL */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* COLUNA ESQUERDA - FORMULÁRIO */}
+          <div className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
+            <h2 className="text-xl font-semibold text-white mb-6 flex items-center gap-2">
+              <Lightbulb className="w-6 h-6 text-amber-400" />
+              Configurar Conteúdo
+            </h2>
 
-                      return (
-                        <button
-                          key={tipo.id}
-                          onClick={() => {
-                            setTipoConteudo(tipo.id);
-                            setCamposComErro(prev => prev.filter(c => c !== 'tipoConteudo'));
-                            // Auto-selecionar formato se houver apenas um
-                            if (tipo.formatos?.length === 1) {
-                              setFormatoPost(tipo.formatos[0].id);
-                            } else {
-                              setFormatoPost('');
-                            }
-                          }}
-                          className={`p-3 rounded-lg border transition-all flex flex-col items-center ${tipoConteudo === tipo.id
-                            ? 'border-amber-400 bg-amber-400/10 text-amber-400'
-                            : 'border-slate-600 hover:border-slate-500 bg-slate-700/50 text-slate-300'
-                            }`}
-                        >
-                          {renderIcon()}
-                          <div className="font-medium text-sm mt-1.5">{tipo.nome}</div>
-                        </button>
-                      );
-                    })}
-                </div>
-              </div>
+            {/* Tipo de Conteúdo */}
+            <div id="campo-tipoConteudo" className={`mb-6 p-3 rounded-lg transition-all ${camposComErro.includes('tipoConteudo') ? 'bg-red-500/10 border border-red-500/50 ring-2 ring-red-500/30' : ''}`}>
+              <label className="block text-sm font-medium text-slate-300 mb-3">
+                Tipo de Conteúdo *
+                {camposComErro.includes('tipoConteudo') && <span className="text-red-400 ml-2 text-xs">← Selecione uma opção</span>}
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {DADOS.tiposConteudo
+                  .filter(tipo => ['post-instagram', 'post-facebook'].includes(tipo.id))
+                  .map((tipo) => {
+                    // Função para renderizar o ícone correto
+                    const renderIcon = () => {
+                      const iconClass = `w-6 h-6 ${tipoConteudo === tipo.id ? 'text-amber-400' : 'text-slate-300'}`;
+                      switch (tipo.icon) {
+                        case 'instagram':
+                          return <Instagram className={iconClass} />;
+                        case 'facebook':
+                          return <Facebook className={iconClass} />;
+                        case 'tiktok':
+                          return (
+                            <svg className={iconClass} viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
+                            </svg>
+                          );
+                        case 'linkedin':
+                          return <Linkedin className={iconClass} />;
+                        case 'blog':
+                          return <FileText className={iconClass} />;
+                        case 'twitter':
+                          return (
+                            <svg className={iconClass} viewBox="0 0 24 24" fill="currentColor">
+                              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                            </svg>
+                          );
+                        default:
+                          return <MessageCircle className={iconClass} />;
+                      }
+                    };
 
-              {/* SELEÇÃO DE FORMATO DO POST */}
-              {tipoConteudo && (() => {
-                const tipoSelecionado = DADOS.tiposConteudo.find(t => t.id === tipoConteudo);
-                if (!tipoSelecionado?.formatos?.length || tipoSelecionado.formatos.length <= 1) return null;
-
-                return (
-                  <div className="mb-6 p-3 rounded-lg bg-slate-800/50 border border-slate-700">
-                    <label className="block text-sm font-medium text-slate-300 mb-3">
-                      Formato do Post
-                    </label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {tipoSelecionado.formatos.map((formato) => (
-                        <button
-                          key={formato.id}
-                          onClick={() => setFormatoPost(formato.id)}
-                          className={`flex-1 p-3 rounded-lg border transition-all ${formatoPost === formato.id
-                            ? 'border-amber-400 bg-amber-400/10'
-                            : 'border-slate-600 hover:border-slate-500 bg-slate-700/50'
-                            }`}
-                        >
-                          {/* Ícone visual do formato */}
-                          <div className="flex justify-center mb-2">
-                            {formato.id === 'feed' && tipoConteudo === 'post-instagram' ? (
-                              <div className={`w-8 h-8 border-2 rounded ${formatoPost === formato.id ? 'border-amber-400' : 'border-slate-400'}`} />
-                            ) : formato.id === 'feed' && tipoConteudo === 'post-facebook' ? (
-                              <div className={`w-10 h-6 border-2 rounded ${formatoPost === formato.id ? 'border-amber-400' : 'border-slate-400'}`} />
-                            ) : (
-                              <div className={`w-5 h-9 border-2 rounded ${formatoPost === formato.id ? 'border-amber-400' : 'border-slate-400'}`} />
-                            )}
-                          </div>
-                          <div className={`text-sm font-medium ${formatoPost === formato.id ? 'text-amber-400' : 'text-slate-300'}`}>
-                            {formato.nome}
-                          </div>
-                          <div className="text-xs text-slate-500 mt-0.5">{formato.desc}</div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* TRENDING TOPICS - APÓS TIPO DE CONTEÚDO */}
-              <TrendingTopicsComponent
-                onSelectTema={handleSelectTrending}
-                areaAtuacao={areaAtuacao}
-              />
-
-              {/* IDENTIDADE VISUAL - MOVIDO PARA CIMA */}
-              <div className="mb-6">
-                <AnaliseLogoComponent />
-              </div>
-
-              {/* Área de Atuação */}
-              <div id="campo-areaAtuacao" className={`mb-6 p-3 rounded-lg transition-all ${camposComErro.includes('areaAtuacao') ? 'bg-red-500/10 border border-red-500/50 ring-2 ring-red-500/30' : ''}`}>
-                <label className="block text-sm font-medium text-slate-300 mb-3">
-                  Área de Atuação *
-                  {camposComErro.includes('areaAtuacao') && <span className="text-red-400 ml-2 text-xs">← Selecione uma opção</span>}
-                </label>
-                <select
-                  value={areaAtuacao}
-                  onChange={(e) => { setAreaAtuacao(e.target.value); setCamposComErro(prev => prev.filter(c => c !== 'areaAtuacao')); }}
-                  className={`w-full bg-slate-700 border rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-amber-400 ${camposComErro.includes('areaAtuacao') ? 'border-red-500' : 'border-slate-600'}`}
-                >
-                  <option value="">Selecione...</option>
-                  {DADOS.areasAtuacao.map((area) => (
-                    <option key={area} value={area}>{area}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Assunto/Tema */}
-              <div id="campo-tema" className={`mb-6 p-3 rounded-lg transition-all ${camposComErro.includes('tema') ? 'bg-red-500/10 border border-red-500/50 ring-2 ring-red-500/30' : ''}`}>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-slate-300">
-                    Assunto / Tema *
-                    {camposComErro.includes('tema') && <span className="text-red-400 ml-2 text-xs">← Digite o tema</span>}
-                  </label>
-                  {areaAtuacao && (
-                    <button
-                      onClick={() => setMostrarDicasAssunto(!mostrarDicasAssunto)}
-                      className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1"
-                    >
-                      <Lightbulb className="w-3 h-3" />
-                      {mostrarDicasAssunto ? 'Ocultar' : 'Ver'} sugestões
-                    </button>
-                  )}
-                </div>
-                <input
-                  type="text"
-                  value={tema}
-                  onChange={(e) => { setTema(e.target.value); setCamposComErro(prev => prev.filter(c => c !== 'tema')); }}
-                  placeholder="Ex: Como funciona a rescisão indireta"
-                  className={`w-full bg-slate-700 border rounded-lg px-4 py-2.5 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400 ${camposComErro.includes('tema') ? 'border-red-500' : 'border-slate-600'}`}
-                />
-
-                {mostrarDicasAssunto && areaAtuacao && DADOS.sugestoesAssuntos[areaAtuacao] && (
-                  <div className="mt-3 bg-slate-900/50 rounded-lg p-3 border border-amber-500/20">
-                    <p className="text-xs text-amber-400 font-medium mb-2">💡 Sugestões:</p>
-                    <div className="space-y-1.5">
-                      {DADOS.sugestoesAssuntos[areaAtuacao].map((sugestao, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => {
-                            setTema(sugestao);
-                            setMostrarDicasAssunto(false);
-                          }}
-                          className="w-full text-left text-xs text-slate-300 hover:text-amber-400 hover:bg-slate-800 p-2 rounded transition-all"
-                        >
-                          → {sugestao}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Público-Alvo */}
-              <div className="mb-6">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-sm font-medium text-slate-300">Público-Alvo</label>
-                  <button
-                    onClick={() => setMostrarDicasPublico(!mostrarDicasPublico)}
-                    className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1"
-                  >
-                    <Users className="w-3 h-3" />
-                    {mostrarDicasPublico ? 'Ocultar' : 'Ver'} sugestões
-                  </button>
-                </div>
-                <input
-                  type="text"
-                  value={publicoAlvo}
-                  onChange={(e) => setPublicoAlvo(e.target.value)}
-                  placeholder="Ex: Empresários, Trabalhadores, etc."
-                  className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2.5 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400"
-                />
-
-                {mostrarDicasPublico && (
-                  <div className="mt-3 bg-slate-900/50 rounded-lg p-3 border border-amber-500/20">
-                    <p className="text-xs text-amber-400 font-medium mb-2">👥 Sugestões:</p>
-                    <div className="flex flex-wrap gap-2">
-                      {DADOS.sugestoesPublico.map((publico, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => {
-                            setPublicoAlvo(publico);
-                            setMostrarDicasPublico(false);
-                          }}
-                          className="text-xs bg-slate-800 hover:bg-amber-500/20 hover:text-amber-400 text-slate-300 px-3 py-1.5 rounded-full border border-slate-600 hover:border-amber-500/50 transition-all"
-                        >
-                          {publico}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* TIPO DE STORY/TEMPLATE - Apenas para stories/reels */}
-              {(formatoPost === 'stories' || formatoPost === 'reels') ? (
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-slate-300 mb-3">Estilo do {formatoPost === 'stories' ? 'Story' : 'Reels'}</label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                    {DADOS.templatesStory.map((t) => (
+                    return (
                       <button
-                        key={t.id}
-                        onClick={() => setTemplateStory(t.id)}
-                        className={`p-3 rounded-lg border transition-all text-left flex items-start gap-3 ${templateStory === t.id
+                        key={tipo.id}
+                        onClick={() => {
+                          setTipoConteudo(tipo.id);
+                          setCamposComErro(prev => prev.filter(c => c !== 'tipoConteudo'));
+                          // Auto-selecionar formato se houver apenas um
+                          if (tipo.formatos?.length === 1) {
+                            setFormatoPost(tipo.formatos[0].id);
+                          } else {
+                            setFormatoPost('');
+                          }
+                        }}
+                        className={`p-3 rounded-lg border transition-all flex flex-col items-center ${tipoConteudo === tipo.id
                           ? 'border-amber-400 bg-amber-400/10 text-amber-400'
                           : 'border-slate-600 hover:border-slate-500 bg-slate-700/50 text-slate-300'
                           }`}
                       >
-                        <span className="text-xl">{t.icon}</span>
-                        <div>
-                          <div className="font-medium text-sm">{t.nome}</div>
-                          <div className={`text-xs mt-0.5 ${templateStory === t.id ? 'text-amber-400/70' : 'text-slate-500'}`}>{t.desc}</div>
+                        {renderIcon()}
+                        <div className="font-medium text-sm mt-1.5">{tipo.nome}</div>
+                      </button>
+                    );
+                  })}
+              </div>
+            </div>
+
+            {/* SELEÇÃO DE FORMATO DO POST */}
+            {tipoConteudo && (() => {
+              const tipoSelecionado = DADOS.tiposConteudo.find(t => t.id === tipoConteudo);
+              if (!tipoSelecionado?.formatos?.length || tipoSelecionado.formatos.length <= 1) return null;
+
+              return (
+                <div className="mb-6 p-3 rounded-lg bg-slate-800/50 border border-slate-700">
+                  <label className="block text-sm font-medium text-slate-300 mb-3">
+                    Formato do Post
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {tipoSelecionado.formatos.map((formato) => (
+                      <button
+                        key={formato.id}
+                        onClick={() => setFormatoPost(formato.id)}
+                        className={`flex-1 p-3 rounded-lg border transition-all ${formatoPost === formato.id
+                          ? 'border-amber-400 bg-amber-400/10'
+                          : 'border-slate-600 hover:border-slate-500 bg-slate-700/50'
+                          }`}
+                      >
+                        {/* Ícone visual do formato */}
+                        <div className="flex justify-center mb-2">
+                          {formato.id === 'feed' && tipoConteudo === 'post-instagram' ? (
+                            <div className={`w-8 h-8 border-2 rounded ${formatoPost === formato.id ? 'border-amber-400' : 'border-slate-400'}`} />
+                          ) : formato.id === 'feed' && tipoConteudo === 'post-facebook' ? (
+                            <div className={`w-10 h-6 border-2 rounded ${formatoPost === formato.id ? 'border-amber-400' : 'border-slate-400'}`} />
+                          ) : (
+                            <div className={`w-5 h-9 border-2 rounded ${formatoPost === formato.id ? 'border-amber-400' : 'border-slate-400'}`} />
+                          )}
                         </div>
+                        <div className={`text-sm font-medium ${formatoPost === formato.id ? 'text-amber-400' : 'text-slate-300'}`}>
+                          {formato.nome}
+                        </div>
+                        <div className="text-xs text-slate-500 mt-0.5">{formato.desc}</div>
                       </button>
                     ))}
                   </div>
                 </div>
-              ) : (
-                <>
-                  {/* Tom - Apenas para posts que não são stories */}
-                  <div className="mb-6">
-                    <label className="block text-sm font-medium text-slate-300 mb-3">Tom do Conteúdo</label>
-                    <div className="grid grid-cols-2 gap-2">
-                      {DADOS.tons.map((t) => (
-                        <button
-                          key={t.id}
-                          onClick={() => setTom(t.id)}
-                          className={`p-3 rounded-lg border transition-all ${tom === t.id
-                            ? 'border-amber-400 bg-amber-400/10 text-amber-400'
-                            : 'border-slate-600 hover:border-slate-500 bg-slate-700/50 text-slate-300'
-                            }`}
-                        >
-                          <div className="font-medium text-sm">{t.nome}</div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+              );
+            })()}
 
-                  {/* Tamanho - Apenas para posts que não são stories */}
-                  <div className="mb-6">
-                    <label className="block text-sm font-medium text-slate-300 mb-3">Tamanho</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {DADOS.tamanhos.map((t) => (
-                        <button
-                          key={t.id}
-                          onClick={() => setTamanho(t.id)}
-                          className={`flex-1 p-3 rounded-lg border transition-all ${tamanho === t.id
-                            ? 'border-amber-400 bg-amber-400/10 text-amber-400'
-                            : 'border-slate-600 hover:border-slate-500 bg-slate-700/50 text-slate-300'
-                            }`}
-                        >
-                          <div className="font-medium text-sm">{t.nome}</div>
-                          <div className={`text-xs mt-0.5 ${tamanho === t.id ? 'text-amber-400/70' : 'text-slate-500'}`}>{t.desc}</div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
+            {/* TRENDING TOPICS - APÓS TIPO DE CONTEÚDO */}
+            <TrendingTopicsComponent
+              onSelectTema={handleSelectTrending}
+              areaAtuacao={areaAtuacao}
+            />
 
-              {/* Botão Gerar */}
-              <button
-                onClick={gerarConteudo}
-                disabled={loading}
-                className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-slate-600 text-white font-semibold py-3 rounded-lg transition-all flex items-center justify-center gap-2"
-              >
-                {loading ? (
-                  <>
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Gerando...
-                  </>
-                ) : (
-                  <>
-                    <Lightbulb className="w-5 h-5" />
-                    Gerar Conteúdo
-                  </>
-                )}
-              </button>
+            {/* IDENTIDADE VISUAL - MOVIDO PARA CIMA */}
+            <div className="mb-6">
+              <AnaliseLogoComponent />
             </div>
 
-            {/* COLUNA DIREITA - PREVIEW */}
-            <div id="preview-section" className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-white flex items-center gap-2">
-                  {tipoConteudo === 'post-instagram' ? <Instagram className="w-6 h-6 text-pink-400" /> :
-                    tipoConteudo === 'post-facebook' ? <Facebook className="w-6 h-6 text-blue-400" /> :
-                      tipoConteudo === 'post-tiktok' ? (
-                        <svg className="w-6 h-6 text-cyan-400" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
-                        </svg>
-                      ) : <Scale className="w-6 h-6 text-amber-400" />}
-                  <span>
-                    {tipoConteudo === 'post-instagram' ? 'Instagram' :
-                      tipoConteudo === 'post-facebook' ? 'Facebook' :
-                        tipoConteudo === 'post-tiktok' ? 'TikTok' :
-                          'Conteúdo'}
-                    {formatoPost && (
-                      <span className="text-slate-400 font-normal ml-2">
-                        • {formatoPost === 'feed' ? 'Feed' :
-                          formatoPost === 'stories' ? 'Stories' :
-                            formatoPost === 'reels' ? 'Reels' :
-                              formatoPost === 'video' ? 'Vídeo' : formatoPost}
-                      </span>
-                    )}
-                  </span>
-                </h2>
+            {/* Área de Atuação */}
+            <div id="campo-areaAtuacao" className={`mb-6 p-3 rounded-lg transition-all ${camposComErro.includes('areaAtuacao') ? 'bg-red-500/10 border border-red-500/50 ring-2 ring-red-500/30' : ''}`}>
+              <label className="block text-sm font-medium text-slate-300 mb-3">
+                Área de Atuação *
+                {camposComErro.includes('areaAtuacao') && <span className="text-red-400 ml-2 text-xs">← Selecione uma opção</span>}
+              </label>
+              <select
+                value={areaAtuacao}
+                onChange={(e) => { setAreaAtuacao(e.target.value); setCamposComErro(prev => prev.filter(c => c !== 'areaAtuacao')); }}
+                className={`w-full bg-slate-700 border rounded-lg px-4 py-2.5 text-white focus:outline-none focus:ring-2 focus:ring-amber-400 ${camposComErro.includes('areaAtuacao') ? 'border-red-500' : 'border-slate-600'}`}
+              >
+                <option value="">Selecione...</option>
+                {DADOS.areasAtuacao.map((area) => (
+                  <option key={area} value={area}>{area}</option>
+                ))}
+              </select>
+            </div>
 
-                {conteudoGerado && (
-                  <div className="grid grid-cols-2 sm:flex gap-2">
+            {/* Assunto/Tema */}
+            <div id="campo-tema" className={`mb-6 p-3 rounded-lg transition-all ${camposComErro.includes('tema') ? 'bg-red-500/10 border border-red-500/50 ring-2 ring-red-500/30' : ''}`}>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-slate-300">
+                  Assunto / Tema *
+                  {camposComErro.includes('tema') && <span className="text-red-400 ml-2 text-xs">← Digite o tema</span>}
+                </label>
+                {areaAtuacao && (
+                  <button
+                    onClick={() => setMostrarDicasAssunto(!mostrarDicasAssunto)}
+                    className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1"
+                  >
+                    <Lightbulb className="w-3 h-3" />
+                    {mostrarDicasAssunto ? 'Ocultar' : 'Ver'} sugestões
+                  </button>
+                )}
+              </div>
+              <input
+                type="text"
+                value={tema}
+                onChange={(e) => { setTema(e.target.value); setCamposComErro(prev => prev.filter(c => c !== 'tema')); }}
+                placeholder="Ex: Como funciona a rescisão indireta"
+                className={`w-full bg-slate-700 border rounded-lg px-4 py-2.5 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400 ${camposComErro.includes('tema') ? 'border-red-500' : 'border-slate-600'}`}
+              />
+
+              {mostrarDicasAssunto && areaAtuacao && DADOS.sugestoesAssuntos[areaAtuacao] && (
+                <div className="mt-3 bg-slate-900/50 rounded-lg p-3 border border-amber-500/20">
+                  <p className="text-xs text-amber-400 font-medium mb-2">💡 Sugestões:</p>
+                  <div className="space-y-1.5">
+                    {DADOS.sugestoesAssuntos[areaAtuacao].map((sugestao, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          setTema(sugestao);
+                          setMostrarDicasAssunto(false);
+                        }}
+                        className="w-full text-left text-xs text-slate-300 hover:text-amber-400 hover:bg-slate-800 p-2 rounded transition-all"
+                      >
+                        → {sugestao}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Público-Alvo */}
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-slate-300">Público-Alvo</label>
+                <button
+                  onClick={() => setMostrarDicasPublico(!mostrarDicasPublico)}
+                  className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1"
+                >
+                  <Users className="w-3 h-3" />
+                  {mostrarDicasPublico ? 'Ocultar' : 'Ver'} sugestões
+                </button>
+              </div>
+              <input
+                type="text"
+                value={publicoAlvo}
+                onChange={(e) => setPublicoAlvo(e.target.value)}
+                placeholder="Ex: Empresários, Trabalhadores, etc."
+                className="w-full bg-slate-700 border border-slate-600 rounded-lg px-4 py-2.5 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400"
+              />
+
+              {mostrarDicasPublico && (
+                <div className="mt-3 bg-slate-900/50 rounded-lg p-3 border border-amber-500/20">
+                  <p className="text-xs text-amber-400 font-medium mb-2">👥 Sugestões:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {DADOS.sugestoesPublico.map((publico, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          setPublicoAlvo(publico);
+                          setMostrarDicasPublico(false);
+                        }}
+                        className="text-xs bg-slate-800 hover:bg-amber-500/20 hover:text-amber-400 text-slate-300 px-3 py-1.5 rounded-full border border-slate-600 hover:border-amber-500/50 transition-all"
+                      >
+                        {publico}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* TIPO DE STORY/TEMPLATE - Apenas para stories/reels */}
+            {(formatoPost === 'stories' || formatoPost === 'reels') ? (
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-slate-300 mb-3">Estilo do {formatoPost === 'stories' ? 'Story' : 'Reels'}</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {DADOS.templatesStory.map((t) => (
                     <button
-                      onClick={() => setModoEdicao(!modoEdicao)}
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-all ${modoEdicao
-                        ? 'bg-amber-500 text-white'
-                        : 'bg-slate-700 hover:bg-slate-600 text-white'
+                      key={t.id}
+                      onClick={() => setTemplateStory(t.id)}
+                      className={`p-3 rounded-lg border transition-all text-left flex items-start gap-3 ${templateStory === t.id
+                        ? 'border-amber-400 bg-amber-400/10 text-amber-400'
+                        : 'border-slate-600 hover:border-slate-500 bg-slate-700/50 text-slate-300'
                         }`}
                     >
-                      <Edit3 className="w-4 h-4" />
-                      {modoEdicao ? 'Visualizar' : 'Editar'}
+                      <span className="text-xl">{t.icon}</span>
+                      <div>
+                        <div className="font-medium text-sm">{t.nome}</div>
+                        <div className={`text-xs mt-0.5 ${templateStory === t.id ? 'text-amber-400/70' : 'text-slate-500'}`}>{t.desc}</div>
+                      </div>
                     </button>
-                    <button
-                      onClick={copiarConteudo}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-white text-sm transition-all"
-                    >
-                      {copiado ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
-                      {copiado ? 'Copiado!' : 'Copiar'}
-                    </button>
-                    <button
-                      onClick={() => setMostrarModalImagem(true)}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-white text-sm transition-all"
-                    >
-                      <ImageIcon className="w-4 h-4" />
-                      Imagem
-                    </button>
-                    <button
-                      onClick={publicarNaRede}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 rounded-lg text-white text-sm transition-all font-medium"
-                    >
-                      <Share2 className="w-4 h-4" />
-                      Publicar
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              <div className="min-h-[500px] bg-slate-900/50 rounded-lg p-6 border border-slate-600">
-                {conteudoGerado ? (
-                  modoEdicao ? (
-                    /* MODO EDIÇÃO */
-                    <div className="h-full">
-                      <textarea
-                        value={conteudoGerado}
-                        onChange={(e) => setConteudoGerado(e.target.value)}
-                        className="w-full h-[450px] bg-slate-800 border border-slate-600 rounded-lg p-4 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none font-mono text-sm leading-relaxed"
-                        placeholder="Edite seu conteúdo aqui..."
-                      />
-                      <p className="text-xs text-slate-500 mt-2">
-                        ✏️ Modo edição ativo. Faça suas alterações e clique em "Visualizar" para ver o resultado.
-                      </p>
-                    </div>
-                  ) : (
-                    /* MODO PREVIEW */
-                    <PreviewRedeSocial
-                      tipo={tipoConteudo}
-                      formato={formatoPost || 'feed'}
-                      conteudo={conteudoGerado}
-                      usuario={user}
-                      modoCompleto={true}
-                      imagemPreview={imagemPreview}
-                      onVisualizarImagem={imagemPreview ? () => setMostrarImagemFull(true) : null}
-                      loadingImagem={loadingImagem}
-                    />
-                  )
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-slate-400 text-center py-20">
-                    {tipoConteudo === 'post-instagram' ? <Instagram className="w-16 h-16 mb-4 opacity-30" /> :
-                      tipoConteudo === 'post-facebook' ? <Facebook className="w-16 h-16 mb-4 opacity-30" /> :
-                        tipoConteudo === 'post-tiktok' ? (
-                          <svg className="w-16 h-16 mb-4 opacity-30" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
-                          </svg>
-                        ) : <Scale className="w-16 h-16 mb-4 opacity-30" />}
-                    <p className="text-lg mb-2">Nenhum conteúdo gerado ainda</p>
-                    <p className="text-sm">Configure os parâmetros e clique em "Gerar Conteúdo"</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-6">
-
-          </div>
-
-          {/* MODAL DE VISUALIZAÇÃO DA IMAGEM */}
-          {mostrarImagemFull && imagemPreview && (
-            <div
-              className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 z-50 cursor-pointer"
-              onClick={() => setMostrarImagemFull(false)}
-            >
-              <div className="relative max-w-4xl max-h-[90vh] w-full">
-                <button
-                  onClick={() => setMostrarImagemFull(false)}
-                  className="absolute -top-12 right-0 text-white/70 hover:text-white transition-colors flex items-center gap-2"
-                >
-                  <span className="text-sm">Fechar</span>
-                  <X className="w-6 h-6" />
-                </button>
-                <img
-                  src={imagemPreview}
-                  alt="Imagem do post"
-                  className="w-full h-full object-contain rounded-lg shadow-2xl"
-                  onClick={(e) => e.stopPropagation()}
-                />
-                <div className="absolute -bottom-12 left-0 right-0 flex justify-center gap-4">
-                  <a
-                    href={imagemPreview}
-                    download="post-juriscontent.png"
-                    onClick={(e) => e.stopPropagation()}
-                    className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 rounded-lg text-white text-sm transition-all"
-                  >
-                    <Download className="w-4 h-4" />
-                    Baixar Imagem
-                  </a>
+                  ))}
                 </div>
               </div>
-            </div>
-          )}
+            ) : (
+              <>
+                {/* Tom - Apenas para posts que não são stories */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-slate-300 mb-3">Tom do Conteúdo</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {DADOS.tons.map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => setTom(t.id)}
+                        className={`p-3 rounded-lg border transition-all ${tom === t.id
+                          ? 'border-amber-400 bg-amber-400/10 text-amber-400'
+                          : 'border-slate-600 hover:border-slate-500 bg-slate-700/50 text-slate-300'
+                          }`}
+                      >
+                        <div className="font-medium text-sm">{t.nome}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-          {/* MODAL DE CONFIGURAÇÕES */}
-          {mostrarConfig && (
-            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-              <div className="bg-slate-800 rounded-xl max-w-2xl w-full p-6 border border-slate-700">
-                <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                    <Settings className="w-6 h-6 text-amber-400" />
-                    Configurações
-                  </h2>
+                {/* Tamanho - Apenas para posts que não são stories */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-slate-300 mb-3">Tamanho</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {DADOS.tamanhos.map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => setTamanho(t.id)}
+                        className={`flex-1 p-3 rounded-lg border transition-all ${tamanho === t.id
+                          ? 'border-amber-400 bg-amber-400/10 text-amber-400'
+                          : 'border-slate-600 hover:border-slate-500 bg-slate-700/50 text-slate-300'
+                          }`}
+                      >
+                        <div className="font-medium text-sm">{t.nome}</div>
+                        <div className={`text-xs mt-0.5 ${tamanho === t.id ? 'text-amber-400/70' : 'text-slate-500'}`}>{t.desc}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Botão Gerar */}
+            <button
+              onClick={gerarConteudo}
+              disabled={loading}
+              className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-slate-600 text-white font-semibold py-3 rounded-lg transition-all flex items-center justify-center gap-2"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Gerando...
+                </>
+              ) : (
+                <>
+                  <Lightbulb className="w-5 h-5" />
+                  Gerar Conteúdo
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* COLUNA DIREITA - PREVIEW */}
+          <div id="preview-section" className="bg-slate-800/50 backdrop-blur rounded-xl p-6 border border-slate-700">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+                {tipoConteudo === 'post-instagram' ? <Instagram className="w-6 h-6 text-pink-400" /> :
+                  tipoConteudo === 'post-facebook' ? <Facebook className="w-6 h-6 text-blue-400" /> :
+                    tipoConteudo === 'post-tiktok' ? (
+                      <svg className="w-6 h-6 text-cyan-400" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
+                      </svg>
+                    ) : <Scale className="w-6 h-6 text-amber-400" />}
+                <span>
+                  {tipoConteudo === 'post-instagram' ? 'Instagram' :
+                    tipoConteudo === 'post-facebook' ? 'Facebook' :
+                      tipoConteudo === 'post-tiktok' ? 'TikTok' :
+                        'Conteúdo'}
+                  {formatoPost && (
+                    <span className="text-slate-400 font-normal ml-2">
+                      • {formatoPost === 'feed' ? 'Feed' :
+                        formatoPost === 'stories' ? 'Stories' :
+                          formatoPost === 'reels' ? 'Reels' :
+                            formatoPost === 'video' ? 'Vídeo' : formatoPost}
+                    </span>
+                  )}
+                </span>
+              </h2>
+
+              {conteudoGerado && (
+                <div className="grid grid-cols-2 sm:flex gap-2">
                   <button
-                    onClick={() => setMostrarConfig(false)}
-                    className="text-slate-400 hover:text-white transition-colors"
+                    onClick={() => setModoEdicao(!modoEdicao)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-all ${modoEdicao
+                      ? 'bg-amber-500 text-white'
+                      : 'bg-slate-700 hover:bg-slate-600 text-white'
+                      }`}
                   >
-                    <X className="w-6 h-6" />
+                    <Edit3 className="w-4 h-4" />
+                    {modoEdicao ? 'Visualizar' : 'Editar'}
+                  </button>
+                  <button
+                    onClick={copiarConteudo}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-white text-sm transition-all"
+                  >
+                    {copiado ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+                    {copiado ? 'Copiado!' : 'Copiar'}
+                  </button>
+                  <button
+                    onClick={() => setMostrarModalImagem(true)}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-white text-sm transition-all"
+                  >
+                    <ImageIcon className="w-4 h-4" />
+                    Imagem
+                  </button>
+                  <button
+                    onClick={publicarNaRede}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 rounded-lg text-white text-sm transition-all font-medium"
+                  >
+                    <Share2 className="w-4 h-4" />
+                    Publicar
                   </button>
                 </div>
-
-                <ConfiguracoesLogo
-                  user={user}
-                  onSaveLogo={(logo) => setLogoUser(logo)}
-                  onClose={() => setMostrarConfig(false)}
-                />
-              </div>
+              )}
             </div>
-          )}
 
-          {/* MODAL DE IMAGEM */}
-          {mostrarModalImagem && (
-            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-              <div className="bg-slate-800 rounded-xl max-w-4xl w-full my-8 border border-slate-700">
-                <div className="bg-slate-800 border-b border-slate-700 p-6 flex items-center justify-between rounded-t-xl">
-                  <div>
-                    <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                      <ImageIcon className="w-6 h-6 text-amber-400" />
-                      Gerar Imagem Profissional
-                    </h2>
-                    <p className="text-slate-400 text-sm mt-1">
-                      {logoUser ? '✅ Com sua logo personalizada' : '⚠️ Configure sua logo nas configurações'}
+            <div className="min-h-[500px] bg-slate-900/50 rounded-lg p-6 border border-slate-600">
+              {conteudoGerado ? (
+                modoEdicao ? (
+                  /* MODO EDIÇÃO */
+                  <div className="h-full">
+                    <textarea
+                      value={conteudoGerado}
+                      onChange={(e) => setConteudoGerado(e.target.value)}
+                      className="w-full h-[450px] bg-slate-800 border border-slate-600 rounded-lg p-4 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none font-mono text-sm leading-relaxed"
+                      placeholder="Edite seu conteúdo aqui..."
+                    />
+                    <p className="text-xs text-slate-500 mt-2">
+                      ✏️ Modo edição ativo. Faça suas alterações e clique em "Visualizar" para ver o resultado.
                     </p>
                   </div>
-                  <button
-                    onClick={() => {
-                      setMostrarModalImagem(false);
-                      setImagemGerada(null);
-                    }}
-                    className="text-slate-400 hover:text-white transition-colors"
-                  >
-                    <X className="w-6 h-6" />
-                  </button>
+                ) : (
+                  /* MODO PREVIEW */
+                  <PreviewRedeSocial
+                    tipo={tipoConteudo}
+                    formato={formatoPost || 'feed'}
+                    conteudo={conteudoGerado}
+                    usuario={user}
+                    modoCompleto={true}
+                    imagemPreview={imagemPreview}
+                    onVisualizarImagem={imagemPreview ? () => setMostrarImagemFull(true) : null}
+                    loadingImagem={loadingImagem}
+                  />
+                )
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-slate-400 text-center py-20">
+                  {tipoConteudo === 'post-instagram' ? <Instagram className="w-16 h-16 mb-4 opacity-30" /> :
+                    tipoConteudo === 'post-facebook' ? <Facebook className="w-16 h-16 mb-4 opacity-30" /> :
+                      tipoConteudo === 'post-tiktok' ? (
+                        <svg className="w-16 h-16 mb-4 opacity-30" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
+                        </svg>
+                      ) : <Scale className="w-16 h-16 mb-4 opacity-30" />}
+                  <p className="text-lg mb-2">Nenhum conteúdo gerado ainda</p>
+                  <p className="text-sm">Configure os parâmetros e clique em "Gerar Conteúdo"</p>
                 </div>
+              )}
+            </div>
+          </div>
+        </div>
 
-                <div className="p-6 max-h-[calc(90vh-100px)] overflow-y-auto">
-                  {!imagemGerada ? (
-                    <>
+        <div className="mt-6">
+
+        </div>
+
+        {/* MODAL DE VISUALIZAÇÃO DA IMAGEM */}
+        {mostrarImagemFull && imagemPreview && (
+          <div
+            className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 z-50 cursor-pointer"
+            onClick={() => setMostrarImagemFull(false)}
+          >
+            <div className="relative max-w-4xl max-h-[90vh] w-full">
+              <button
+                onClick={() => setMostrarImagemFull(false)}
+                className="absolute -top-12 right-0 text-white/70 hover:text-white transition-colors flex items-center gap-2"
+              >
+                <span className="text-sm">Fechar</span>
+                <X className="w-6 h-6" />
+              </button>
+              <img
+                src={imagemPreview}
+                alt="Imagem do post"
+                className="w-full h-full object-contain rounded-lg shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              />
+              <div className="absolute -bottom-12 left-0 right-0 flex justify-center gap-4">
+                <a
+                  href={imagemPreview}
+                  download="post-juriscontent.png"
+                  onClick={(e) => e.stopPropagation()}
+                  className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 rounded-lg text-white text-sm transition-all"
+                >
+                  <Download className="w-4 h-4" />
+                  Baixar Imagem
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL DE CONFIGURAÇÕES */}
+        {mostrarConfig && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-slate-800 rounded-xl max-w-2xl w-full p-6 border border-slate-700">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                  <Settings className="w-6 h-6 text-amber-400" />
+                  Configurações
+                </h2>
+                <button
+                  onClick={() => setMostrarConfig(false)}
+                  className="text-slate-400 hover:text-white transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <ConfiguracoesLogo
+                user={user}
+                onSaveLogo={(logo) => setLogoUser(logo)}
+                onClose={() => setMostrarConfig(false)}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* MODAL DE IMAGEM */}
+        {mostrarModalImagem && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-slate-800 rounded-xl max-w-4xl w-full my-8 border border-slate-700">
+              <div className="bg-slate-800 border-b border-slate-700 p-6 flex items-center justify-between rounded-t-xl">
+                <div>
+                  <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                    <ImageIcon className="w-6 h-6 text-amber-400" />
+                    Gerar Imagem Profissional
+                  </h2>
+                  <p className="text-slate-400 text-sm mt-1">
+                    {logoUser ? '✅ Com sua logo personalizada' : '⚠️ Configure sua logo nas configurações'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setMostrarModalImagem(false);
+                    setImagemGerada(null);
+                  }}
+                  className="text-slate-400 hover:text-white transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <div className="p-6 max-h-[calc(90vh-100px)] overflow-y-auto">
+                {!imagemGerada ? (
+                  <>
+                    <div className="mb-6">
+                      <label className="block text-sm font-medium text-slate-300 mb-3">Formato da Imagem</label>
+                      <div className="grid grid-cols-3 gap-3">
+                        {DADOS.formatosImagem.map((formato) => (
+                          <button
+                            key={formato.id}
+                            onClick={() => setFormatoImagem(formato.id)}
+                            className={`p-4 rounded-lg border-2 transition-all text-center ${formatoImagem === formato.id
+                              ? 'border-amber-400 bg-amber-400/10'
+                              : 'border-slate-600 hover:border-slate-500 bg-slate-700/50'
+                              }`}
+                          >
+                            <div className="text-3xl mb-2">{formato.icon}</div>
+                            <div className={`font-medium text-sm mb-1 ${formatoImagem === formato.id ? 'text-amber-400' : 'text-white'
+                              }`}>
+                              {formato.nome}
+                            </div>
+                            <div className="text-xs text-slate-400">{formato.desc}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {formatoImagem === "stories" ? (
                       <div className="mb-6">
-                        <label className="block text-sm font-medium text-slate-300 mb-3">Formato da Imagem</label>
-                        <div className="grid grid-cols-3 gap-3">
-                          {DADOS.formatosImagem.map((formato) => (
+                        <label className="block text-sm font-medium text-slate-300 mb-3">Template do Story</label>
+                        <div className="grid grid-cols-2 gap-3">
+                          {DADOS.templatesStory.map((tpl) => (
                             <button
-                              key={formato.id}
-                              onClick={() => setFormatoImagem(formato.id)}
-                              className={`p-4 rounded-lg border-2 transition-all text-center ${formatoImagem === formato.id
-                                ? 'border-amber-400 bg-amber-400/10'
-                                : 'border-slate-600 hover:border-slate-500 bg-slate-700/50'
+                              key={tpl.id}
+                              onClick={() => setTemplateStory(tpl.id)}
+                              className={`p-4 rounded-lg border-2 transition-all text-left ${templateStory === tpl.id
+                                ? "border-amber-400 bg-amber-400/10"
+                                : "border-slate-600 hover:border-slate-500 bg-slate-700/50"
                                 }`}
                             >
-                              <div className="text-3xl mb-2">{formato.icon}</div>
-                              <div className={`font-medium text-sm mb-1 ${formatoImagem === formato.id ? 'text-amber-400' : 'text-white'
-                                }`}>
-                                {formato.nome}
-                              </div>
-                              <div className="text-xs text-slate-400">{formato.desc}</div>
+                              <div className="text-2xl mb-1">{tpl.icon}</div>
+                              <div className={`font-medium mb-1 ${templateStory === tpl.id ? "text-amber-400" : "text-white"}`}>{tpl.nome}</div>
+                              <div className="text-xs text-slate-400">{tpl.desc}</div>
                             </button>
                           ))}
                         </div>
                       </div>
-                      {formatoImagem === "stories" ? (
-                        <div className="mb-6">
-                          <label className="block text-sm font-medium text-slate-300 mb-3">Template do Story</label>
-                          <div className="grid grid-cols-2 gap-3">
-                            {DADOS.templatesStory.map((tpl) => (
-                              <button
-                                key={tpl.id}
-                                onClick={() => setTemplateStory(tpl.id)}
-                                className={`p-4 rounded-lg border-2 transition-all text-left ${templateStory === tpl.id
-                                  ? "border-amber-400 bg-amber-400/10"
-                                  : "border-slate-600 hover:border-slate-500 bg-slate-700/50"
-                                  }`}
-                              >
-                                <div className="text-2xl mb-1">{tpl.icon}</div>
-                                <div className={`font-medium mb-1 ${templateStory === tpl.id ? "text-amber-400" : "text-white"}`}>{tpl.nome}</div>
-                                <div className="text-xs text-slate-400">{tpl.desc}</div>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="mb-6">
-                          <label className="block text-sm font-medium text-slate-300 mb-3">Ambiente Visual</label>
-                          <div className="grid grid-cols-2 gap-3">
-                            {DADOS.estilosImagem.map((estilo) => (
-                              <button
-                                key={estilo.id}
-                                onClick={() => setEstiloImagem(estilo.id)}
-                                className={`p-4 rounded-lg border-2 transition-all text-left ${estiloImagem === estilo.id
-                                  ? "border-amber-400 bg-amber-400/10"
-                                  : "border-slate-600 hover:border-slate-500 bg-slate-700/50"
-                                  }`}
-                              >
-                                <div className="text-2xl mb-1">{estilo.icone}</div>
-                                <div className={`font-medium mb-1 ${estiloImagem === estilo.id ? "text-amber-400" : "text-white"}`}>{estilo.nome}</div>
-                                <div className="text-xs text-slate-400">{estilo.desc}</div>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      <button
-                        onClick={gerarImagem}
-                        disabled={loadingImagem}
-                        className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-slate-600 text-white font-semibold py-4 rounded-lg transition-all flex items-center justify-center gap-2"
-                      >
-                        {loadingImagem ? (
-                          <>
-                            <Loader2 className="w-5 h-5 animate-spin" />
-                            Gerando imagem com IA...
-                          </>
-                        ) : (
-                          <>
-                            <ImageIcon className="w-5 h-5" />
-                            Criar Imagem
-                          </>
-                        )}
-                      </button>
-                    </>
-                  ) : (
-                    <>
+                    ) : (
                       <div className="mb-6">
-                        <h3 className="text-white font-medium mb-3">Preview da Imagem:</h3>
-                        <div className="bg-slate-900/50 rounded-lg p-4 border border-slate-700">
-                          <img
-                            src={imagemGerada}
-                            alt="Post gerado"
-                            className="w-full rounded-lg shadow-2xl"
-                          />
+                        <label className="block text-sm font-medium text-slate-300 mb-3">Ambiente Visual</label>
+                        <div className="grid grid-cols-2 gap-3">
+                          {DADOS.estilosImagem.map((estilo) => (
+                            <button
+                              key={estilo.id}
+                              onClick={() => setEstiloImagem(estilo.id)}
+                              className={`p-4 rounded-lg border-2 transition-all text-left ${estiloImagem === estilo.id
+                                ? "border-amber-400 bg-amber-400/10"
+                                : "border-slate-600 hover:border-slate-500 bg-slate-700/50"
+                                }`}
+                            >
+                              <div className="text-2xl mb-1">{estilo.icone}</div>
+                              <div className={`font-medium mb-1 ${estiloImagem === estilo.id ? "text-amber-400" : "text-white"}`}>{estilo.nome}</div>
+                              <div className="text-xs text-slate-400">{estilo.desc}</div>
+                            </button>
+                          ))}
                         </div>
                       </div>
+                    )}
 
-                      <div className="flex gap-3">
-                        <button
-                          onClick={baixarImagem}
-                          className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-semibold py-3 rounded-lg transition-all flex items-center justify-center gap-2"
-                        >
-                          <Download className="w-5 h-5" />
-                          Baixar Imagem
-                        </button>
-                        <button
-                          onClick={() => setImagemGerada(null)}
-                          className="px-6 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 rounded-lg transition-all"
-                        >
-                          Criar Outra
-                        </button>
+                    <button
+                      onClick={gerarImagem}
+                      disabled={loadingImagem}
+                      className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-slate-600 text-white font-semibold py-4 rounded-lg transition-all flex items-center justify-center gap-2"
+                    >
+                      {loadingImagem ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          Gerando imagem com IA...
+                        </>
+                      ) : (
+                        <>
+                          <ImageIcon className="w-5 h-5" />
+                          Criar Imagem
+                        </>
+                      )}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div className="mb-6">
+                      <h3 className="text-white font-medium mb-3">Preview da Imagem:</h3>
+                      <div className="bg-slate-900/50 rounded-lg p-4 border border-slate-700">
+                        <img
+                          src={imagemGerada}
+                          alt="Post gerado"
+                          className="w-full rounded-lg shadow-2xl"
+                        />
                       </div>
-                    </>
-                  )}
-                </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <button
+                        onClick={baixarImagem}
+                        className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-semibold py-3 rounded-lg transition-all flex items-center justify-center gap-2"
+                      >
+                        <Download className="w-5 h-5" />
+                        Baixar Imagem
+                      </button>
+                      <button
+                        onClick={() => setImagemGerada(null)}
+                        className="px-6 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 rounded-lg transition-all"
+                      >
+                        Criar Outra
+                      </button>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
-          )}
-        </div>
-      </div >
-    );
-  }
+          </div>
+        )}
+      </div>
+    </div >
+  );
+}
