@@ -110,10 +110,14 @@ function parseStoryContent(texto, tema, template) {
     data.resposta = linesSemBullets.join(' ').trim();
   }
 
-  // Se for o template 'voce-sabia', a resposta deve ser curta e impactante
-  if (template === 'voce-sabia' && lines.length > 1) {
-    data.resposta = lines.find(l => !l.includes('?') && l.length > 20) || lines[1];
+  // Se for o template 'voce-sabia'
+  if (template === 'voce-sabia') {
     data.destaque = 'LEI EM PRIMEIRO LUGAR!';
+    // Se a resposta estiver vazia após tirar a pergunta, tentar pegar a primeira frase relevante
+    if (!data.pergunta && lines.length > 0) {
+      data.pergunta = lines[0];
+      data.resposta = lines.slice(1).join('\n');
+    }
   }
 
   return data;
