@@ -1005,6 +1005,96 @@ function PerfilUsuarioModal({ isOpen, onClose }) {
   );
 }
 
+// ====================================
+// MINI PREVIEW DE STORY (FIDELIDADE VISUAL)
+// ====================================
+function MiniStoryPreview({ template }) {
+  const base = "w-14 h-24 rounded shadow-lg overflow-hidden flex flex-col relative shrink-0 border border-slate-700 bg-slate-900";
+
+  if (template === 'voce-sabia') {
+    return (
+      <div className={base}>
+        <div className="absolute inset-0 bg-gradient-to-b from-blue-900 to-slate-950 opacity-50" />
+        <div className="z-10 mt-3 text-[10px] text-center">⚖️</div>
+        <div className="z-10 mt-1 h-2 bg-amber-500/30 mx-2 rounded-full" />
+        <div className="z-10 mt-2 h-6 bg-white/5 mx-2 rounded border-l-2 border-amber-500" />
+        <div className="z-10 mt-auto mb-2 h-3 bg-amber-500/80 mx-2 rounded-sm" />
+      </div>
+    );
+  }
+
+  if (template === 'bullets') {
+    return (
+      <div className={base}>
+        <div className="absolute inset-0 bg-slate-900" />
+        <div className="z-10 mt-2 ml-2 h-2 w-8 bg-amber-500/60 rounded-full" />
+        <div className="z-10 mt-2 h-2 bg-white/40 mx-2 rounded-full" />
+        <div className="z-10 mt-3 space-y-1.5 px-2">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="flex gap-1 items-center">
+              <div className="w-2 h-2 rounded-sm bg-amber-500/40" />
+              <div className="flex-1 h-1 bg-white/20 rounded-full" />
+            </div>
+          ))}
+        </div>
+        <div className="z-10 mt-auto mb-2 h-4 bg-gradient-to-r from-amber-500 to-amber-600 mx-2 rounded-sm" />
+      </div>
+    );
+  }
+
+  if (template === 'estatistica') {
+    return (
+      <div className={base}>
+        <div className="absolute inset-0 bg-zinc-900" />
+        <div className="z-10 mt-2 ml-2 h-1.5 w-6 bg-amber-500/40 rounded-full" />
+        <div className="z-10 mt-3 flex flex-col items-center">
+          <div className="text-[14px] font-bold text-amber-500 leading-none">80%</div>
+          <div className="h-1 w-8 bg-zinc-700 rounded-full mt-1" />
+        </div>
+        <div className="z-10 mt-3 h-5 bg-white/5 mx-2 rounded" />
+        <div className="z-10 mt-auto mb-2 px-2 flex justify-between items-center">
+          <div className="w-3 h-3 rounded-full bg-amber-500/20" />
+          <div className="w-4 h-1 bg-amber-500/40 rounded-full" />
+        </div>
+      </div>
+    );
+  }
+
+  if (template === 'urgente') {
+    return (
+      <div className={base}>
+        <div className="absolute inset-0 bg-stone-950" />
+        <div className="z-10 mt-2 ml-2 h-3 w-10 bg-red-600 rounded-sm" />
+        <div className="z-10 mt-2 h-2 bg-white/90 mx-2 rounded-full" />
+        <div className="z-10 mt-2 h-8 border-2 border-red-600 mx-2 rounded-lg flex items-center justify-center">
+          <div className="h-4 w-4 rounded-full bg-red-600/20" />
+        </div>
+        <div className="z-10 mt-auto mb-2 h-4 bg-red-600 mx-2 rounded-sm" />
+      </div>
+    );
+  }
+
+  if (template === 'premium') {
+    return (
+      <div className={base}>
+        <div className="absolute inset-0 bg-slate-950" />
+        <div className="z-10 mt-3 flex items-center gap-1 px-2">
+          <div className="w-3 h-3 bg-amber-500/40 rounded-sm" />
+          <div className="h-1 flex-1 bg-white/20 rounded-full" />
+        </div>
+        <div className="z-10 mt-2 mx-2 h-[1px] bg-amber-500/20" />
+        <div className="z-10 mt-3 h-3 bg-white/40 mx-2 rounded-full" />
+        <div className="z-10 mt-2 h-10 bg-amber-500/5 mx-2 border border-amber-500/20 rounded" />
+        <div className="z-10 mt-auto mb-2 flex justify-end p-2">
+          <div className="w-4 h-4 rounded-full bg-amber-500" />
+        </div>
+      </div>
+    );
+  }
+
+  return <div className={base} />;
+}
+
 function PreviewRedeSocial({ tipo, formato = 'feed', conteudo, usuario, modoCompleto = false, imagemPreview = null, onPublicar = null, onVisualizarImagem = null, loadingImagem = false }) {
   const [expandido, setExpandido] = useState(false);
 
@@ -1058,10 +1148,23 @@ function PreviewRedeSocial({ tipo, formato = 'feed', conteudo, usuario, modoComp
               onLoad={() => console.log('✅ [IMG] Stories carregado!')}
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 flex items-center justify-center p-6">
-              <p className="text-white text-xl font-bold text-center leading-tight drop-shadow-lg">
-                {gancho}
-              </p>
+            <div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center p-6 text-center">
+              {loadingImagem ? (
+                <div className="space-y-4 animate-pulse">
+                  <div className="w-16 h-16 bg-amber-500/20 rounded-full flex items-center justify-center mx-auto">
+                    <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-amber-500 font-bold text-lg">Criando sua arte profissional...</p>
+                    <p className="text-slate-400 text-sm italic">Isso leva cerca de 5 segundos</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2 opacity-30">
+                  <Instagram className="w-12 h-12 mx-auto text-white" />
+                  <p className="text-white text-sm">Aguardando geração...</p>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -1374,8 +1477,8 @@ function PreviewRedeSocial({ tipo, formato = 'feed', conteudo, usuario, modoComp
           )}
         </div>
 
-        {/* Overlay gradient */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+        {/* Overlay gradient - Somente se não houver imagem real ou se quiser escurecer o fundo, mas a imagem do Puppeteer já é completa */}
+        {!imagemPreview && <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />}
 
         {/* Ícones laterais */}
         <div className="absolute right-3 bottom-32 flex flex-col items-center gap-5">
@@ -1435,19 +1538,21 @@ function PreviewRedeSocial({ tipo, formato = 'feed', conteudo, usuario, modoComp
           </div>
         </div>
 
-        {/* Informações do post */}
-        <div className="absolute bottom-4 left-3 right-16">
-          <p className="text-white font-semibold text-sm mb-1">@{usuario?.nome?.toLowerCase().replace(/\s+/g, '_') || 'advogado'}</p>
-          <p className="text-white text-xs leading-relaxed line-clamp-3">{legenda}</p>
+        {/* Informações do post - Ocultar se já houver imagem real, pois a imagem do Puppeteer já contém o texto */}
+        {!imagemPreview && (
+          <div className="absolute bottom-4 left-3 right-16">
+            <p className="text-white font-semibold text-sm mb-1">@{usuario?.nome?.toLowerCase().replace(/\s+/g, '_') || 'advogado'}</p>
+            <p className="text-white text-xs leading-relaxed line-clamp-3">{legenda}</p>
 
-          {/* Música */}
-          <div className="flex items-center gap-2 mt-2">
-            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
-            </svg>
-            <p className="text-white text-xs">Som original - {usuario?.nome || 'Advogado'}</p>
+            {/* Música */}
+            <div className="flex items-center gap-2 mt-2">
+              <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+              </svg>
+              <p className="text-white text-xs">Som original - {usuario?.nome || 'Advogado'}</p>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     );
   };
@@ -1496,11 +1601,23 @@ function PreviewRedeSocial({ tipo, formato = 'feed', conteudo, usuario, modoComp
             )}
           </>
         ) : (
-          <div className="w-full h-full bg-gradient-to-b from-blue-600 via-blue-500 to-blue-400 flex items-center justify-center">
-            <div className="text-center text-white/80">
-              <ImageIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">Sua imagem aqui</p>
-            </div>
+          <div className="w-full h-full bg-slate-900 flex flex-col items-center justify-center p-6 text-center">
+            {loadingImagem ? (
+              <div className="space-y-4 animate-pulse">
+                <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto">
+                  <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
+                </div>
+                <div className="space-y-2">
+                  <p className="text-blue-500 font-bold text-lg">Criando sua arte profissional...</p>
+                  <p className="text-slate-400 text-sm italic">Isso leva cerca de 5 segundos</p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2 opacity-30">
+                <ImageIcon className="w-12 h-12 mx-auto text-white/50" />
+                <p className="text-white/50 text-sm">Aguardando geração...</p>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1518,12 +1635,14 @@ function PreviewRedeSocial({ tipo, formato = 'feed', conteudo, usuario, modoComp
         </div>
       </div>
 
-      {/* Texto na parte inferior */}
-      <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 via-black/40 to-transparent z-20">
-        <p className="text-white text-sm leading-relaxed line-clamp-4">
-          {gancho}{temMais && '...'}
-        </p>
-      </div>
+      {/* Texto na parte inferior - Ocultar se já houver imagem real */}
+      {!imagemPreview && (
+        <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 via-black/40 to-transparent z-20">
+          <p className="text-white text-sm leading-relaxed line-clamp-4">
+            {gancho}{temMais && '...'}
+          </p>
+        </div>
+      )}
 
       {/* Indicador Stories */}
       <div className="absolute top-14 left-0 right-0 flex justify-center z-20">
@@ -2560,6 +2679,9 @@ function CriadorCompleto({ user, onLogout, onAbrirGaleria, onAbrirPerfil, onSalv
         (tipoConteudo === 'post-facebook') ? 'landscape' : 'quadrado';
 
       // Chamar geração de imagem sem bloquear a UI (async)
+      setLoadingImagem(true);
+      setImagemPreview(null);
+      if (imagemPreviewRef.current) imagemPreviewRef.current = null;
       console.log('🚀 Iniciando geração de imagem automática:', formatoAuto);
       gerarImagem(limparConteudo(data.content), formatoAuto);
     } catch (error) {
@@ -3487,16 +3609,27 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
                     <button
                       key={t.id}
                       onClick={() => setTemplateStory(t.id)}
-                      className={`p-3 rounded-lg border transition-all text-left flex items-start gap-3 ${templateStory === t.id
-                        ? 'border-amber-400 bg-amber-400/10 text-amber-400'
-                        : 'border-slate-600 hover:border-slate-500 bg-slate-700/50 text-slate-300'
+                      className={`p-1.5 rounded-xl border transition-all text-left flex items-center gap-3 relative overflow-hidden group ${templateStory === t.id
+                        ? 'border-amber-400 bg-amber-400/10'
+                        : 'border-slate-700 hover:border-slate-600 bg-slate-800/40 text-slate-300'
                         }`}
                     >
-                      <span className="text-xl">{t.icon}</span>
-                      <div>
-                        <div className="font-medium text-sm">{t.nome}</div>
-                        <div className={`text-xs mt-0.5 ${templateStory === t.id ? 'text-amber-400/70' : 'text-slate-500'}`}>{t.desc}</div>
+                      <MiniStoryPreview template={t.id} />
+                      <div className="flex-1 pr-2">
+                        <div className={`font-bold text-sm ${templateStory === t.id ? 'text-amber-400' : 'text-slate-100'}`}>
+                          {t.nome}
+                        </div>
+                        <div className={`text-[10px] leading-tight mt-1 line-clamp-2 ${templateStory === t.id ? 'text-amber-400/70' : 'text-slate-500'}`}>
+                          {t.desc}
+                        </div>
                       </div>
+                      {templateStory === t.id && (
+                        <div className="absolute top-2 right-2">
+                          <div className="w-4 h-4 bg-amber-400 rounded-full flex items-center justify-center">
+                            <Check className="w-2.5 h-2.5 text-slate-900" />
+                          </div>
+                        </div>
+                      )}
                     </button>
                   ))}
                 </div>
