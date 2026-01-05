@@ -4,6 +4,12 @@ const { createCanvas, loadImage } = require('canvas');
 const cloudinary = require('cloudinary').v2;
 const fs = require('fs');
 const path = require('path');
+
+// LOG DE INICIALIZAÇÃO GLOBAL
+try {
+  const logMsg = `[${new Date().toISOString()}] Backend iniciado em ${__dirname}\n`;
+  fs.appendFileSync('/tmp/backend-active.log', logMsg);
+} catch (e) { }
 require('dotenv').config();
 
 const app = express();
