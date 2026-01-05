@@ -1042,77 +1042,60 @@ function PreviewRedeSocial({ tipo, formato = 'feed', conteudo, usuario, modoComp
   const { gancho, temMais, total } = extrairGancho(texto);
 
   // Preview Instagram Stories/Reels (vertical 9:16)
+  // Preview Instagram Stories/Reels (vertical 9:16)
   const PreviewInstagramStories = () => {
     console.log('🖼️ [PREVIEW STORIES] Renderizando com imagemPreview:', imagemPreview ? 'POSSUI' : 'NULL');
 
     return (
-      <div className="bg-black rounded-2xl overflow-hidden w-[280px] mx-auto shadow-2xl aspect-[9/16] relative border border-slate-700">
-        {/* Camada 1: Imagem de Fundo (ou Gradient se não houver) */}
+      <div className="bg-black rounded-2xl overflow-hidden w-[280px] mx-auto shadow-2xl aspect-[9/16] relative border border-slate-800">
+        {/* Camada 1: Fundo (Imagem ou Gradiente) */}
         <div className="absolute inset-0 z-0">
           {imagemPreview ? (
             <img
               src={imagemPreview}
               alt="Stories"
               className="w-full h-full object-cover"
-              onLoad={() => console.log('✅ [IMG] Stories carregado com sucesso!')}
-              onError={(e) => console.error('❌ [IMG] Erro no Stories:', e)}
+              onLoad={() => console.log('✅ [IMG] Stories carregado!')}
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-b from-purple-600 via-pink-500 to-orange-400 flex items-center justify-center">
-              <div className="text-center text-white/80">
-                <ImageIcon className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">Sua imagem aqui</p>
-              </div>
+            <div className="w-full h-full bg-gradient-to-br from-purple-600 via-pink-500 to-orange-400 flex items-center justify-center p-6">
+              <p className="text-white text-xl font-bold text-center leading-tight drop-shadow-lg">
+                {gancho}
+              </p>
             </div>
           )}
         </div>
 
-        {/* Camada 2: Botão de Zoom (sobre a imagem, mas sob os overlays) */}
-        {imagemPreview && onVisualizarImagem && (
-          <button
-            onClick={onVisualizarImagem}
-            className="absolute inset-0 z-10 bg-black/0 hover:bg-black/20 flex items-center justify-center opacity-0 hover:opacity-100 transition-all cursor-pointer"
-          >
-            <div className="bg-white/90 rounded-full p-3 shadow-lg">
-              <ZoomIn className="w-6 h-6 text-gray-700" />
-            </div>
-          </button>
-        )}
-
-        {/* Camada 3: Overlays (Header, Texto, etc.) */}
-        <div className="absolute inset-0 z-20 flex flex-col pointer-events-none">
-          {/* Header */}
-          <div className="p-3 bg-gradient-to-b from-black/60 to-transparent">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-pink-500 p-0.5">
-                <div className="w-full h-full rounded-full bg-white flex items-center justify-center">
-                  <span className="text-xs font-bold text-gray-700">{usuario?.nome?.[0] || 'A'}</span>
-                </div>
+        {/* Camada 2: Header Instagram (Sempre visível, mas discreto) */}
+        <div className="absolute top-0 left-0 right-0 p-4 z-20 flex items-center justify-between pointer-events-none bg-gradient-to-b from-black/40 to-transparent">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-yellow-400 to-fuchsia-600 p-[2px]">
+              <div className="w-full h-full rounded-full bg-white flex items-center justify-center">
+                <span className="text-[10px] font-bold text-slate-700">{usuario?.nome?.[0] || 'A'}</span>
               </div>
-              <span className="text-white text-sm font-medium">{usuario?.usuario || 'advogado'}</span>
-              <span className="text-white/60 text-xs">2h</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-white text-[11px] font-bold leading-none">{usuario?.usuario || 'advogado'}</span>
+              <span className="text-white/70 text-[9px]">2h</span>
             </div>
           </div>
+        </div>
 
-          {/* Indicador superior */}
-          <div className="mt-4 flex justify-center">
-            <span className="bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-white text-xs font-medium">
-              {formato === 'reels' ? '🎬 Reels' : '📱 Stories'}
-            </span>
-          </div>
-
-          {/* Spacer flexível */}
-          <div className="flex-1" />
-
-          {/* Conteúdo inferior */}
-          <div className="p-8 text-center bg-gradient-to-t from-black/60 via-black/20 to-transparent">
-            <p className="text-white text-xl font-bold drop-shadow-lg leading-relaxed typing-effect">
-              {gancho}
-            </p>
-            <div className="mt-4 inline-block bg-white text-black font-semibold px-4 py-2 rounded-lg text-sm shadow-lg transform -rotate-2">
-              {hashtags ? hashtags.split(' ')[0] : 'Saiba mais'}
+        {/* Camada 3: Overlays de Interação (Sempre ocultos, pois é só um preview) */}
+        <div className="absolute bottom-6 left-0 right-0 p-4 z-20 flex flex-col items-center pointer-events-none">
+          <div className="flex flex-col items-center opacity-70">
+            <ChevronUp className="w-4 h-4 text-white animate-bounce mb-[-4px]" />
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 px-4 py-1.5 rounded-full text-white text-[10px] font-bold uppercase tracking-wider">
+              Ver mais
             </div>
           </div>
+        </div>
+
+        {/* Badge superior lateral */}
+        <div className="absolute top-12 right-4 z-20 pointer-events-none">
+          <span className="bg-black/20 backdrop-blur-sm px-2 py-0.5 rounded text-[10px] text-white/80 font-medium">
+            {formato === 'reels' ? 'Reels' : 'Story'}
+          </span>
         </div>
       </div>
     );
