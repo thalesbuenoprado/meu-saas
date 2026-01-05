@@ -18,7 +18,7 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
   : ['http://localhost:5173', 'http://localhost:3000'];
 
 app.use(cors({
-  origin: function(origin, callback) {
+  origin: function (origin, callback) {
     if (!origin) return callback(null, true);
     if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV !== 'production') {
       callback(null, true);
@@ -50,6 +50,69 @@ app.get('/', (req, res) => {
 // ================================================
 // ROTA: GERAR STORY (Nova!)
 // ================================================
+// Helper para extração inteligente de conteúdo para Stories
+function parseStoryContent(texto, tema, template) {
+  const lines = texto.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const data = {
+    pergunta: tema.includes('?') ? tema : '',
+    resposta: texto,
+    bullets: [],
+    estatistica: { valor: '', label: '', descricao: '' },
+    dica: '',
+    headline: tema
+  };
+
+  // 1. Tentar encontrar pergunta se não houver no tema
+  if (!data.pergunta) {
+    const qLine = lines.find(l => l.endsWith('?'));
+    if (qLine) data.pergunta = qLine;
+  }
+
+  // 2. Extrair Bullets (para templates de lista ou urgência)
+  const bulletLines = lines.filter(l => /^[-*•✓]|\d+\.|\d+\)/.test(l));
+  if (bulletLines.length > 0) {
+    data.bullets = bulletLines.map(l => {
+      const parts = l.replace(/^[-*•✓]|\d+\.|\d+\)/, '').trim().split(':');
+      return {
+        titulo: parts.length > 1 ? parts[0].trim() : '•',
+        descricao: parts.length > 1 ? parts[1].trim() : parts[0].trim(),
+        texto: l.replace(/^[-*•✓]|\d+\.|\d+\)/, '').trim() // Versão simples
+      };
+    });
+  }
+
+  // 3. Extrair Estatística / Números de impacto
+  const statMatch = texto.match(/(\d+%|\d+x|\d+\s+anos|\d+\s+meses|R\$\s?[\d.,]+)/i);
+  if (statMatch) {
+    data.estatistica.valor = statMatch[0].toUpperCase();
+    // Tentar pegar o contexto ao redor do número
+    const sentence = lines.find(l => l.includes(statMatch[0]));
+    if (sentence) {
+      data.estatistica.label = sentence.replace(statMatch[0], '').trim().substring(0, 30);
+      data.estatistica.descricao = sentence.trim();
+    }
+  }
+
+  // 4. Extrair Dica
+  const dicaLine = lines.find(l => l.toLowerCase().startsWith('dica:'));
+  if (dicaLine) {
+    data.dica = dicaLine.replace(/dica:/i, '').trim();
+  }
+
+  // 5. Limpar a Resposta (remover a pergunta do início se duplicada)
+  if (data.pergunta && data.resposta.startsWith(data.pergunta)) {
+    data.resposta = data.resposta.replace(data.pergunta, '').trim();
+  }
+
+  // Se for o template 'voce-sabia', a resposta deve ser curta e impactante
+  if (template === 'voce-sabia' && lines.length > 1) {
+    data.resposta = lines.find(l => !l.includes('?') && l.length > 20) || lines[1];
+    data.destaque = 'LEI EM PRIMEIRO LUGAR!';
+  }
+
+  return data;
+}
+
 app.post('/api/gerar-story', async (req, res) => {
   try {
     const { texto, tema, area, template, perfil_visual, nome_advogado, oab, telefone, instagram } = req.body;
@@ -59,6 +122,9 @@ app.post('/api/gerar-story', async (req, res) => {
     }
 
     console.log('📱 Gerando Story:', { template, area, tema });
+
+    // Extração inteligente de conteúdo
+    const content = parseStoryContent(texto || '', tema || '', template);
 
     // Chamar Puppeteer Stories Service
     const PUPPETEER_URL = 'http://localhost:3002/render-story';
@@ -70,20 +136,20 @@ app.post('/api/gerar-story', async (req, res) => {
         corPrimaria: perfil_visual?.cor_primaria || '#1e3a5f',
         corSecundaria: perfil_visual?.cor_secundaria || '#d4af37',
         corFundo: '#0d1b2a',
-        pergunta: tema || '',
-        resposta: texto?.substring(0, 150) || '',
-        destaque: 'SAIBA SEUS DIREITOS!',
-        headline: tema || '',
+        pergunta: content.pergunta || tema || 'Você sabia?',
+        resposta: content.resposta,
+        destaque: content.destaque || 'SAIBA SEUS DIREITOS!',
+        headline: content.headline || tema || '',
         area: area || '',
         nomeAdvogado: nome_advogado || '',
         oab: oab || '',
         telefone: telefone || '',
         instagram: instagram || '',
-        iniciais: nome_advogado ? nome_advogado.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() : '',
+        iniciais: nome_advogado ? nome_advogado.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() : '',
         cta: 'Arraste para saber mais',
-        bullets: [],
-        estatistica: {},
-        dica: ''
+        bullets: content.bullets,
+        estatistica: content.estatistica,
+        dica: content.dica
       }
     };
 
@@ -375,7 +441,7 @@ app.post('/api/gerar-imagem', async (req, res) => {
         const logoBase64 = logo.startsWith('data:') ? logo : `data:image/png;base64,${logo}`;
         const logoImage = await loadImage(logoBase64);
         ctx.drawImage(logoImage, dim.w - 120, 30, 80, 80);
-      } catch (e) {}
+      } catch (e) { }
     }
 
     const imageBuffer = canvas.toBuffer('image/jpeg', { quality: 0.95 });
