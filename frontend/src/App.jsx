@@ -1046,7 +1046,7 @@ function PreviewRedeSocial({ tipo, formato = 'feed', conteudo, usuario, modoComp
     console.log('🖼️ [PREVIEW STORIES] Renderizando com imagemPreview:', imagemPreview ? 'POSSUI' : 'NULL');
 
     return (
-      <div className="bg-black rounded-2xl overflow-hidden max-w-[280px] mx-auto shadow-2xl aspect-[9/16] relative">
+      <div className="bg-black rounded-2xl overflow-hidden w-[280px] mx-auto shadow-2xl aspect-[9/16] relative border border-slate-700">
         {/* Camada 1: Imagem de Fundo (ou Gradient se não houver) */}
         <div className="absolute inset-0 z-0">
           {imagemPreview ? (
