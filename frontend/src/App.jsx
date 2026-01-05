@@ -1584,10 +1584,10 @@ function PreviewRedeSocial({ tipo, formato = 'feed', conteudo, usuario, modoComp
     // Para tipos com preview específico
     if (['post-instagram', 'post-facebook', 'post-tiktok'].includes(tipo)) {
       return (
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-center relative">
           {renderPreview()}
           {loadingImagem && (
-            <div className="absolute inset-0 bg-black/20 flex items-center justify-center z-50 rounded-xl pointer-events-none">
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-50 rounded-xl">
               <div className="bg-white/90 px-4 py-2 rounded-full shadow-lg flex items-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin text-amber-500" />
                 <span className="text-sm font-medium text-slate-700">Criando imagem...</span>
