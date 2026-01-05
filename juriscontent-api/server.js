@@ -104,6 +104,12 @@ function parseStoryContent(texto, tema, template) {
     data.resposta = data.resposta.replace(data.pergunta, '').trim();
   }
 
+  // 6. Se tiver bullets, remover as linhas de bullets da resposta para evitar repetição
+  if (data.bullets.length > 0) {
+    const linesSemBullets = lines.filter(l => !bulletLines.includes(l) && !l.includes(data.pergunta));
+    data.resposta = linesSemBullets.join(' ').trim();
+  }
+
   // Se for o template 'voce-sabia', a resposta deve ser curta e impactante
   if (template === 'voce-sabia' && lines.length > 1) {
     data.resposta = lines.find(l => !l.includes('?') && l.length > 20) || lines[1];
