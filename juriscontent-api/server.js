@@ -231,6 +231,11 @@ app.post('/api/gerar-story-ia', async (req, res) => {
       })
     });
 
+    console.log('📝 [STORY-IA] Tamanho do texto enviado para N8N:', texto ? texto.length : 0);
+    try {
+      fs.writeFileSync(path.join(__dirname, 'last-story-ia-input.txt'), `TEXTO ENVIADO: ${texto}`);
+    } catch (e) { }
+
     if (!response.ok) {
       throw new Error(`N8N erro: ${response.status}`);
     }
@@ -356,7 +361,14 @@ app.post('/api/gerar-conteudo', async (req, res) => {
 
     if (!response.ok) throw new Error(`N8N erro: ${response.status}`);
     const data = await response.json();
-    res.json({ content: data.content || data.texto || '' });
+
+    const textoFinal = data.content || data.texto || '';
+    console.log('📝 [CONTEUDO] Tamanho do texto recebido do N8N:', textoFinal.length);
+    try {
+      fs.writeFileSync(path.join(__dirname, 'last-content-n8n.txt'), `TEXTO RECEBIDO: ${textoFinal}`);
+    } catch (e) { }
+
+    res.json({ content: textoFinal });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao gerar conteúdo', details: error.message });
   }
