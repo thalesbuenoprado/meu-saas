@@ -1043,15 +1043,15 @@ function PreviewRedeSocial({ tipo, formato = 'feed', conteudo, usuario, modoComp
 
   // Preview Instagram Stories/Reels (vertical 9:16)
   const PreviewInstagramStories = () => {
-    console.log('🖼️ [PREVIEW STORIES] Renderizando com imagemPreview:', (imagemPreviewRef.current || imagemPreview) ? 'POSSUI' : 'NULL');
+    console.log('🖼️ [PREVIEW STORIES] Renderizando com imagemPreview:', imagemPreview ? 'POSSUI' : 'NULL');
 
     return (
       <div className="bg-black rounded-2xl overflow-hidden max-w-[280px] mx-auto shadow-2xl aspect-[9/16] relative">
         {/* Camada 1: Imagem de Fundo (ou Gradient se não houver) */}
         <div className="absolute inset-0 z-0">
-          {(imagemPreviewRef.current || imagemPreview) ? (
+          {imagemPreview ? (
             <img
-              src={imagemPreviewRef.current || imagemPreview}
+              src={imagemPreview}
               alt="Stories"
               className="w-full h-full object-cover"
               onLoad={() => console.log('✅ [IMG] Stories carregado com sucesso!')}
@@ -1068,7 +1068,7 @@ function PreviewRedeSocial({ tipo, formato = 'feed', conteudo, usuario, modoComp
         </div>
 
         {/* Camada 2: Botão de Zoom (sobre a imagem, mas sob os overlays) */}
-        {(imagemPreviewRef.current || imagemPreview) && onVisualizarImagem && (
+        {imagemPreview && onVisualizarImagem && (
           <button
             onClick={onVisualizarImagem}
             className="absolute inset-0 z-10 bg-black/0 hover:bg-black/20 flex items-center justify-center opacity-0 hover:opacity-100 transition-all cursor-pointer"
