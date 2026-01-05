@@ -132,6 +132,12 @@ app.post('/api/gerar-story', async (req, res) => {
     }
 
     console.log('📱 Gerando Story:', { template, area, tema });
+    console.log('📝 Tamanho do texto recebido:', texto ? texto.length : 0);
+
+    // Debug: Salvar o texto recebido para inspeção
+    try {
+      fs.writeFileSync(path.join(__dirname, 'last-story-text.txt'), `TEMPLATE: ${template}\nTEXTO: ${texto}`);
+    } catch (e) { }
 
     // Extração inteligente de conteúdo
     const content = parseStoryContent(texto || '', tema || '', template);
