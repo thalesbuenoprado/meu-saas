@@ -3567,7 +3567,7 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
                 </>
               ) : (
                 <div
-                  onClick={() => setMostrarConfig(true)}
+                  onClick={() => document.getElementById('identidade-visual-section')?.scrollIntoView({ behavior: 'smooth' })}
                   className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-amber-400/50 bg-slate-700/30 cursor-pointer hover:bg-slate-700/50 transition-all"
                 >
                   <Palette className="w-5 h-5 text-amber-400/50" />
@@ -3582,6 +3582,23 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
                   <AlertCircle className="w-4 h-4" />
                   <span>Complete seu perfil para melhores resultados</span>
                 </div>
+              </div>
+            )}
+            {/* Botões rápidos */}
+            {(logoUser && perfilVisual) && (
+              <div className="flex-1 flex items-center justify-end gap-2">
+                <button
+                  onClick={onAbrirPerfil}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-all"
+                >
+                  Editar Perfil
+                </button>
+                <button
+                  onClick={() => document.getElementById('identidade-visual-section')?.scrollIntoView({ behavior: 'smooth' })}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 transition-all"
+                >
+                  Editar Visual
+                </button>
               </div>
             )}
           </div>
@@ -3736,6 +3753,16 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
               </div>
             )}
 
+            {/* TRENDING TOPICS - APÓS TIPO DE CONTEÚDO */}
+            <TrendingTopicsComponent
+              onSelectTema={handleSelectTrending}
+              areaAtuacao={areaAtuacao}
+            />
+
+            {/* IDENTIDADE VISUAL */}
+            <div id="identidade-visual-section" className="mb-6">
+              <AnaliseLogoComponent />
+            </div>
             {/* Área de Atuação */}
             <div id="campo-areaAtuacao" className={`mb-6 p-3 rounded-lg transition-all ${camposComErro.includes('areaAtuacao') ? 'bg-red-500/10 border border-red-500/50 ring-2 ring-red-500/30' : ''}`}>
               <label className="block text-sm font-medium text-slate-300 mb-3">
@@ -3800,12 +3827,6 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
               )}
             </div>
 
-
-            {/* TRENDING TOPICS - Sugestões baseadas na área */}
-            <TrendingTopicsComponent
-              onSelectTema={handleSelectTrending}
-              areaAtuacao={areaAtuacao}
-            />
             {/* Público-Alvo */}
             <div className="mb-6">
               <div className="flex items-center justify-between mb-2">
