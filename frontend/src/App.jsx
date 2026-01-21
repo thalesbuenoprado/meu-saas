@@ -3867,6 +3867,8 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
                 </div>
               )}
             </div>
+            {!(formatoPost === 'stories' || formatoPost === 'reels') && (
+              <>
                 {/* Tom - Apenas para posts que não são stories */}
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-slate-300 mb-3">Tom do Conteúdo</label>
@@ -4222,6 +4224,6 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
 
         {/* MODAL DE IMAGEM REMOVIDO - GERAÇÃO AGORA É AUTOMÁTICA */}
       </div>
-    </div >
+    </div>
   );
 }
