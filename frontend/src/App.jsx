@@ -357,6 +357,26 @@ function AuthProvider({ children }) {
     await carregarImagens(user.id);
   }
 
+  // Função para fazer fetch autenticado
+  async function fetchAuth(url, options = {}) {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) {
+        throw new Error("Usuário não autenticado");
+      }
+      const headers = {
+        ...options.headers,
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + token
+      };
+      return fetch(url, { ...options, headers });
+    } catch (error) {
+      console.error("Erro fetchAuth:", error);
+      throw error;
+    }
+  }
+
   const value = {
     user,
     perfil,
@@ -370,7 +390,8 @@ function AuthProvider({ children }) {
     uploadLogo,
     salvarImagemGerada,
     deletarImagem,
-    recarregarImagens: () => user && carregarImagens(user.id)
+    recarregarImagens: () => user && carregarImagens(user.id),
+    fetchAuth
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -753,7 +774,7 @@ function GaleriaImagensModal({ isOpen, onClose }) {
 // MODAL PERFIL DO USUÁRIO
 // =====================================================
 function PerfilUsuarioModal({ isOpen, onClose }) {
-  const { user, perfil, atualizarPerfil, uploadLogo, minhasImagens } = useAuth();
+  const { user, perfil, atualizarPerfil, uploadLogo, minhasImagens, fetchAuth } = useAuth();
   const fileRef = useRef(null);
 
   const [loading, setLoading] = useState(false);
@@ -791,7 +812,7 @@ function PerfilUsuarioModal({ isOpen, onClose }) {
   const removerFundoLogo = async (base64) => {
     try {
       console.log('🎨 Removendo fundo da logo...');
-      const response = await fetch('https://blasterskd.com.br/api/remover-fundo', {
+      const response = await fetchAuth('https://blasterskd.com.br/api/remover-fundo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ logo: base64 })
@@ -2008,10 +2029,87 @@ function TrendingTopicsComponent({ onSelectTema, areaAtuacao }) {
 // COMPONENTE DE IDENTIDADE VISUAL
 // ====================================
 function AnaliseLogoComponent() {
+  const { fetchAuth } = useAuth();
   const [perfilVisual, setPerfilVisual] = useState(null);
   const [logoPreview, setLogoPreview] = useState(null);
   const [loadingAnalise, setLoadingAnalise] = useState(false);
   const [mostrarConfig, setMostrarConfig] = useState(false);
+
+  // Paletas pré-definidas para advogados
+  const PALETAS_PROFISSIONAIS = [
+    {
+      id: 'classico',
+      nome: 'Clássico',
+      desc: 'Tradicional e confiável',
+      cores_principais: ['#1e3a5f', '#d4af37', '#0d1b2a'],
+      cor_primaria: '#1e3a5f',
+      cor_secundaria: '#d4af37',
+      cor_acento: '#d4af37',
+      estilo_visual: 'Clássico'
+    },
+    {
+      id: 'moderno',
+      nome: 'Moderno',
+      desc: 'Clean e atual',
+      cores_principais: ['#2d3748', '#4299e1', '#1a202c'],
+      cor_primaria: '#2d3748',
+      cor_secundaria: '#4299e1',
+      cor_acento: '#4299e1',
+      estilo_visual: 'Moderno'
+    },
+    {
+      id: 'executivo',
+      nome: 'Executivo',
+      desc: 'Elegante e sofisticado',
+      cores_principais: ['#1a1a2e', '#c9a050', '#16213e'],
+      cor_primaria: '#1a1a2e',
+      cor_secundaria: '#c9a050',
+      cor_acento: '#c9a050',
+      estilo_visual: 'Executivo'
+    },
+    {
+      id: 'minimalista',
+      nome: 'Minimalista',
+      desc: 'Simples e direto',
+      cores_principais: ['#374151', '#9ca3af', '#111827'],
+      cor_primaria: '#374151',
+      cor_secundaria: '#9ca3af',
+      cor_acento: '#f59e0b',
+      estilo_visual: 'Minimalista'
+    },
+    {
+      id: 'corporativo',
+      nome: 'Corporativo',
+      desc: 'Profissional e sério',
+      cores_principais: ['#1e40af', '#fbbf24', '#1e3a8a'],
+      cor_primaria: '#1e40af',
+      cor_secundaria: '#fbbf24',
+      cor_acento: '#fbbf24',
+      estilo_visual: 'Corporativo'
+    },
+    {
+      id: 'verde',
+      nome: 'Verde Advocacia',
+      desc: 'Natureza e equilíbrio',
+      cores_principais: ['#065f46', '#d4af37', '#064e3b'],
+      cor_primaria: '#065f46',
+      cor_secundaria: '#d4af37',
+      cor_acento: '#d4af37',
+      estilo_visual: 'Verde'
+    }
+  ];
+
+  const selecionarPaleta = (paleta) => {
+    try {
+      localStorage.setItem('perfil-visual-advogado', JSON.stringify(paleta));
+    } catch (e) {
+      console.log('Erro ao salvar no localStorage');
+    }
+    setPerfilVisual(paleta);
+    // Disparar evento para sincronizar com CriadorCompleto
+    window.dispatchEvent(new Event("perfilVisualAtualizado"));
+    setLogoPreview(null);
+  };
 
   useEffect(() => {
     const carregarPerfil = async () => {
@@ -2047,7 +2145,7 @@ function AnaliseLogoComponent() {
         console.log('📤 Enviando logo para análise...');
 
         // Usar backend local (evita problemas de CORS)
-        const response = await fetch('https://blasterskd.com.br/api/analisar-logo', {
+        const response = await fetchAuth('https://blasterskd.com.br/api/analisar-logo', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ logo: base64 })
@@ -2130,6 +2228,43 @@ function AnaliseLogoComponent() {
 
       {mostrarConfig && (
         <div className="space-y-4">
+          {/* Paletas Pré-definidas */}
+          <div className="mb-4">
+            <p className="text-sm text-slate-300 mb-3">Escolha uma paleta profissional:</p>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {PALETAS_PROFISSIONAIS.map((paleta) => (
+                <button
+                  key={paleta.id}
+                  onClick={() => selecionarPaleta(paleta)}
+                  className={`p-3 rounded-lg border transition-all text-left ${
+                    perfilVisual?.id === paleta.id
+                      ? 'border-amber-400 bg-amber-400/10'
+                      : 'border-slate-600 hover:border-slate-500 bg-slate-700/50'
+                  }`}
+                >
+                  <div className="flex gap-1 mb-2">
+                    {paleta.cores_principais.map((cor, idx) => (
+                      <div
+                        key={idx}
+                        className="w-5 h-5 rounded-full border border-slate-500"
+                        style={{ backgroundColor: cor }}
+                      />
+                    ))}
+                  </div>
+                  <div className={`text-sm font-medium ${perfilVisual?.id === paleta.id ? 'text-amber-400' : 'text-white'}`}>
+                    {paleta.nome}
+                  </div>
+                  <div className="text-xs text-slate-400">{paleta.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+          {/* Divisor */}
+          <div className="flex items-center gap-3 my-4">
+            <div className="flex-1 h-px bg-slate-600"></div>
+            <span className="text-xs text-slate-500">ou analise sua logo</span>
+            <div className="flex-1 h-px bg-slate-600"></div>
+          </div>
           {!perfilVisual && (
             <div className="relative border-2 border-dashed border-slate-600 rounded-lg p-8 hover:border-amber-400 transition-colors">
               <input
@@ -2355,6 +2490,7 @@ function ConfiguracoesLogo({ user, onSaveLogo, onClose }) {
 // COMPONENTE DE LOGIN
 // ====================================
 function CriadorCompleto({ user, onLogout, onAbrirGaleria, onAbrirPerfil, onSalvarImagem }) {
+  const { fetchAuth, perfil } = useAuth();
   // DADOS ESTÁTICOS
   const DADOS = {
     tiposConteudo: [
@@ -2458,10 +2594,8 @@ function CriadorCompleto({ user, onLogout, onAbrirGaleria, onAbrirPerfil, onSalv
     ],
     templatesStory: [
       { id: 'voce-sabia', nome: 'Você Sabia?', desc: 'Perguntas e curiosidades', icon: '❓' },
-      { id: 'bullets', nome: 'Dicas/Lista', desc: 'Lista de direitos ou dicas', icon: '📋' },
       { id: 'estatistica', nome: 'Estatística', desc: 'Dados e números impactantes', icon: '📊' },
       { id: 'urgente', nome: 'Urgente/Alerta', desc: 'Prazos e avisos importantes', icon: '🚨' },
-      { id: 'premium', nome: 'Premium', desc: 'Elegante e sofisticado', icon: '✨' }
     ],
     estilosImagem: [
       {
@@ -2520,6 +2654,8 @@ function CriadorCompleto({ user, onLogout, onAbrirGaleria, onAbrirPerfil, onSalv
   const [imagemGerada, setImagemGerada] = useState(null);
 
   const [loadingImagem, setLoadingImagem] = useState(false);
+  const [modoImagem, setModoImagem] = useState(null); // 'upload' ou 'gerar' ou null
+  const [imagemUpload, setImagemUpload] = useState(null);
   const [imagemCarregada, setImagemCarregada] = useState(false);
   const [linkCopiado, setLinkCopiado] = useState(false);
   const [perfilVisual, setPerfilVisual] = useState(null);
@@ -2568,8 +2704,17 @@ function CriadorCompleto({ user, onLogout, onAbrirGaleria, onAbrirPerfil, onSalv
       }
     };
     carregarPerfil();
+    // Listener para mudanças no localStorage (quando paleta é selecionada)
+    const handleStorageChange = () => {
+      carregarPerfil();
+    };
+    window.addEventListener("storage", handleStorageChange);
+    window.addEventListener("perfilVisualAtualizado", handleStorageChange);
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("perfilVisualAtualizado", handleStorageChange);
+    };
   }, []);
-
   // Estados para configurações e logo
   const [mostrarConfig, setMostrarConfig] = useState(false);
   const [logoUser, setLogoUser] = useState(user.logo || null);
@@ -2579,7 +2724,7 @@ function CriadorCompleto({ user, onLogout, onAbrirGaleria, onAbrirPerfil, onSalv
   // Atualizar logoUser quando user.logo mudar (ex: após upload no perfil)
   useEffect(() => {
     if (user.logo) {
-      console.log('🖼️ Logo atualizada:', user.logo.substring(0, 50) + '...');
+      console.log('🖼️ Logo atualizada');
       setLogoUser(user.logo);
     }
   }, [user.logo]);
@@ -2653,7 +2798,7 @@ function CriadorCompleto({ user, onLogout, onAbrirGaleria, onAbrirPerfil, onSalv
     try {
       const prompt = construirPrompt();
 
-      const response = await fetch('https://blasterskd.com.br/api/gerar-conteudo', {
+      const response = await fetchAuth('https://blasterskd.com.br/api/gerar-conteudo', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt })
@@ -2679,11 +2824,17 @@ function CriadorCompleto({ user, onLogout, onAbrirGaleria, onAbrirPerfil, onSalv
         (tipoConteudo === 'post-facebook') ? 'landscape' : 'quadrado';
 
       // Chamar geração de imagem sem bloquear a UI (async)
-      setLoadingImagem(true);
+      // Stories/Reels gera automaticamente, Feed o usuário escolhe
       setImagemPreview(null);
       if (imagemPreviewRef.current) imagemPreviewRef.current = null;
-      console.log('🚀 Iniciando geração de imagem automática:', formatoAuto);
-      gerarImagem(limparConteudo(data.content), formatoAuto);
+      setModoImagem(null);
+      setImagemUpload(null);
+      
+      // Apenas Stories/Reels gera imagem automaticamente
+      if (formatoPost === 'stories' || formatoPost === 'reels') {
+        setLoadingImagem(true);
+        gerarImagem(limparConteudo(data.content), 'stories');
+      }
     } catch (error) {
       console.error('Erro:', error);
       alert('❌ Erro ao gerar conteúdo: ' + error.message);
@@ -2716,6 +2867,7 @@ function CriadorCompleto({ user, onLogout, onAbrirGaleria, onAbrirPerfil, onSalv
     };
 
     const config = tamanhoConfig[tamanho] || tamanhoConfig['medio'];
+    const isStoriesReels = tipoConteudo === 'post-instagram' && (formatoPost === 'stories' || formatoPost === 'reels');
 
     let prompt = `Você é um advogado brasileiro especialista em marketing jurídico e criação de conteúdo para redes sociais.
 
@@ -2724,16 +2876,19 @@ TAREFA: Criar um ${tipo?.nome} sobre "${tema}" na área de ${areaNome}.
 PÚBLICO-ALVO: ${publicoAlvo || 'público geral interessado em direito'}
 
 TOM: ${tom} (${tom === 'profissional' ? 'autoridade e credibilidade' : tom === 'didatico' ? 'explicativo e educativo' : tom === 'acessivel' ? 'simples e fácil de entender' : 'motivador e engajador'})
+`;
 
+    // Só adicionar instruções de tamanho para Feed (não Stories)
+    if (!isStoriesReels) {
+      prompt += `
 ⚠️ TAMANHO DO TEXTO - OBRIGATÓRIO RESPEITAR:
 - Extensão: ${config.palavras}
 - Instrução: ${config.instrucao}
 - Quantidade de hashtags: ${config.hashtags}
-
 `;
+    }
 
     if (tipoConteudo === 'post-instagram') {
-      const isStoriesReels = formatoPost === 'stories' || formatoPost === 'reels';
 
       if (isStoriesReels) {
         // Obter template selecionado para stories
@@ -2776,7 +2931,7 @@ ESTRUTURA PARA ESTE TEMPLATE (${template.nome}):
         prompt += `
 
 REGRAS GERAIS:
-- Máximo 50-80 palavras no total
+- Máximo 30-40 palavras no total
 - Frases MUITO curtas (máximo 10 palavras por frase)
 - Use emojis para dar destaque
 - Linguagem direta e urgente
@@ -3090,11 +3245,11 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
       if (formatoUsar === 'stories') {
         console.log('📱 Gerando Story com template:', templateStory);
 
-        const storyResponse = await fetch('https://blasterskd.com.br/api/gerar-story', {
+        const storyResponse = await fetchAuth('https://blasterskd.com.br/api/gerar-story', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            texto: textoUsar,
+            texto: textoUsar?.substring(0, 600),
             tema: tema,
             area: areaAtuacao,
             template: templateStory,
@@ -3102,7 +3257,8 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
             nome_advogado: user?.nome || user?.nome || '',
             oab: user?.oab || user?.oab || '',
             telefone: user?.telefone || '',
-            instagram: user?.instagram || ''
+            instagram: user?.instagram || '',
+            logo: logoUser || perfil?.logo_url || '',
           })
         });
 
@@ -3146,7 +3302,7 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
       console.log('📝 Gerando prompt e bullets...');
 
       // Usar backend local (evita problemas de CORS)
-      const n8nResponse = await fetch('https://blasterskd.com.br/api/gerar-prompt-imagem', {
+      const n8nResponse = await fetchAuth('https://blasterskd.com.br/api/gerar-prompt-imagem', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -3154,7 +3310,7 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
           area: areaAtuacao,
           estilo: estiloImagem,
           formato: formatoUsar,
-          texto: textoUsar,
+          texto: textoUsar?.substring(0, 600),
           perfil_visual: perfilVisual
         })
       });
@@ -3240,7 +3396,7 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
 
       console.log('🎨 Cores a enviar:', { corPrimaria, corSecundaria, corAcento });
 
-      const backendResponse = await fetch('https://blasterskd.com.br/api/gerar-imagem', {
+      const backendResponse = await fetchAuth('https://blasterskd.com.br/api/gerar-imagem', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -3249,6 +3405,8 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
           area: areaAtuacao,
           nomeAdvogado: user.nome,
           oab: user.oab,
+          instagram: user.instagram || '',
+          instagram: user.instagram || '',
           email: '',
           telefone: '',
           formato: formatoUsar,
@@ -3277,6 +3435,7 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
       }
 
       console.log('📸 Atualizando estados com a imagem...');
+      imagemPreviewRef.current = backendData.imageUrl;
       setImagemGerada(backendData.imageUrl);
       setImagemPreview(backendData.imageUrl);
       console.log('✅ Estados atualizados! imagemPreview agora é:', backendData.imageUrl.substring(0, 50));
@@ -3369,6 +3528,81 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
           </div>
         </div>
 
+        {/* CARD DE PERFIL E IDENTIDADE VISUAL */}
+        <div className={`mb-6 p-4 rounded-xl border ${(!logoUser || !perfilVisual) ? 'bg-amber-500/10 border-amber-500/50' : 'bg-slate-800/50 border-slate-700'}`}>
+          <div className="flex flex-wrap items-center gap-4">
+            {/* Logo */}
+            <div className="flex items-center gap-3">
+              {logoUser ? (
+                <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-amber-400 bg-slate-700">
+                  <img src={logoUser} alt="Logo" className="w-full h-full object-cover" />
+                </div>
+              ) : (
+                <div
+                  onClick={onAbrirPerfil}
+                  className="w-14 h-14 rounded-full border-2 border-dashed border-amber-400/50 bg-slate-700/50 flex items-center justify-center cursor-pointer hover:bg-slate-700 transition-all"
+                >
+                  <Camera className="w-6 h-6 text-amber-400/50" />
+                </div>
+              )}
+              <div>
+                <div className="font-semibold text-white">{user.nome || 'Seu Nome'}</div>
+                <div className="text-xs text-slate-400">{user.oab || 'OAB não informada'}</div>
+              </div>
+            </div>
+            {/* Separador */}
+            <div className="hidden sm:block w-px h-10 bg-slate-600" />
+            {/* Identidade Visual */}
+            <div className="flex items-center gap-3">
+              {perfilVisual ? (
+                <>
+                  <div className="flex gap-1">
+                    {perfilVisual.cores_principais?.slice(0, 3).map((cor, idx) => (
+                      <div key={idx} className="w-6 h-6 rounded-full border border-slate-600" style={{ backgroundColor: cor }} />
+                    ))}
+                  </div>
+                  <div className="text-sm text-slate-300">
+                    <span className="text-amber-400 font-medium">Estilo:</span> {perfilVisual.estilo_visual || 'Definido'}
+                  </div>
+                </>
+              ) : (
+                <div
+                  onClick={() => document.getElementById('identidade-visual-section')?.scrollIntoView({ behavior: 'smooth' })}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-amber-400/50 bg-slate-700/30 cursor-pointer hover:bg-slate-700/50 transition-all"
+                >
+                  <Palette className="w-5 h-5 text-amber-400/50" />
+                  <span className="text-sm text-amber-400/70">Definir identidade visual</span>
+                </div>
+              )}
+            </div>
+            {/* Alerta se faltar algo */}
+            {(!logoUser || !perfilVisual) && (
+              <div className="flex-1 flex items-center justify-end">
+                <div className="flex items-center gap-2 text-amber-400 text-sm">
+                  <AlertCircle className="w-4 h-4" />
+                  <span>Complete seu perfil para melhores resultados</span>
+                </div>
+              </div>
+            )}
+            {/* Botões rápidos */}
+            {(logoUser && perfilVisual) && (
+              <div className="flex-1 flex items-center justify-end gap-2">
+                <button
+                  onClick={onAbrirPerfil}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-all"
+                >
+                  Editar Perfil
+                </button>
+                <button
+                  onClick={() => document.getElementById('identidade-visual-section')?.scrollIntoView({ behavior: 'smooth' })}
+                  className="text-xs px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 transition-all"
+                >
+                  Editar Visual
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
         {/* GRID PRINCIPAL */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* COLUNA ESQUERDA - FORMULÁRIO */}
@@ -3483,6 +3717,41 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
                 </div>
               );
             })()}
+            {/* ESTILOS DE STORY - Aparece logo após selecionar Stories/Reels */}
+            {(formatoPost === 'stories' || formatoPost === 'reels') && (
+              <div className="mb-6 p-3 rounded-lg bg-slate-800/50 border border-slate-700">
+                <label className="block text-sm font-medium text-slate-300 mb-3">Estilo do {formatoPost === 'stories' ? 'Story' : 'Reels'}</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  {DADOS.templatesStory.map((t) => (
+                    <button
+                      key={t.id}
+                      onClick={() => setTemplateStory(t.id)}
+                      className={`p-1.5 rounded-xl border transition-all text-left flex items-center gap-3 relative overflow-hidden group ${templateStory === t.id
+                        ? 'border-amber-400 bg-amber-400/10'
+                        : 'border-slate-700 hover:border-slate-600 bg-slate-800/40 text-slate-300'
+                        }`}
+                    >
+                      <MiniStoryPreview template={t.id} />
+                      <div className="flex-1 pr-2">
+                        <div className={`font-bold text-sm ${templateStory === t.id ? 'text-amber-400' : 'text-slate-100'}`}>
+                          {t.nome}
+                        </div>
+                        <div className={`text-[10px] leading-tight mt-1 line-clamp-2 ${templateStory === t.id ? 'text-amber-400/70' : 'text-slate-500'}`}>
+                          {t.desc}
+                        </div>
+                      </div>
+                      {templateStory === t.id && (
+                        <div className="absolute top-2 right-2">
+                          <div className="w-4 h-4 bg-amber-400 rounded-full flex items-center justify-center">
+                            <Check className="w-2.5 h-2.5 text-slate-900" />
+                          </div>
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* TRENDING TOPICS - APÓS TIPO DE CONTEÚDO */}
             <TrendingTopicsComponent
@@ -3490,11 +3759,10 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
               areaAtuacao={areaAtuacao}
             />
 
-            {/* IDENTIDADE VISUAL - MOVIDO PARA CIMA */}
-            <div className="mb-6">
+            {/* IDENTIDADE VISUAL */}
+            <div id="identidade-visual-section" className="mb-6">
               <AnaliseLogoComponent />
             </div>
-
             {/* Área de Atuação */}
             <div id="campo-areaAtuacao" className={`mb-6 p-3 rounded-lg transition-all ${camposComErro.includes('areaAtuacao') ? 'bg-red-500/10 border border-red-500/50 ring-2 ring-red-500/30' : ''}`}>
               <label className="block text-sm font-medium text-slate-300 mb-3">
@@ -3599,43 +3867,6 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
                 </div>
               )}
             </div>
-
-            {/* TIPO DE STORY/TEMPLATE - Apenas para stories/reels */}
-            {(formatoPost === 'stories' || formatoPost === 'reels') ? (
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-slate-300 mb-3">Estilo do {formatoPost === 'stories' ? 'Story' : 'Reels'}</label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                  {DADOS.templatesStory.map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => setTemplateStory(t.id)}
-                      className={`p-1.5 rounded-xl border transition-all text-left flex items-center gap-3 relative overflow-hidden group ${templateStory === t.id
-                        ? 'border-amber-400 bg-amber-400/10'
-                        : 'border-slate-700 hover:border-slate-600 bg-slate-800/40 text-slate-300'
-                        }`}
-                    >
-                      <MiniStoryPreview template={t.id} />
-                      <div className="flex-1 pr-2">
-                        <div className={`font-bold text-sm ${templateStory === t.id ? 'text-amber-400' : 'text-slate-100'}`}>
-                          {t.nome}
-                        </div>
-                        <div className={`text-[10px] leading-tight mt-1 line-clamp-2 ${templateStory === t.id ? 'text-amber-400/70' : 'text-slate-500'}`}>
-                          {t.desc}
-                        </div>
-                      </div>
-                      {templateStory === t.id && (
-                        <div className="absolute top-2 right-2">
-                          <div className="w-4 h-4 bg-amber-400 rounded-full flex items-center justify-center">
-                            <Check className="w-2.5 h-2.5 text-slate-900" />
-                          </div>
-                        </div>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <>
                 {/* Tom - Apenas para posts que não são stories */}
                 <div className="mb-6">
                   <label className="block text-sm font-medium text-slate-300 mb-3">Tom do Conteúdo</label>
@@ -3744,13 +3975,40 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
                     {copiado ? 'Copiado!' : 'Copiar'}
                   </button>
                   {/* Botão de imagem removido - agora é automático */}
-                  <button
-                    onClick={publicarNaRede}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 rounded-lg text-white text-sm transition-all font-medium"
-                  >
-                    <Share2 className="w-4 h-4" />
-                    Publicar
-                  </button>
+                  {imagemPreview && (
+                    <>
+                      <button
+                        onClick={async () => {
+                          const response = await fetch(imagemPreview);
+                          const blob = await response.blob();
+                          const url = window.URL.createObjectURL(blob);
+                          const a = document.createElement("a");
+                          a.href = url;
+                          a.download = "juriscontent-post.png";
+                          a.click();
+                          window.URL.revokeObjectURL(url);
+                        }}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 rounded-lg text-white text-sm transition-all font-medium"
+                      >
+                        <Download className="w-4 h-4" />
+                        Baixar
+                      </button>
+                      <button
+                        onClick={() => window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(imagemPreview), "_blank")}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-700 rounded-lg text-white text-sm transition-all font-medium"
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                        WhatsApp
+                      </button>
+                      <button
+                        onClick={() => { navigator.clipboard.writeText(imagemPreview); alert("Link copiado!"); }}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-slate-600 hover:bg-slate-500 rounded-lg text-white text-sm transition-all font-medium"
+                      >
+                        <Link2 className="w-4 h-4" />
+                        Link
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -3772,17 +4030,63 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
                   </div>
                 ) : (
                   /* MODO PREVIEW */
-                  <PreviewRedeSocial
-                    key={imagemPreviewRef.current || imagemPreview || 'no-image'} // Força re-render quando imagem muda
-                    tipo={tipoConteudo}
-                    formato={formatoPost || 'feed'}
-                    conteudo={conteudoGerado}
-                    usuario={user}
-                    modoCompleto={true}
-                    imagemPreview={imagemPreviewRef.current || imagemPreview}
-                    onVisualizarImagem={imagemPreview ? () => setMostrarImagemFull(true) : null}
-                    loadingImagem={loadingImagem}
-                  />
+                  <div className="flex flex-col h-full">
+                    {/* OPÇÕES DE IMAGEM - apenas para Feed */}
+                    {formatoPost === 'feed' && !loadingImagem && (
+                      <div className="mb-4 p-4 bg-slate-700/50 rounded-xl border border-slate-600">
+                        <p className="text-sm text-slate-300 mb-3 text-center">
+                          {imagemPreview ? 'Trocar imagem:' : 'Como deseja adicionar a imagem?'}
+                        </p>
+                        <div className="flex gap-3 justify-center flex-wrap">
+                          <label className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-white text-sm cursor-pointer transition-all">
+                            <Upload className="w-4 h-4" />
+                            {imagemPreview ? 'Enviar outra' : 'Fazer Upload'}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={async (e) => {
+                                const file = e.target.files[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onload = async (event) => {
+                                    const base64 = event.target.result;
+                                    setImagemUpload(base64);
+                                    setImagemPreview(base64);
+                                    imagemPreviewRef.current = base64;
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                            />
+                          </label>
+                          <button
+                            onClick={() => {
+                              setLoadingImagem(true);
+                              gerarImagem(limparConteudo(conteudoGerado), 'quadrado');
+                            }}
+                            className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 rounded-lg text-white text-sm transition-all"
+                          >
+                            <Sparkles className="w-4 h-4" />
+                            {imagemPreview ? 'Gerar nova' : 'Gerar com IA'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    <div className="flex-1 min-h-0">
+                      <PreviewRedeSocial
+                        key={imagemPreviewRef.current || imagemPreview || 'no-image'}
+                        tipo={tipoConteudo}
+                        formato={formatoPost || 'feed'}
+                        conteudo={conteudoGerado}
+                        usuario={user}
+                        modoCompleto={true}
+                        imagemPreview={imagemPreviewRef.current || imagemPreview}
+                        onVisualizarImagem={imagemPreview ? () => setMostrarImagemFull(true) : null}
+                        loadingImagem={loadingImagem}
+                      />
+                    </div>
+                  </div>
                 )
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-slate-400 text-center py-20">
@@ -3835,6 +4139,56 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
                   <Download className="w-4 h-4" />
                   Baixar Imagem
                 </a>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (navigator.share) {
+                      navigator.share({ title: "Post Jurídico", url: imagemPreview });
+                    } else {
+                      window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(imagemPreview), "_blank");
+                    }
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-white text-sm transition-all"
+                >
+                  <Share2 className="w-4 h-4" />
+                  Compartilhar
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigator.clipboard.writeText(imagemPreview);
+                    alert("Link copiado!");
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-slate-600 hover:bg-slate-500 rounded-lg text-white text-sm transition-all"
+                >
+                  <Link2 className="w-4 h-4" />
+                  Copiar Link
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (navigator.share) {
+                      navigator.share({ title: "Post Jurídico", url: imagemPreview });
+                    } else {
+                      window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(imagemPreview), "_blank");
+                    }
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-lg text-white text-sm transition-all"
+                >
+                  <Share2 className="w-4 h-4" />
+                  Compartilhar
+                </button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigator.clipboard.writeText(imagemPreview);
+                    alert("Link copiado!");
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-slate-600 hover:bg-slate-500 rounded-lg text-white text-sm transition-all"
+                >
+                  <Link2 className="w-4 h-4" />
+                  Copiar Link
+                </button>
               </div>
             </div>
           </div>
