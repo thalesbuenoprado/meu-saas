@@ -6,7 +6,7 @@
 
 import { Share2, Link2 } from 'lucide-react';
 import React, { useState, useEffect, createContext, useContext, useRef } from 'react';
-import { Scale, Loader2, Eye, EyeOff, LogOut, Copy, Check, Image as ImageIcon, Download, X, Lightbulb, Users, Settings, Upload, Palette, TrendingUp, Flame, RefreshCw, Sparkles, Instagram, Facebook, Linkedin, Twitter, FileText, MessageCircle, Edit3, ZoomIn, Mail, Lock, User, Award, AlertCircle, CheckCircle, Camera, Save, Phone, Trash2, ExternalLink, Calendar, Tag, FolderOpen, ChevronUp } from 'lucide-react';
+import { Scale, Loader2, Eye, EyeOff, LogOut, Copy, Check, Image as ImageIcon, Download, X, Lightbulb, Users, Settings, Upload, Palette, TrendingUp, Flame, RefreshCw, Sparkles, Instagram, Facebook, Linkedin, Twitter, FileText, MessageCircle, Edit3, ZoomIn, Mail, Lock, User, Award, AlertCircle, CheckCircle, Camera, Save, Phone, Trash2, ExternalLink, Calendar, Tag, FolderOpen, ChevronUp, Clock } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
 // =====================================================
@@ -48,6 +48,7 @@ function AuthProvider({ children }) {
   const [perfil, setPerfil] = useState(null);
   const [loading, setLoading] = useState(true);
   const [minhasImagens, setMinhasImagens] = useState([]);
+  const [meusAgendamentos, setMeusAgendamentos] = useState([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -84,6 +85,7 @@ function AuthProvider({ children }) {
           // Carregar dados em paralelo, sem bloquear
           carregarPerfil(session.user.id);
           carregarImagens(session.user.id);
+          carregarAgendamentos(session.user.id);
         }
 
         setLoading(false);
@@ -108,9 +110,11 @@ function AuthProvider({ children }) {
         if (session?.user) {
           carregarPerfil(session.user.id);
           carregarImagens(session.user.id);
+          carregarAgendamentos(session.user.id);
         } else {
           setPerfil(null);
           setMinhasImagens([]);
+          setMeusAgendamentos([]);
         }
         setLoading(false);
       }
@@ -357,6 +361,84 @@ function AuthProvider({ children }) {
     await carregarImagens(user.id);
   }
 
+  // =====================================================
+  // FUNÇÕES DE AGENDAMENTO
+  // =====================================================
+  async function carregarAgendamentos(userId) {
+    try {
+      console.log('📅 Carregando agendamentos...');
+      
+      const { data, error } = await supabase
+        .from('agendamentos')
+        .select('*')
+        .eq('user_id', userId)
+        .order('data_agendada', { ascending: true });
+      
+      if (error) throw error;
+      
+      console.log('✅ Agendamentos carregados:', data?.length || 0);
+      setMeusAgendamentos(data || []);
+    } catch (error) {
+      console.error('❌ Erro ao carregar agendamentos:', error);
+    }
+  }
+
+  async function criarAgendamento(dados) {
+    if (!user) throw new Error('Usuário não autenticado');
+    
+    console.log('📅 Criando agendamento:', dados);
+    
+    const { data, error } = await supabase
+      .from('agendamentos')
+      .insert({
+        user_id: user.id,
+        titulo: dados.titulo,
+        conteudo: dados.conteudo,
+        imagem_url: dados.imagemUrl || null,
+        rede_social: dados.redeSocial || 'instagram',
+        data_agendada: dados.dataAgendada,
+        email_usuario: user.email,
+        nome_usuario: perfil?.nome || user.email?.split('@')[0],
+        status: 'pendente'
+      })
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    console.log('✅ Agendamento criado:', data);
+    await carregarAgendamentos(user.id);
+    return data;
+  }
+
+  async function cancelarAgendamento(agendamentoId) {
+    if (!user) throw new Error('Usuário não autenticado');
+    
+    const { error } = await supabase
+      .from('agendamentos')
+      .update({ status: 'cancelado' })
+      .eq('id', agendamentoId)
+      .eq('user_id', user.id);
+    
+    if (error) throw error;
+    
+    await carregarAgendamentos(user.id);
+  }
+
+  async function deletarAgendamento(agendamentoId) {
+    if (!user) throw new Error('Usuário não autenticado');
+    
+    const { error } = await supabase
+      .from('agendamentos')
+      .delete()
+      .eq('id', agendamentoId)
+      .eq('user_id', user.id);
+    
+    if (error) throw error;
+    
+    await carregarAgendamentos(user.id);
+  }
+
   // Função para fazer fetch autenticado
   async function fetchAuth(url, options = {}) {
     try {
@@ -382,6 +464,7 @@ function AuthProvider({ children }) {
     perfil,
     loading,
     minhasImagens,
+    meusAgendamentos,
     fazerLogin,
     fazerRegistro,
     loginGoogle,
@@ -391,6 +474,10 @@ function AuthProvider({ children }) {
     salvarImagemGerada,
     deletarImagem,
     recarregarImagens: () => user && carregarImagens(user.id),
+    criarAgendamento,
+    cancelarAgendamento,
+    deletarAgendamento,
+    recarregarAgendamentos: () => user && carregarAgendamentos(user.id),
     fetchAuth
   };
 
@@ -399,6 +486,400 @@ function AuthProvider({ children }) {
 
 function useAuth() {
   return useContext(AuthContext);
+}
+
+// =====================================================
+// COMPONENTES DE AGENDAMENTO
+// =====================================================
+
+function ModalAgendar({ isOpen, onClose, conteudo, imagemUrl, titulo }) {
+  const { criarAgendamento } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const [erro, setErro] = useState('');
+  const [sucesso, setSucesso] = useState(false);
+  
+  const [dataAgendada, setDataAgendada] = useState('');
+  const [horaAgendada, setHoraAgendada] = useState('');
+  const [redeSocial, setRedeSocial] = useState('instagram');
+  
+  const agora = new Date();
+  const minDate = agora.toISOString().split('T')[0];
+  
+  useEffect(() => {
+    if (isOpen) {
+      setErro('');
+      setSucesso(false);
+      setDataAgendada('');
+      setHoraAgendada('');
+      
+      const sugestao = new Date(agora.getTime() + 2 * 60 * 60 * 1000);
+      setDataAgendada(sugestao.toISOString().split('T')[0]);
+      setHoraAgendada(sugestao.toTimeString().slice(0, 5));
+    }
+  }, [isOpen]);
+  
+  const handleAgendar = async () => {
+    if (!dataAgendada || !horaAgendada) {
+      setErro('Selecione data e hora');
+      return;
+    }
+    
+    const dataHora = new Date(`${dataAgendada}T${horaAgendada}:00`);
+    
+    if (dataHora <= new Date()) {
+      setErro('A data/hora deve ser no futuro');
+      return;
+    }
+    
+    setLoading(true);
+    setErro('');
+    
+    try {
+      await criarAgendamento({
+        titulo: titulo || 'Post Jurídico',
+        conteudo: conteudo,
+        imagemUrl: imagemUrl,
+        redeSocial: redeSocial,
+        dataAgendada: dataHora.toISOString()
+      });
+      
+      setSucesso(true);
+      setTimeout(() => {
+        onClose();
+      }, 2000);
+    } catch (error) {
+      console.error('Erro ao agendar:', error);
+      setErro(error.message || 'Erro ao criar agendamento');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  if (!isOpen) return null;
+  
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-slate-800 rounded-2xl max-w-md w-full p-6 relative">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
+              <Calendar className="w-5 h-5 text-amber-400" />
+            </div>
+            <h2 className="text-xl font-bold text-white">Agendar Post</h2>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-white">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+        
+        {sucesso ? (
+          <div className="text-center py-8">
+            <div className="w-16 h-16 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4">
+              <CheckCircle className="w-8 h-8 text-green-400" />
+            </div>
+            <h3 className="text-lg font-semibold text-white mb-2">Agendado com Sucesso!</h3>
+            <p className="text-slate-400">
+              Você receberá um email no horário agendado com o conteúdo pronto para postar.
+            </p>
+          </div>
+        ) : (
+          <>
+            <div className="bg-slate-700/50 rounded-xl p-4 mb-6">
+              <p className="text-sm text-slate-400 mb-2">Conteúdo a ser enviado:</p>
+              <p className="text-white text-sm line-clamp-3">{conteudo?.substring(0, 150)}...</p>
+              {imagemUrl && (
+                <div className="mt-2 flex items-center gap-2 text-amber-400 text-sm">
+                  <ImageIcon className="w-4 h-4" />
+                  <span>Imagem anexada</span>
+                </div>
+              )}
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Rede Social
+              </label>
+              <div className="flex gap-2">
+                {[
+                  { id: 'instagram', icon: Instagram, label: 'Instagram' },
+                  { id: 'linkedin', icon: Linkedin, label: 'LinkedIn' },
+                  { id: 'facebook', icon: Facebook, label: 'Facebook' },
+                ].map(rede => (
+                  <button
+                    key={rede.id}
+                    onClick={() => setRedeSocial(rede.id)}
+                    className={`flex-1 py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-all ${
+                      redeSocial === rede.id
+                        ? 'bg-amber-500 text-slate-900'
+                        : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                    }`}
+                  >
+                    <rede.icon className="w-4 h-4" />
+                    <span className="text-sm">{rede.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Data
+                </label>
+                <input
+                  type="date"
+                  value={dataAgendada}
+                  onChange={(e) => setDataAgendada(e.target.value)}
+                  min={minDate}
+                  className="w-full px-4 py-2.5 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Hora
+                </label>
+                <input
+                  type="time"
+                  value={horaAgendada}
+                  onChange={(e) => setHoraAgendada(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-700 border border-slate-600 rounded-lg text-white focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+            
+            <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-3 mb-6">
+              <p className="text-sm text-blue-300">
+                <strong>Como funciona:</strong> No horário agendado, você receberá um email 
+                com o conteúdo e a imagem prontos para copiar e colar na rede social escolhida.
+              </p>
+            </div>
+            
+            {erro && (
+              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-4">
+                <p className="text-sm text-red-400">{erro}</p>
+              </div>
+            )}
+            
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                className="flex-1 py-3 px-4 bg-slate-700 text-slate-300 rounded-xl hover:bg-slate-600 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleAgendar}
+                disabled={loading}
+                className="flex-1 py-3 px-4 bg-gradient-to-r from-amber-500 to-amber-600 text-slate-900 font-semibold rounded-xl hover:from-amber-400 hover:to-amber-500 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Agendando...
+                  </>
+                ) : (
+                  <>
+                    <Calendar className="w-5 h-5" />
+                    Agendar
+                  </>
+                )}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ModalMeusAgendamentos({ isOpen, onClose }) {
+  const { meusAgendamentos, cancelarAgendamento, deletarAgendamento, recarregarAgendamentos } = useAuth();
+  const [loading, setLoading] = useState(null);
+  
+  useEffect(() => {
+    if (isOpen) {
+      recarregarAgendamentos();
+    }
+  }, [isOpen]);
+  
+  const formatarData = (dataISO) => {
+    const data = new Date(dataISO);
+    return data.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+  
+  const getStatusConfig = (status) => {
+    switch (status) {
+      case 'pendente':
+        return { cor: 'bg-yellow-500/20 text-yellow-400', label: 'Pendente', icon: Clock };
+      case 'enviado':
+        return { cor: 'bg-green-500/20 text-green-400', label: 'Enviado', icon: CheckCircle };
+      case 'erro':
+        return { cor: 'bg-red-500/20 text-red-400', label: 'Erro', icon: AlertCircle };
+      case 'cancelado':
+        return { cor: 'bg-slate-500/20 text-slate-400', label: 'Cancelado', icon: X };
+      default:
+        return { cor: 'bg-slate-500/20 text-slate-400', label: status, icon: Clock };
+    }
+  };
+  
+  const getRedeIcon = (rede) => {
+    switch (rede) {
+      case 'instagram': return Instagram;
+      case 'linkedin': return Linkedin;
+      case 'facebook': return Facebook;
+      default: return Instagram;
+    }
+  };
+  
+  const handleCancelar = async (id) => {
+    if (!confirm('Cancelar este agendamento?')) return;
+    setLoading(id);
+    try {
+      await cancelarAgendamento(id);
+    } finally {
+      setLoading(null);
+    }
+  };
+  
+  const handleDeletar = async (id) => {
+    if (!confirm('Excluir permanentemente este agendamento?')) return;
+    setLoading(id);
+    try {
+      await deletarAgendamento(id);
+    } finally {
+      setLoading(null);
+    }
+  };
+  
+  if (!isOpen) return null;
+  
+  const agendamentosPendentes = meusAgendamentos?.filter(a => a.status === 'pendente') || [];
+  const agendamentosAntigos = meusAgendamentos?.filter(a => a.status !== 'pendente') || [];
+  
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-slate-800 rounded-2xl max-w-2xl w-full max-h-[80vh] flex flex-col">
+        <div className="flex items-center justify-between p-6 border-b border-slate-700">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
+              <Calendar className="w-5 h-5 text-amber-400" />
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-white">Meus Agendamentos</h2>
+              <p className="text-sm text-slate-400">{meusAgendamentos?.length || 0} agendamento(s)</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-white">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+        
+        <div className="flex-1 overflow-y-auto p-6">
+          {!meusAgendamentos?.length ? (
+            <div className="text-center py-12">
+              <Calendar className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-slate-400 mb-2">Nenhum agendamento</h3>
+              <p className="text-slate-500">Após gerar um conteúdo, clique em "Agendar" para programar o envio.</p>
+            </div>
+          ) : (
+            <>
+              {agendamentosPendentes.length > 0 && (
+                <div className="mb-6">
+                  <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">
+                    Próximos Envios
+                  </h3>
+                  <div className="space-y-3">
+                    {agendamentosPendentes.map(ag => {
+                      const statusConfig = getStatusConfig(ag.status);
+                      const RedeIcon = getRedeIcon(ag.rede_social);
+                      const StatusIcon = statusConfig.icon;
+                      
+                      return (
+                        <div key={ag.id} className="bg-slate-700/50 rounded-xl p-4 border border-slate-600/50">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-2">
+                                <RedeIcon className="w-4 h-4 text-slate-400" />
+                                <span className="text-sm font-medium text-white">{ag.titulo}</span>
+                                <span className={`px-2 py-0.5 rounded-full text-xs flex items-center gap-1 ${statusConfig.cor}`}>
+                                  <StatusIcon className="w-3 h-3" />
+                                  {statusConfig.label}
+                                </span>
+                              </div>
+                              <p className="text-sm text-slate-400 line-clamp-2 mb-2">{ag.conteudo?.substring(0, 100)}...</p>
+                              <div className="flex items-center gap-2 text-xs text-slate-500">
+                                <Calendar className="w-3 h-3" />
+                                <span>{formatarData(ag.data_agendada)}</span>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleCancelar(ag.id)}
+                                disabled={loading === ag.id}
+                                className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                                title="Cancelar"
+                              >
+                                {loading === ag.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              
+              {agendamentosAntigos.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">
+                    Histórico
+                  </h3>
+                  <div className="space-y-2">
+                    {agendamentosAntigos.slice(0, 10).map(ag => {
+                      const statusConfig = getStatusConfig(ag.status);
+                      const RedeIcon = getRedeIcon(ag.rede_social);
+                      const StatusIcon = statusConfig.icon;
+                      
+                      return (
+                        <div key={ag.id} className="bg-slate-700/30 rounded-lg p-3 flex items-center justify-between">
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <RedeIcon className="w-4 h-4 text-slate-500" />
+                            <span className="text-sm text-slate-400 truncate">{ag.titulo}</span>
+                            <span className={`px-2 py-0.5 rounded-full text-xs flex items-center gap-1 ${statusConfig.cor}`}>
+                              <StatusIcon className="w-3 h-3" />
+                              {statusConfig.label}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs text-slate-500">{formatarData(ag.data_agendada)}</span>
+                            <button
+                              onClick={() => handleDeletar(ag.id)}
+                              disabled={loading === ag.id}
+                              className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
+                              title="Excluir"
+                            >
+                              {loading === ag.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // =====================================================
@@ -2720,6 +3201,10 @@ function CriadorCompleto({ user, onLogout, onAbrirGaleria, onAbrirPerfil, onSalv
   const [logoUser, setLogoUser] = useState(user.logo || null);
   const [mostrarMaisTipos, setMostrarMaisTipos] = useState(false);
   const [camposComErro, setCamposComErro] = useState([]);
+  
+  // Estados para agendamento
+  const [mostrarModalAgendar, setMostrarModalAgendar] = useState(false);
+  const [mostrarMeusAgendamentos, setMostrarMeusAgendamentos] = useState(false);
 
   // Atualizar logoUser quando user.logo mudar (ex: após upload no perfil)
   useEffect(() => {
@@ -3494,6 +3979,14 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
                 <span>Galeria</span>
               </button>
             )}
+            <button
+              onClick={() => setMostrarMeusAgendamentos(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white transition-all"
+              title="Meus Agendamentos"
+            >
+              <Calendar className="w-5 h-5" />
+              <span>Agendamentos</span>
+            </button>
             {onAbrirPerfil && (
               <button
                 onClick={onAbrirPerfil}
@@ -3955,6 +4448,13 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
                     {copiado ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
                     {copiado ? 'Copiado!' : 'Copiar'}
                   </button>
+                  <button
+                    onClick={() => setMostrarModalAgendar(true)}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 rounded-lg text-amber-400 text-sm transition-all"
+                  >
+                    <Calendar className="w-4 h-4" />
+                    Agendar
+                  </button>
                   {/* Botão de imagem removido - agora é automático */}
                   {imagemPreview && (
                     <>
@@ -4200,6 +4700,20 @@ Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
             </div>
           </div>
         )}
+
+        {/* MODAIS DE AGENDAMENTO */}
+        <ModalAgendar
+          isOpen={mostrarModalAgendar}
+          onClose={() => setMostrarModalAgendar(false)}
+          conteudo={conteudoGerado}
+          imagemUrl={imagemPreview}
+          titulo={tema || tipoConteudo}
+        />
+
+        <ModalMeusAgendamentos
+          isOpen={mostrarMeusAgendamentos}
+          onClose={() => setMostrarMeusAgendamentos(false)}
+        />
 
         {/* MODAL DE IMAGEM REMOVIDO - GERAÇÃO AGORA É AUTOMÁTICA */}
       </div>
