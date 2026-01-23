@@ -3224,10 +3224,20 @@ function CriadorCompleto({ user, onLogout, onAbrirGaleria, onAbrirPerfil, onSalv
   // FUNÇÕES
 
   // Função para limpar hashtags corrompidas e marcações indesejadas
+  // =====================================================
+  // FUNÇÃO limparConteudo() - VERSÃO OTIMIZADA
+  // =====================================================
   const limparConteudo = (texto) => {
     if (!texto) return '';
-
+    
     let limpo = texto
+      // Remove marcações de estrutura comuns
+      .replace(/\[GANCHO\]|\[HISTÓRIA\]|\[CTA\]|\[HASHTAGS\]/gi, '')
+      .replace(/GANCHO:|DESENVOLVIMENTO:|CONCLUSÃO:|CTA:/gi, '')
+      .replace(/^(1\.|2\.|3\.|4\.|5\.)\s*/gm, '') // Remove numeração no início de linha
+      // Remove instruções que a IA pode ter deixado
+      .replace(/\(máximo?\s*\d+\s*(caracteres|chars|palavras)\)/gi, '')
+      .replace(/\[.*?expressão.*?\]/gi, '') // Remove instruções de expressão do TikTok
       // Remove marcações entre colchetes como [GANCHO], [HISTÓRIA], [CTA], etc
       .replace(/\[(GANCHO|HISTÓRIA|SITUAÇÃO|EXPLICAÇÃO|SOLUÇÃO|DICA|CTA|HASHTAGS|JURÍDICA|PRÁTICA)[^\]]*\]/gi, '')
       // Remove marcações de instrução que a IA pode ter incluído
@@ -3241,15 +3251,72 @@ function CriadorCompleto({ user, onLogout, onAbrirGaleria, onAbrirPerfil, onSalv
       .replace(/#\w{1,3}\b/g, '')
       // Remove linhas que contêm apenas hashtags corrompidas/fragmentos
       .replace(/^\s*[çãõáéíóúâêîôû][a-zA-ZçãõáéíóúâêîôûàèìòùäëïöüÇÃÕÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÄËÏÖÜ]*(\s+[çãõáéíóúâêîôû][a-zA-ZçãõáéíóúâêîôûàèìòùäëïöüÇÃÕÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÄËÏÖÜ]*)*\s*$/gm, '')
-      // Remove múltiplos espaços
+      // Limpa espaços extras
       .replace(/  +/g, ' ')
-      // Remove linhas vazias extras
-      .replace(/\n\s*\n\s*\n/g, '\n\n')
-      // Remove linhas vazias no início
+      .replace(/\n{3,}/g, '\n\n')
       .replace(/^\s*\n+/, '')
       .trim();
-
+    
     return limpo;
+  };
+
+  // =====================================================
+  // FUNÇÃO validarConteudo() - NOVA
+  // Verifica qualidade do conteúdo gerado
+  // =====================================================
+  const validarConteudo = (texto, tipo, formato) => {
+    const problemas = [];
+    
+    if (!texto || texto.length < 50) {
+      problemas.push('Conteúdo muito curto');
+      return { valido: false, problemas };
+    }
+    
+    // Validação específica para Instagram Feed
+    if (tipo === 'post-instagram' && formato === 'feed') {
+      const primeiraLinha = texto.split('\n')[0] || '';
+      
+      if (primeiraLinha.length > 150) {
+        problemas.push(`Gancho muito longo (${primeiraLinha.length} chars). Ideal: até 125.`);
+      }
+      
+      if (!primeiraLinha.match(/[?!…👇🔥⚠️💡]/)) {
+        problemas.push('Gancho pode ser mais impactante (sem emoji ou pontuação forte)');
+      }
+    }
+    
+    // Validação de hashtags
+    const hashtags = texto.match(/#\w+/g) || [];
+    const hashtagsComAcento = hashtags.filter(h => /[áàâãéèêíìîóòôõúùûç]/i.test(h));
+    
+    if (hashtagsComAcento.length > 0) {
+      problemas.push(`Hashtags com acento: ${hashtagsComAcento.join(', ')}`);
+    }
+    
+    // Verifica se copiou exemplos genéricos do prompt
+    const frasesGenericas = [
+      'olá, tudo bem',
+      'hoje vou falar sobre',
+      'você sabia que muitas pessoas'
+    ];
+    
+    const textoLower = texto.toLowerCase();
+    frasesGenericas.forEach(frase => {
+      if (textoLower.includes(frase)) {
+        problemas.push(`Possível texto genérico detectado`);
+      }
+    });
+    
+    return {
+      valido: problemas.length === 0,
+      problemas,
+      metricas: {
+        caracteres: texto.length,
+        palavras: texto.split(/\s+/).length,
+        hashtags: hashtags.length,
+        ganchoLength: (texto.split('\n')[0] || '').length
+      }
+    };
   };
 
   const gerarConteudo = async () => {
@@ -3333,34 +3400,31 @@ function CriadorCompleto({ user, onLogout, onAbrirGaleria, onAbrirPerfil, onSalv
     const tam = DADOS.tamanhos.find(t => t.id === tamanho);
     const areaNome = DADOS.areasAtuacao.find(a => a.id === areaAtuacao)?.nome || areaAtuacao;
 
+    // Configuração de tamanho otimizada
     const tamanhoConfig = {
       'curto': {
-        palavras: '80-150 palavras',
-        instrucao: 'Seja MUITO conciso e direto. Máximo 2-3 parágrafos curtos. Vá direto ao ponto.',
-        hashtags: '3-5 hashtags'
+        palavras: '80-120 palavras',
+        instrucao: 'Texto curto e direto ao ponto.',
+        hashtags: '5-7 hashtags'
       },
       'medio': {
-        palavras: '200-350 palavras',
-        instrucao: 'Tamanho equilibrado. 4-5 parágrafos. Desenvolva o tema sem se alongar demais.',
-        hashtags: '5-8 hashtags'
+        palavras: '150-200 palavras',
+        instrucao: 'Texto de tamanho médio.',
+        hashtags: '8-10 hashtags'
       },
       'longo': {
-        palavras: '400-600 palavras',
-        instrucao: 'Conteúdo completo e detalhado. 6-8 parágrafos. Aprofunde o tema com exemplos.',
-        hashtags: '8-10 hashtags'
+        palavras: '250-350 palavras',
+        instrucao: 'Texto completo e detalhado.',
+        hashtags: '10-15 hashtags'
       }
     };
 
     const config = tamanhoConfig[tamanho] || tamanhoConfig['medio'];
     const isStoriesReels = tipoConteudo === 'post-instagram' && (formatoPost === 'stories' || formatoPost === 'reels');
 
-    let prompt = `Você é um advogado brasileiro especialista em marketing jurídico e criação de conteúdo para redes sociais.
-
-TAREFA: Criar um ${tipo?.nome} sobre "${tema}" na área de ${areaNome}.
-
-PÚBLICO-ALVO: ${publicoAlvo || 'público geral interessado em direito'}
-
-TOM: ${tom} (${tom === 'profissional' ? 'autoridade e credibilidade' : tom === 'didatico' ? 'explicativo e educativo' : tom === 'acessivel' ? 'simples e fácil de entender' : 'motivador e engajador'})
+    // Prompt base otimizado - mais conciso
+    let prompt = `Crie ${tipo?.nome} sobre "${tema}" (área: ${areaNome}).
+Público: ${publicoAlvo || 'geral'} | Tom: ${tom}
 `;
 
     // Só adicionar instruções de tamanho para Feed (não Stories)
@@ -3424,53 +3488,28 @@ REGRAS GERAIS:
 
 Crie o texto agora sobre "${tema}":`;
       } else {
-        prompt += `FORMATO INSTAGRAM FEED - TEXTO FINAL PRONTO PARA PUBLICAÇÃO:
+        // Prompt otimizado para Instagram Feed
+        prompt += `INSTAGRAM FEED sobre "${tema}":
 
-TEMA DO POST: ${tema} (área: ${areaNome})
+1. GANCHO (MÁX 125 CARACTERES - CRÍTICO!)
+   Primeira linha visível no feed. Use emoji + frase impactante + "..."
 
-⚠️ REGRA MAIS IMPORTANTE - GANCHO DE 125 CARACTERES:
-No Instagram, apenas os PRIMEIROS 125 CARACTERES aparecem no feed.
-O resto fica escondido atrás do botão "mais".
+2. DESENVOLVIMENTO (${config.palavras})
+   - Situação/exemplo real sobre ${tema}
+   - O que a lei diz (simples)
+   - Dica prática
 
-VOCÊ DEVE:
-1. Criar um GANCHO ORIGINAL sobre "${tema}" (máximo 125 caracteres)
-2. Esse gancho deve ser IMPACTANTE e gerar CURIOSIDADE sobre o tema
-3. Fazer o leitor QUERER clicar em "mais"
+3. CTA - Pergunta que gera comentários
 
-IMPORTANTE: NÃO COPIE os exemplos abaixo! Eles são apenas para mostrar o ESTILO.
-Crie um gancho ORIGINAL e ESPECÍFICO sobre "${tema}".
+4. HASHTAGS (${config.hashtags}) - SEM acentos
 
-ESTILO de gancho bom (NÃO COPIE, apenas inspire-se no formato):
-- Emoji + pergunta ou afirmação chocante + reticências
-- Máximo 125 caracteres
-- Gera curiosidade sobre o tema específico
+REGRAS:
+✓ Gancho DEVE ter no máximo 125 caracteres
+✓ Parágrafos curtos (2-3 linhas)
+✓ Texto pronto para copiar e colar
+✓ NÃO inclua marcações como [GANCHO] no texto
 
-ESTILO de gancho ruim (EVITE):
-- "Olá, tudo bem? Hoje vou falar sobre..."
-- Frases longas demais (mais de 125 caracteres)
-- Sem emoji ou sem impacto emocional
-- Genérico, sem relação com o tema
-
-ESTRUTURA DO POST (sobre "${tema}"):
-
-1. GANCHO (até 125 chars) - Frase impactante sobre ${tema}
-2. HISTÓRIA/SITUAÇÃO - Exemplo real relacionado a ${tema}
-3. EXPLICAÇÃO JURÍDICA - O que a lei diz sobre ${tema}
-4. SOLUÇÃO/DICA - O que fazer em relação a ${tema}
-5. CTA - Chamada para ação
-6. HASHTAGS - Relacionadas a ${tema}
-
----
-
-REGRAS FINAIS:
-- O texto deve ser 100% sobre "${tema}", NÃO sobre outro assunto
-- NÃO copie os exemplos do prompt, crie conteúdo ORIGINAL
-- NÃO inclua marcações como [GANCHO], [HISTÓRIA] no texto final
-- Escreva o texto corrido, natural, pronto para copiar e colar
-- Primeiro parágrafo = gancho de NO MÁXIMO 125 caracteres
-- Parágrafos curtos (2-3 linhas)
-- ${config.hashtags} no final, SEM acentos
-- Tamanho total: ${config.palavras}`;
+Crie agora:`;
       }
     } else if (tipoConteudo === 'post-facebook') {
       prompt += `FORMATO FACEBOOK - TEXTO FINAL PRONTO PARA PUBLICAÇÃO:
@@ -3616,26 +3655,18 @@ INSTRUÇÕES:
 - Tom direto e informal`;
     }
 
+    // Regras finais - versão otimizada
     prompt += `
 
-REGRAS OBRIGATÓRIAS:
-1. ⚠️ TEMA: O conteúdo DEVE ser 100% sobre "${tema}". NÃO fale sobre outro assunto!
-2. ⚠️ ORIGINALIDADE: NÃO copie os exemplos do prompt. Crie conteúdo ORIGINAL.
-3. ⚠️ TAMANHO: Respeite RIGOROSAMENTE ${config.palavras}. ${config.instrucao}
-4. NÃO inclua marcações como "GANCHO:", "LINHA 1:", "EXEMPLO:", "REGRAS:" no texto final
-5. O texto deve estar 100% pronto para copiar e colar na rede social
-6. NÃO use juridiquês excessivo - seja claro e acessível
-7. NÃO invente leis ou artigos - seja preciso
-8. NÃO faça promessas de resultado
-9. HASHTAGS - REGRA CRÍTICA:
-   - Escreva TODAS as hashtags SEM ACENTOS E SEM CEDILHA
-   - ERRADO: #Negociação #Jurídicas #Previdência #Resolução
-   - CERTO: #Negociacao #Juridicas #Previdencia #Resolucao
-   - Use apenas letras simples: a-z, A-Z e números
-10. Use emojis com moderação
-11. Conteúdo 100% original sobre "${tema}"
+REGRAS:
+✓ Conteúdo 100% sobre "${tema}"
+✓ Tamanho: ${config.palavras}
+✓ Texto pronto para copiar e colar
+✓ Sem juridiquês excessivo
+✓ Hashtags SEM acentos (Ex: #Previdencia, não #Previdência)
+✓ Emojis com moderação
 
-Crie o conteúdo agora sobre "${tema}" (${config.palavras}):`;
+Crie agora:`;
 
     return prompt;
   };
