@@ -1,6 +1,8 @@
 const express = require('express');
 const cors = require('cors');
 const crypto = require('crypto');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const { createCanvas, loadImage, registerFont } = require('canvas');
 const cloudinary = require('cloudinary').v2;
 const fs = require('fs');
@@ -66,10 +68,47 @@ app.use(cors({
 
 app.use(express.json({ limit: '10mb' }));
 
+// ================================================
+// SEGURANÇA - Headers e Rate Limiting
+// ================================================
+// Helmet - adiciona headers de segurança
+app.use(helmet({
+  contentSecurityPolicy: false, // Desabilitado para permitir inline scripts do React
+  crossOriginEmbedderPolicy: false
+}));
+
+// Rate Limiting - proteção contra brute-force e DDoS
+const limiterGeral = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 100, // 100 requisições por IP
+  message: { error: 'Muitas requisições. Tente novamente em 15 minutos.' },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
+const limiterGeracaoConteudo = rateLimit({
+  windowMs: 60 * 1000, // 1 minuto
+  max: 10, // 10 gerações por minuto
+  message: { error: 'Limite de gerações atingido. Aguarde 1 minuto.' }
+});
+
+const limiterPagamentos = rateLimit({
+  windowMs: 60 * 1000, // 1 minuto
+  max: 5, // 5 tentativas por minuto
+  message: { error: 'Muitas tentativas de pagamento. Aguarde 1 minuto.' }
+});
+
+// Aplicar rate limit geral
+app.use('/api/', limiterGeral);
+
+// Cloudinary - credenciais APENAS via variáveis de ambiente
+if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+  console.error('❌ ERRO: Credenciais Cloudinary não configuradas no .env');
+}
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'dgf3hzmb8',
-  api_key: process.env.CLOUDINARY_API_KEY || '239768197523983',
-  api_secret: process.env.CLOUDINARY_API_SECRET || 'PVPOJkaWTJcMIJn5Nsn-_h9BWJk'
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
 app.get('/', (req, res) => {
@@ -444,7 +483,7 @@ async function verificarEIncrementarLimite(userId) {
 // ================================================
 // ROTA: GERAR CONTEÚDO STORY (só IA, sem renderizar)
 // ================================================
-app.post('/api/gerar-conteudo-story', authMiddleware, async (req, res) => {
+app.post('/api/gerar-conteudo-story', limiterGeracaoConteudo, authMiddleware, async (req, res) => {
   try {
     const { texto, tema, area, template } = req.body;
 
@@ -485,7 +524,7 @@ app.post('/api/gerar-conteudo-story', authMiddleware, async (req, res) => {
 // ================================================
 // ROTA: GERAR STORY (renderizar imagem)
 // ================================================
-app.post('/api/gerar-story', authMiddleware, async (req, res) => {
+app.post('/api/gerar-story', limiterGeracaoConteudo, authMiddleware, async (req, res) => {
   try {
     const {
       texto,
@@ -602,7 +641,7 @@ app.post('/api/gerar-story', authMiddleware, async (req, res) => {
 // ================================================
 // ROTA: GERAR IMAGEM FEED - DESIGN PREMIUM v2
 // ================================================
-app.post('/api/gerar-imagem', authMiddleware, async (req, res) => {
+app.post('/api/gerar-imagem', limiterGeracaoConteudo, authMiddleware, async (req, res) => {
   try {
     const {
       imageUrl, tema, area, nomeAdvogado, oab, instagram, formato, estilo, logo, bullets, conteudo,
@@ -1088,7 +1127,7 @@ app.get('/api/minha-assinatura', authMiddleware, async (req, res) => {
 });
 
 // Criar checkout de assinatura
-app.post('/api/criar-assinatura', authMiddleware, async (req, res) => {
+app.post('/api/criar-assinatura', limiterPagamentos, authMiddleware, async (req, res) => {
   try {
     const { plano_slug } = req.body;
     const userId = req.user.id;
