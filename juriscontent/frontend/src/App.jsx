@@ -882,6 +882,78 @@ function ModalMeusAgendamentos({ isOpen, onClose }) {
 }
 
 // =====================================================
+// COMPONENTE: RETORNO DO MERCADO PAGO
+// =====================================================
+function RetornoPagamento({ tipo, onFechar }) {
+  const configs = {
+    sucesso: {
+      icone: <CheckCircle className="w-20 h-20 text-green-500" />,
+      titulo: 'Pagamento Confirmado!',
+      mensagem: 'Sua assinatura foi ativada com sucesso. Agora você tem acesso a todos os recursos do seu plano.',
+      cor: 'green',
+      botao: 'Começar a Criar'
+    },
+    erro: {
+      icone: <AlertCircle className="w-20 h-20 text-red-500" />,
+      titulo: 'Pagamento não Concluído',
+      mensagem: 'Houve um problema com o pagamento. Por favor, tente novamente ou escolha outra forma de pagamento.',
+      cor: 'red',
+      botao: 'Tentar Novamente'
+    },
+    pendente: {
+      icone: <Clock className="w-20 h-20 text-amber-500" />,
+      titulo: 'Pagamento Pendente',
+      mensagem: 'Seu pagamento está sendo processado. Para PIX ou boleto, aguarde a confirmação. Você receberá um email quando for aprovado.',
+      cor: 'amber',
+      botao: 'Entendi'
+    }
+  };
+
+  const config = configs[tipo] || configs.erro;
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
+        <div className="flex justify-center mb-6">
+          {config.icone}
+        </div>
+
+        <h1 className="text-2xl font-bold text-slate-800 mb-4">
+          {config.titulo}
+        </h1>
+
+        <p className="text-slate-600 mb-8">
+          {config.mensagem}
+        </p>
+
+        <button
+          onClick={onFechar}
+          className={`w-full py-3 px-6 rounded-xl font-semibold text-white transition-all
+            ${tipo === 'sucesso' ? 'bg-green-500 hover:bg-green-600' : ''}
+            ${tipo === 'erro' ? 'bg-red-500 hover:bg-red-600' : ''}
+            ${tipo === 'pendente' ? 'bg-amber-500 hover:bg-amber-600' : ''}
+          `}
+        >
+          {config.botao}
+        </button>
+
+        {tipo === 'pendente' && (
+          <p className="text-sm text-slate-500 mt-4">
+            O prazo para pagamento via PIX é de 30 minutos. Via boleto, até 3 dias úteis.
+          </p>
+        )}
+
+        {tipo === 'erro' && (
+          <p className="text-sm text-slate-500 mt-4">
+            Precisa de ajuda? Entre em contato pelo suporte.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// =====================================================
 // COMPONENTE PRINCIPAL APP
 // =====================================================
 export default function App() {
@@ -897,6 +969,25 @@ function AppContent() {
   const [mostrarGaleria, setMostrarGaleria] = useState(false);
   const [mostrarPerfil, setMostrarPerfil] = useState(false);
   const [mostrarPlanos, setMostrarPlanos] = useState(false);
+  const [retornoPagamento, setRetornoPagamento] = useState(null);
+
+  // Detectar retorno do Mercado Pago
+  useEffect(() => {
+    const path = window.location.pathname;
+    if (path.includes('/pagamento/sucesso')) {
+      setRetornoPagamento('sucesso');
+    } else if (path.includes('/pagamento/erro')) {
+      setRetornoPagamento('erro');
+    } else if (path.includes('/pagamento/pendente')) {
+      setRetornoPagamento('pendente');
+    }
+  }, []);
+
+  // Fechar modal de retorno e limpar URL
+  const fecharRetornoPagamento = () => {
+    setRetornoPagamento(null);
+    window.history.replaceState({}, '', '/');
+  };
 
   if (loading) {
     return (
@@ -908,6 +999,11 @@ function AppContent() {
 
   if (!user) {
     return <LoginSupabase />;
+  }
+
+  // Mostrar página de retorno do Mercado Pago
+  if (retornoPagamento) {
+    return <RetornoPagamento tipo={retornoPagamento} onFechar={fecharRetornoPagamento} />;
   }
 
   // Converter perfil para formato esperado pelo CriadorCompleto

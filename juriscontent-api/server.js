@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+const crypto = require('crypto');
 const { createCanvas, loadImage, registerFont } = require('canvas');
 const cloudinary = require('cloudinary').v2;
 const fs = require('fs');
@@ -11,9 +12,10 @@ require('dotenv').config();
 // ================================================
 const { createClient } = require('@supabase/supabase-js');
 
+// Cliente com Service Key (bypassa RLS - para operações de backend)
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_ANON_KEY
+  process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY
 );
 
 // Middleware de autenticação
@@ -307,18 +309,86 @@ function criarFallback(template, texto, tema) {
 // ROTA: GERAR STORY (com IA integrada)
 // ================================================
 // ================================================
+// FUNÇÃO: Obter data/hora no timezone de São Paulo
+// ================================================
+function getDataSaoPaulo() {
+  return new Date().toLocaleString('en-CA', { timeZone: 'America/Sao_Paulo' });
+}
+
+function getMesAtualSaoPaulo() {
+  const data = new Date().toLocaleString('en-CA', {
+    timeZone: 'America/Sao_Paulo',
+    year: 'numeric',
+    month: '2-digit'
+  });
+  // Formato: YYYY-MM
+  return data.slice(0, 7);
+}
+
+// ================================================
+// FUNÇÃO: Verificar expiração de assinatura
+// ================================================
+async function verificarExpiracaoAssinatura(userId) {
+  try {
+    const { data: assinatura } = await supabase
+      .from('assinaturas')
+      .select('id, data_fim, status')
+      .eq('user_id', userId)
+      .eq('status', 'ativa')
+      .single();
+
+    if (!assinatura) return null;
+
+    const agora = new Date();
+    const dataFim = new Date(assinatura.data_fim);
+
+    // Se a assinatura expirou
+    if (dataFim < agora) {
+      console.log('⏰ Assinatura expirada para user:', userId);
+
+      // Marcar como expirada
+      await supabase
+        .from('assinaturas')
+        .update({
+          status: 'expirada',
+          cancelada_em: new Date().toISOString(),
+          motivo_cancelamento: 'Expiração automática'
+        })
+        .eq('id', assinatura.id);
+
+      // Voltar para plano grátis
+      await supabase
+        .from('perfis')
+        .update({ plano_atual: 'gratis' })
+        .eq('id', userId);
+
+      console.log('⚠️ Usuário voltou para plano grátis');
+      return 'expirada';
+    }
+
+    return 'ativa';
+  } catch (error) {
+    console.error('Erro ao verificar expiração:', error);
+    return null;
+  }
+}
+
+// ================================================
 // FUNÇÃO: Verificar e incrementar limite de gerações
 // ================================================
 async function verificarEIncrementarLimite(userId) {
   try {
-    // Buscar perfil
+    // Primeiro, verificar se assinatura expirou
+    await verificarExpiracaoAssinatura(userId);
+
+    // Buscar perfil (após possível atualização de expiração)
     const { data: perfil } = await supabase
       .from('perfis')
       .select('geracoes_mes, mes_referencia, plano_atual')
       .eq('id', userId)
       .single();
 
-    const mesAtual = new Date().toISOString().slice(0, 7);
+    const mesAtual = getMesAtualSaoPaulo(); // Timezone São Paulo
     let geracoesUsadas = perfil?.geracoes_mes || 0;
 
     // Resetar se mudou o mês
@@ -326,7 +396,7 @@ async function verificarEIncrementarLimite(userId) {
       geracoesUsadas = 0;
     }
 
-    // Buscar limite do plano
+    // Buscar limite do plano (já atualizado se expirou)
     const planoSlug = perfil?.plano_atual || 'gratis';
     const { data: plano } = await supabase
       .from('planos')
@@ -382,7 +452,19 @@ app.post('/api/gerar-conteudo-story', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'Template obrigatório' });
     }
 
-    console.log('🤖 Gerando conteúdo IA para edição:', { template, area, tema });
+    // Verificar limite de gerações
+    const limiteCheck = await verificarEIncrementarLimite(req.user.id);
+    if (!limiteCheck.permitido) {
+      return res.status(403).json({
+        error: 'Limite de gerações atingido',
+        limite: limiteCheck.limite,
+        usado: limiteCheck.usado,
+        plano: limiteCheck.plano,
+        upgrade_url: `${process.env.APP_URL}/planos`
+      });
+    }
+
+    console.log('🤖 Gerando conteúdo IA para edição:', { template, area, tema, limite: limiteCheck });
 
     let dadosProcessados = await gerarConteudoIA(texto, tema, area, template);
 
@@ -983,7 +1065,7 @@ app.get('/api/minha-assinatura', authMiddleware, async (req, res) => {
       .single();
 
     // Resetar contador se mudou o mês
-    const mesAtual = new Date().toISOString().slice(0, 7);
+    const mesAtual = getMesAtualSaoPaulo(); // Timezone São Paulo
     let geracoesUsadas = perfil?.geracoes_mes || 0;
     if (perfil?.mes_referencia !== mesAtual) {
       geracoesUsadas = 0;
@@ -1094,10 +1176,78 @@ app.post('/api/criar-assinatura', authMiddleware, async (req, res) => {
   }
 });
 
+// Função para validar assinatura do webhook do Mercado Pago
+function validarWebhookMP(req) {
+  const xSignature = req.headers['x-signature'];
+  const xRequestId = req.headers['x-request-id'];
+
+  // Se não há webhook secret configurado, pular validação (desenvolvimento)
+  const webhookSecret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    console.log('⚠️ MERCADOPAGO_WEBHOOK_SECRET não configurado - validação desabilitada');
+    return true;
+  }
+
+  if (!xSignature || !xRequestId) {
+    console.log('❌ Headers de segurança ausentes');
+    return false;
+  }
+
+  try {
+    // Extrair ts e v1 do header x-signature
+    // Formato: ts=TIMESTAMP,v1=HASH
+    const parts = xSignature.split(',');
+    let ts = '';
+    let v1 = '';
+
+    for (const part of parts) {
+      const [key, value] = part.split('=');
+      if (key === 'ts') ts = value;
+      if (key === 'v1') v1 = value;
+    }
+
+    if (!ts || !v1) {
+      console.log('❌ Formato de x-signature inválido');
+      return false;
+    }
+
+    // Construir string de assinatura
+    // Formato: id=[data.id];request-id=[x-request-id];ts=[ts];
+    const dataId = req.body.data?.id || '';
+    const signedTemplate = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
+
+    // Calcular HMAC
+    const hmac = crypto.createHmac('sha256', webhookSecret);
+    hmac.update(signedTemplate);
+    const calculatedSignature = hmac.digest('hex');
+
+    // Comparar assinaturas
+    const isValid = crypto.timingSafeEqual(
+      Buffer.from(v1),
+      Buffer.from(calculatedSignature)
+    );
+
+    if (!isValid) {
+      console.log('❌ Assinatura do webhook inválida');
+    }
+
+    return isValid;
+  } catch (error) {
+    console.error('Erro ao validar webhook:', error);
+    return false;
+  }
+}
+
 // Webhook do Mercado Pago
 app.post('/api/webhook-mercadopago', async (req, res) => {
   try {
     console.log('Webhook MP recebido:', JSON.stringify(req.body));
+
+    // Validar assinatura do webhook
+    if (!validarWebhookMP(req)) {
+      console.log('❌ Webhook rejeitado - assinatura inválida');
+      return res.status(401).send('Unauthorized');
+    }
 
     const { type, data } = req.body;
 
@@ -1130,6 +1280,17 @@ app.post('/api/webhook-mercadopago', async (req, res) => {
         return;
       }
 
+      // Mapear status do MP para status interno
+      const statusMap = {
+        'approved': 'aprovado',
+        'pending': 'pendente',
+        'in_process': 'processando',
+        'rejected': 'rejeitado',
+        'cancelled': 'cancelado',
+        'refunded': 'estornado',
+        'charged_back': 'contestado'
+      };
+
       // Registrar pagamento
       await supabase.from('pagamentos').insert({
         user_id: userId,
@@ -1141,45 +1302,97 @@ app.post('/api/webhook-mercadopago', async (req, res) => {
         mp_payment_method: paymentInfo.payment_method_id,
         payer_email: paymentInfo.payer?.email,
         payer_name: paymentInfo.payer?.first_name,
-        status: paymentInfo.status === 'approved' ? 'aprovado' : 'pendente',
+        status: statusMap[paymentInfo.status] || 'pendente',
         processado_em: paymentInfo.status === 'approved' ? new Date().toISOString() : null
       });
 
-      // Se aprovado, ativar assinatura
-      if (paymentInfo.status === 'approved') {
-        console.log('Pagamento aprovado! Ativando plano:', planoSlug);
+      // Tratar cada status do pagamento
+      switch (paymentInfo.status) {
+        case 'approved':
+          // Pagamento aprovado - ativar assinatura
+          console.log('✅ Pagamento aprovado! Ativando plano:', planoSlug);
 
-        // Calcular data de fim (30 dias)
-        const dataInicio = new Date();
-        const dataFim = new Date(dataInicio);
-        dataFim.setDate(dataFim.getDate() + 30);
+          const dataInicio = new Date();
+          const dataFim = new Date(dataInicio);
+          dataFim.setDate(dataFim.getDate() + 30);
 
-        // Criar ou atualizar assinatura
-        await supabase
-          .from('assinaturas')
-          .upsert({
-            user_id: userId,
-            plano_id: planoId,
-            status: 'ativa',
-            data_inicio: dataInicio.toISOString(),
-            data_fim: dataFim.toISOString(),
-            data_proxima_cobranca: dataFim.toISOString(),
-            mp_payer_id: paymentInfo.payer?.id?.toString()
-          }, {
-            onConflict: 'user_id'
-          });
+          await supabase
+            .from('assinaturas')
+            .upsert({
+              user_id: userId,
+              plano_id: planoId,
+              status: 'ativa',
+              data_inicio: dataInicio.toISOString(),
+              data_fim: dataFim.toISOString(),
+              data_proxima_cobranca: dataFim.toISOString(),
+              mp_payer_id: paymentInfo.payer?.id?.toString()
+            }, {
+              onConflict: 'user_id'
+            });
 
-        // Atualizar plano no perfil
-        await supabase
-          .from('perfis')
-          .update({
-            plano_atual: planoSlug,
-            geracoes_mes: 0, // Resetar contador
-            mes_referencia: new Date().toISOString().slice(0, 7)
-          })
-          .eq('id', userId);
+          await supabase
+            .from('perfis')
+            .update({
+              plano_atual: planoSlug,
+              geracoes_mes: 0,
+              mes_referencia: getMesAtualSaoPaulo() // Timezone São Paulo
+            })
+            .eq('id', userId);
 
-        console.log('Plano ativado com sucesso para user:', userId);
+          console.log('✅ Plano ativado com sucesso para user:', userId);
+          break;
+
+        case 'pending':
+        case 'in_process':
+          // Pagamento pendente (PIX aguardando, boleto, etc)
+          console.log('⏳ Pagamento pendente:', paymentInfo.status_detail);
+          // Não ativa assinatura ainda, só registrou o pagamento
+          break;
+
+        case 'rejected':
+          // Pagamento rejeitado
+          console.log('❌ Pagamento rejeitado:', paymentInfo.status_detail);
+          // Atualizar pagamento como rejeitado
+          await supabase
+            .from('pagamentos')
+            .update({ status: 'rejeitado' })
+            .eq('mp_payment_id', paymentInfo.id.toString());
+          break;
+
+        case 'cancelled':
+          // Pagamento cancelado
+          console.log('🚫 Pagamento cancelado');
+          await supabase
+            .from('pagamentos')
+            .update({ status: 'cancelado' })
+            .eq('mp_payment_id', paymentInfo.id.toString());
+          break;
+
+        case 'refunded':
+        case 'charged_back':
+          // Estorno ou contestação - cancelar assinatura
+          console.log('💸 Estorno/Contestação - cancelando assinatura');
+
+          await supabase
+            .from('assinaturas')
+            .update({
+              status: 'cancelada',
+              cancelada_em: new Date().toISOString(),
+              motivo_cancelamento: paymentInfo.status === 'refunded' ? 'Estorno solicitado' : 'Contestação de pagamento'
+            })
+            .eq('user_id', userId)
+            .eq('status', 'ativa');
+
+          await supabase
+            .from('perfis')
+            .update({ plano_atual: 'gratis' })
+            .eq('id', userId);
+
+          console.log('⚠️ Assinatura cancelada por estorno/contestação');
+          break;
+
+        default:
+          console.log('⚠️ Status desconhecido:', paymentInfo.status);
       }
     }
 
