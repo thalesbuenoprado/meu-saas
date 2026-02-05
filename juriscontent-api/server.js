@@ -3,11 +3,17 @@ const cors = require('cors');
 const crypto = require('crypto');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const { Resend } = require('resend');
 const { createCanvas, loadImage, registerFont } = require('canvas');
 const cloudinary = require('cloudinary').v2;
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
+
+// ================================================
+// RESEND - ENVIO DE EMAILS
+// ================================================
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // ================================================
 // SUPABASE - AUTENTICAÇÃO
@@ -48,6 +54,9 @@ async function authMiddleware(req, res, next) {
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Confiar no proxy (nginx) para obter IP real do cliente
+app.set('trust proxy', 1);
+
 const TRENDING_FILE = path.join(__dirname, 'trending-topics.json');
 
 const allowedOrigins = process.env.ALLOWED_ORIGINS
@@ -83,19 +92,22 @@ const limiterGeral = rateLimit({
   max: 100, // 100 requisições por IP
   message: { error: 'Muitas requisições. Tente novamente em 15 minutos.' },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  validate: { xForwardedForHeader: false } // Desabilitar validação (confiamos no nginx)
 });
 
 const limiterGeracaoConteudo = rateLimit({
   windowMs: 60 * 1000, // 1 minuto
   max: 10, // 10 gerações por minuto
-  message: { error: 'Limite de gerações atingido. Aguarde 1 minuto.' }
+  message: { error: 'Limite de gerações atingido. Aguarde 1 minuto.' },
+  validate: { xForwardedForHeader: false }
 });
 
 const limiterPagamentos = rateLimit({
   windowMs: 60 * 1000, // 1 minuto
   max: 5, // 5 tentativas por minuto
-  message: { error: 'Muitas tentativas de pagamento. Aguarde 1 minuto.' }
+  message: { error: 'Muitas tentativas de pagamento. Aguarde 1 minuto.' },
+  validate: { xForwardedForHeader: false }
 });
 
 // Aplicar rate limit geral
@@ -362,6 +374,88 @@ function getMesAtualSaoPaulo() {
   });
   // Formato: YYYY-MM
   return data.slice(0, 7);
+}
+
+// ================================================
+// FUNÇÃO: Enviar email de confirmação de pagamento
+// ================================================
+async function enviarEmailConfirmacaoPagamento(email, dados) {
+  try {
+    if (!process.env.RESEND_API_KEY) {
+      console.log('⚠️ RESEND_API_KEY não configurada - email não enviado');
+      return false;
+    }
+
+    const { nome, plano, valor, dataFim } = dados;
+    const dataFormatada = new Date(dataFim).toLocaleDateString('pt-BR');
+
+    const { data, error } = await resend.emails.send({
+      from: process.env.EMAIL_FROM || 'JurisContent <onboarding@resend.dev>',
+      to: email,
+      subject: `✅ Pagamento Confirmado - Plano ${plano}`,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: linear-gradient(135deg, #1e3a5f 0%, #2d5a87 100%); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+            .content { background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }
+            .highlight { background: #e8f4e8; padding: 20px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #28a745; }
+            .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+            .btn { display: inline-block; background: #d4af37; color: #1e3a5f; padding: 12px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; margin-top: 20px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>⚖️ JurisContent</h1>
+              <p>Pagamento Confirmado!</p>
+            </div>
+            <div class="content">
+              <p>Olá${nome ? `, <strong>${nome}</strong>` : ''}!</p>
+
+              <p>Seu pagamento foi processado com sucesso. Agora você tem acesso completo ao plano <strong>${plano}</strong>.</p>
+
+              <div class="highlight">
+                <p><strong>📋 Detalhes da assinatura:</strong></p>
+                <ul>
+                  <li><strong>Plano:</strong> ${plano}</li>
+                  <li><strong>Valor:</strong> R$ ${valor.toFixed(2)}</li>
+                  <li><strong>Válido até:</strong> ${dataFormatada}</li>
+                </ul>
+              </div>
+
+              <p>Você já pode acessar o sistema e começar a criar conteúdos incríveis para suas redes sociais!</p>
+
+              <center>
+                <a href="https://blasterskd.com.br" class="btn">Acessar JurisContent</a>
+              </center>
+
+              <div class="footer">
+                <p>Se tiver dúvidas, entre em contato conosco.</p>
+                <p>© ${new Date().getFullYear()} JurisContent - Todos os direitos reservados</p>
+              </div>
+            </div>
+          </div>
+        </body>
+        </html>
+      `
+    });
+
+    if (error) {
+      console.error('❌ Erro ao enviar email:', error);
+      return false;
+    }
+
+    console.log('📧 Email de confirmação enviado para:', email);
+    return true;
+  } catch (error) {
+    console.error('❌ Erro ao enviar email:', error);
+    return false;
+  }
 }
 
 // ================================================
@@ -1280,9 +1374,19 @@ function validarWebhookMP(req) {
 // Webhook do Mercado Pago
 app.post('/api/webhook-mercadopago', async (req, res) => {
   try {
+    // Ignorar webhooks IPN (formato antigo) - responder 200 para parar retentativas
+    if (req.body.topic || req.body.resource) {
+      return res.status(200).send('OK');
+    }
+
+    // Ignorar webhooks que não são de pagamento (merchant_order, etc)
+    if (req.body.type && req.body.type !== 'payment') {
+      return res.status(200).send('OK');
+    }
+
     console.log('Webhook MP recebido:', JSON.stringify(req.body));
 
-    // Validar assinatura do webhook
+    // Validar assinatura do webhook (apenas formato v2)
     if (!validarWebhookMP(req)) {
       console.log('❌ Webhook rejeitado - assinatura inválida');
       return res.status(401).send('Unauthorized');
@@ -1379,6 +1483,22 @@ app.post('/api/webhook-mercadopago', async (req, res) => {
             .eq('id', userId);
 
           console.log('✅ Plano ativado com sucesso para user:', userId);
+
+          // Enviar email de confirmação
+          // Buscar email do usuário no Supabase
+          const { data: userData } = await supabase.auth.admin.getUserById(userId);
+          const emailDestino = userData?.user?.email || paymentInfo.payer?.email;
+
+          if (emailDestino && emailDestino.includes('@')) {
+            await enviarEmailConfirmacaoPagamento(emailDestino, {
+              nome: paymentInfo.payer?.first_name || userData?.user?.user_metadata?.nome,
+              plano: planoSlug.charAt(0).toUpperCase() + planoSlug.slice(1),
+              valor: paymentInfo.transaction_amount,
+              dataFim: dataFim.toISOString()
+            });
+          } else {
+            console.log('⚠️ Email não encontrado para enviar confirmação');
+          }
           break;
 
         case 'pending':
