@@ -804,163 +804,143 @@ app.post('/api/gerar-imagem', limiterGeracaoConteudo, authMiddleware, async (req
     ctx.drawImage(baseImage, 0, 0, dim.w, dim.h);
 
     const paddingH = 50;
-    const topoBoxY = 40;
 
-    // Gerar badge/tag de engajamento baseado na área
+    // Badges SEM emoji (emojis não renderizam no canvas Node.js)
     const badges = {
-      'Direito Penal': '⚖️ VOCÊ SABIA?',
-      'Direito Civil': '💡 DICA JURÍDICA',
-      'Direito Trabalhista': '👷 SEUS DIREITOS',
-      'Direito do Consumidor': '🛒 FIQUE ATENTO',
-      'Direito de Família': '👨‍👩‍👧 SAIBA MAIS',
-      'Direito Tributário': '📊 IMPORTANTE',
-      'Direito Empresarial': '🏢 EMPRESÁRIO',
-      'Direito Previdenciário': '🏦 APOSENTADORIA',
-      'default': '⚖️ INFORMAÇÃO JURÍDICA'
+      'Direito Penal': 'VOCE SABIA?',
+      'Direito Civil': 'DICA JURIDICA',
+      'Direito Trabalhista': 'SEUS DIREITOS',
+      'Direito do Consumidor': 'FIQUE ATENTO',
+      'Direito de Família': 'SAIBA MAIS',
+      'Direito Tributário': 'IMPORTANTE',
+      'Direito Empresarial': 'EMPRESARIO',
+      'Direito Previdenciário': 'APOSENTADORIA',
+      'default': 'INFORMACAO JURIDICA'
     };
     const badge = badges[area] || badges['default'];
-    
-    // Calcular tamanho do título
-    ctx.font = 'bold 44px Georgia';
-    const temaLines = wrapText(ctx, tema || '', dim.w - (paddingH * 2) - 60);
-    const temaBoxHeight = Math.max(200, 100 + (temaLines.length * 52));
-    
-    // CAIXA DO TOPO - Design Premium
-    drawPremiumBox(ctx, paddingH, topoBoxY, dim.w - (paddingH * 2), temaBoxHeight, {
-      radius: 28,
-      opacity: 0.88,
-      borderColor: cores.border,
-      borderWidth: 2,
-      style: 'accent'
-    });
 
-    // Badge no topo (substitui área genérica)
-    ctx.fillStyle = cores.accent;
-    ctx.font = 'bold 26px Arial';
-    ctx.textAlign = 'center';
-    drawTextWithShadow(ctx, badge, dim.w / 2, topoBoxY + 48);
-
-    // Linha decorativa abaixo do badge
+    // --- BORDA DOURADA SUTIL (2px ao redor da imagem) ---
     ctx.save();
-    const lineGrad = ctx.createLinearGradient(dim.w/2 - 100, 0, dim.w/2 + 100, 0);
-    lineGrad.addColorStop(0, 'transparent');
-    lineGrad.addColorStop(0.5, cores.accent);
-    lineGrad.addColorStop(1, 'transparent');
-    ctx.strokeStyle = lineGrad;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(dim.w/2 - 120, topoBoxY + 68);
-    ctx.lineTo(dim.w/2 + 120, topoBoxY + 68);
-    ctx.stroke();
+    ctx.strokeStyle = cores.accent;
+    ctx.lineWidth = 4;
+    ctx.strokeRect(2, 2, dim.w - 4, dim.h - 4);
     ctx.restore();
 
-    // Título/Tema principal
+    // --- GRADIENTE INFERIOR (transparente no topo -> preto 85% embaixo, 60% da imagem) ---
+    ctx.save();
+    const gradienteY = dim.h * 0.4; // começa a 40% do topo
+    const gradiente = ctx.createLinearGradient(0, gradienteY, 0, dim.h);
+    gradiente.addColorStop(0, 'rgba(0, 0, 0, 0)');
+    gradiente.addColorStop(0.3, 'rgba(0, 0, 0, 0.4)');
+    gradiente.addColorStop(0.6, 'rgba(0, 0, 0, 0.7)');
+    gradiente.addColorStop(1, 'rgba(0, 0, 0, 0.88)');
+    ctx.fillStyle = gradiente;
+    ctx.fillRect(0, gradienteY, dim.w, dim.h - gradienteY);
+    ctx.restore();
+
+    // --- BADGE pill-shaped no topo esquerdo ---
+    ctx.save();
+    ctx.font = 'bold 22px Arial';
+    const badgeMetrics = ctx.measureText(badge);
+    const badgePadX = 20;
+    const badgePadY = 12;
+    const badgeX = paddingH;
+    const badgeY = 40;
+    const badgeW = badgeMetrics.width + badgePadX * 2;
+    const badgeH = 36 + badgePadY;
+    const badgeRadius = badgeH / 2;
+
+    // Fundo pill semi-transparente
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.55)';
+    ctx.beginPath();
+    ctx.roundRect(badgeX, badgeY, badgeW, badgeH, badgeRadius);
+    ctx.fill();
+
+    // Borda sutil na pill
+    ctx.strokeStyle = cores.accent;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Texto do badge
+    ctx.fillStyle = cores.accent;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(badge, badgeX + badgePadX, badgeY + badgeH / 2);
+    ctx.restore();
+
+    // --- TITULO sobre o gradiente (parte inferior) ---
     if (tema) {
+      ctx.font = 'bold 48px Georgia';
+      const temaLines = wrapText(ctx, tema, dim.w - paddingH * 2 - 20);
+      const lineHeight = 58;
+      const temaBlockHeight = temaLines.length * lineHeight;
+
+      // Posicionar titulo: acima do nome do advogado
+      const nomeBlockHeight = nomeAdvogado ? 50 : 0;
+      const oabBlockHeight = oab ? 35 : 0;
+      const bottomMargin = 50;
+      const temaStartY = dim.h - bottomMargin - oabBlockHeight - nomeBlockHeight - temaBlockHeight;
+
       ctx.fillStyle = cores.text;
-      ctx.font = 'bold 44px Georgia';
-      const startY = topoBoxY + 110;
-      drawMultilineText(ctx, temaLines, dim.w / 2, startY, 52, 'center');
-    }
-
-    // CAIXA DO RODAPÉ - Design Premium
-    const rodapeBoxHeight = 130;
-    const rodapeBoxY = dim.h - rodapeBoxHeight - 40;
-    
-    drawPremiumBox(ctx, paddingH, rodapeBoxY, dim.w - (paddingH * 2), rodapeBoxHeight, {
-      radius: 28,
-      opacity: 0.90,
-      borderColor: cores.border,
-      borderWidth: 2,
-      style: 'default'
-    });
-
-    // Nome do advogado com formatação profissional
-    if (nomeAdvogado) {
-      ctx.fillStyle = cores.accent;
-      ctx.font = 'bold 34px Arial';
-      ctx.textAlign = 'center';
-      drawTextWithShadow(ctx, nomeAdvogado, dim.w / 2, rodapeBoxY + 52);
-    }
-
-    // OAB com estilo mais elegante
-    if (oab) {
-      ctx.fillStyle = cores.secondary;
-      ctx.font = '24px Arial';
-      ctx.textAlign = 'center';
-      drawTextWithShadow(ctx, oab, dim.w / 2, rodapeBoxY + 95);
-    }
-
-    // CAIXA DE BULLETS (se existirem)
-    const bulletsArray = bullets || conteudo?.bullets || [];
-    
-    if (bulletsArray.length > 0) {
-      const bulletBoxY = temaBoxHeight + topoBoxY + 30;
-      const bulletBoxHeight = Math.min(bulletsArray.length * 75 + 50, dim.h - bulletBoxY - rodapeBoxHeight - 80);
-      
-      drawPremiumBox(ctx, paddingH, bulletBoxY, dim.w - (paddingH * 2), bulletBoxHeight, {
-        radius: 24,
-        opacity: 0.82,
-        borderColor: 'rgba(255,255,255,0.15)',
-        borderWidth: 1,
-        style: 'subtle'
+      ctx.textAlign = 'left';
+      temaLines.forEach((line, i) => {
+        drawTextWithShadow(ctx, line, paddingH + 10, temaStartY + i * lineHeight);
       });
-      
-      const bulletStartY = bulletBoxY + 55;
-      const bulletX = paddingH + 45;
-      
-      bulletsArray.slice(0, 4).forEach((bullet, index) => {
-        const bulletText = typeof bullet === 'string' ? bullet : bullet.texto || bullet.titulo || '';
-        const y = bulletStartY + (index * 70);
-        
-        // Ícone do bullet com destaque
+
+      // --- NOME DO ADVOGADO + OAB abaixo do titulo ---
+      const infoY = temaStartY + temaBlockHeight + 15;
+
+      if (nomeAdvogado) {
         ctx.fillStyle = cores.accent;
-        ctx.font = 'bold 28px Arial';
-        drawTextWithShadow(ctx, '✓', bulletX, y);
-        
-        // Texto do bullet
-        ctx.fillStyle = cores.text;
-        ctx.font = '30px Arial';
+        ctx.font = 'bold 30px Arial';
         ctx.textAlign = 'left';
-        const bulletLines = wrapText(ctx, bulletText, dim.w - (paddingH * 2) - 120);
-        drawTextWithShadow(ctx, bulletLines[0] || '', bulletX + 45, y);
-      });
+
+        let infoText = nomeAdvogado;
+        if (oab) {
+          infoText += '  |  ' + oab;
+        }
+        drawTextWithShadow(ctx, infoText, paddingH + 10, infoY);
+      } else if (oab) {
+        ctx.fillStyle = cores.secondary;
+        ctx.font = '24px Arial';
+        ctx.textAlign = 'left';
+        drawTextWithShadow(ctx, oab, paddingH + 10, infoY);
+      }
+    } else {
+      // Sem tema: só nome e OAB na parte inferior
+      const bottomMargin = 60;
+      if (nomeAdvogado) {
+        ctx.fillStyle = cores.accent;
+        ctx.font = 'bold 30px Arial';
+        ctx.textAlign = 'left';
+        let infoText = nomeAdvogado;
+        if (oab) infoText += '  |  ' + oab;
+        drawTextWithShadow(ctx, infoText, paddingH + 10, dim.h - bottomMargin);
+      }
     }
 
-    // LOGO com design melhorado
+    // --- LOGO pequeno no canto superior direito ---
     if (logo) {
       try {
         const logoBase64 = logo.startsWith('data:') ? logo : `data:image/png;base64,${logo}`;
         const logoImage = await loadImage(logoBase64);
-        
-        const logoSize = 80;
-        const logoX = dim.w - logoSize - 25;
-        const logoY = topoBoxY + 15;
-        
-        // Fundo do logo com gradiente
+
+        const logoSize = 70;
+        const logoX = dim.w - logoSize - 30;
+        const logoY = 35;
+
+        // Fundo sutil circular
         ctx.save();
-        const logoGrad = ctx.createRadialGradient(
-          logoX + logoSize/2, logoY + logoSize/2, 0,
-          logoX + logoSize/2, logoY + logoSize/2, logoSize/2 + 8
-        );
-        logoGrad.addColorStop(0, 'rgba(0,0,0,0.7)');
-        logoGrad.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = logoGrad;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
         ctx.beginPath();
-        ctx.arc(logoX + logoSize/2, logoY + logoSize/2, logoSize/2 + 10, 0, Math.PI * 2);
+        ctx.arc(logoX + logoSize / 2, logoY + logoSize / 2, logoSize / 2 + 6, 0, Math.PI * 2);
         ctx.fill();
-        
-        // Borda dourada no logo
-        ctx.strokeStyle = cores.border;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(logoX + logoSize/2, logoY + logoSize/2, logoSize/2 + 4, 0, Math.PI * 2);
-        ctx.stroke();
         ctx.restore();
-        
+
         // Desenhar logo
         ctx.drawImage(logoImage, logoX, logoY, logoSize, logoSize);
       } catch (e) {
-        console.log('⚠️ Erro logo:', e.message);
+        console.log('Erro logo:', e.message);
       }
     }
 
