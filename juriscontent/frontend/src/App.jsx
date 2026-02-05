@@ -5,8 +5,8 @@
 // =====================================================
 
 import { Share2, Link2, MoreVertical } from 'lucide-react';
-import React, { useState, useEffect, createContext, useContext, useRef } from 'react';
-import { Scale, Loader2, Eye, EyeOff, LogOut, Copy, Check, Image as ImageIcon, Download, X, Lightbulb, Users, Settings, Upload, Palette, TrendingUp, Flame, RefreshCw, Sparkles, Instagram, Facebook, Linkedin, Twitter, FileText, MessageCircle, Edit3, ZoomIn, Mail, Lock, User, Award, AlertCircle, CheckCircle, Camera, Save, Phone, Trash2, ExternalLink, Calendar, Tag, FolderOpen, ChevronUp, Clock, CreditCard, Crown, Zap, Star } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback, createContext, useContext, useRef } from 'react';
+import { Scale, Loader2, Eye, EyeOff, LogOut, Copy, Check, Image as ImageIcon, Download, X, Lightbulb, Users, Settings, Upload, Palette, TrendingUp, Flame, RefreshCw, Sparkles, Instagram, Facebook, Linkedin, Twitter, FileText, MessageCircle, Edit3, ZoomIn, Mail, Lock, User, Award, AlertCircle, CheckCircle, Camera, Save, Phone, Trash2, ExternalLink, Calendar, Tag, FolderOpen, ChevronUp, Clock, CreditCard, Crown, Zap, Star, ChevronLeft, ChevronRight, ChevronDown, Plus, GripVertical } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
 // =====================================================
@@ -47,6 +47,7 @@ function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [perfil, setPerfil] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [recuperandoSenha, setRecuperandoSenha] = useState(false);
   const [minhasImagens, setMinhasImagens] = useState([]);
   const [meusAgendamentos, setMeusAgendamentos] = useState([]);
 
@@ -103,8 +104,11 @@ function AuthProvider({ children }) {
     // Listener de mudanças
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event);
         if (!isMounted) return;
+
+        if (event === 'PASSWORD_RECOVERY') {
+          setRecuperandoSenha(true);
+        }
 
         setUser(session?.user ?? null);
         if (session?.user) {
@@ -210,6 +214,18 @@ function AuthProvider({ children }) {
       provider: 'google',
       options: { redirectTo: window.location.origin }
     });
+    if (error) throw error;
+  }
+
+  async function recuperarSenha(email) {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin
+    });
+    if (error) throw error;
+  }
+
+  async function atualizarSenha(novaSenha) {
+    const { error } = await supabase.auth.updateUser({ password: novaSenha });
     if (error) throw error;
   }
 
@@ -439,6 +455,21 @@ function AuthProvider({ children }) {
     await carregarAgendamentos(user.id);
   }
 
+  async function reagendarAgendamento(agendamentoId, novaData) {
+    if (!user) throw new Error('Usuario nao autenticado');
+
+    const { error } = await supabase
+      .from('agendamentos')
+      .update({ data_agendada: novaData })
+      .eq('id', agendamentoId)
+      .eq('user_id', user.id)
+      .eq('status', 'pendente');
+
+    if (error) throw error;
+
+    await carregarAgendamentos(user.id);
+  }
+
   // Função para fazer fetch autenticado
   async function fetchAuth(url, options = {}) {
     try {
@@ -469,6 +500,10 @@ function AuthProvider({ children }) {
     fazerRegistro,
     loginGoogle,
     fazerLogout,
+    recuperarSenha,
+    atualizarSenha,
+    recuperandoSenha,
+    setRecuperandoSenha,
     atualizarPerfil,
     uploadLogo,
     salvarImagemGerada,
@@ -477,6 +512,7 @@ function AuthProvider({ children }) {
     criarAgendamento,
     cancelarAgendamento,
     deletarAgendamento,
+    reagendarAgendamento,
     recarregarAgendamentos: () => user && carregarAgendamentos(user.id),
     fetchAuth
   };
@@ -492,7 +528,7 @@ function useAuth() {
 // COMPONENTES DE AGENDAMENTO
 // =====================================================
 
-function ModalAgendar({ isOpen, onClose, conteudo, imagemUrl, titulo }) {
+function ModalAgendar({ isOpen, onClose, conteudo, imagemUrl, titulo, dataPadrao }) {
   const { criarAgendamento } = useAuth();
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState('');
@@ -512,11 +548,16 @@ function ModalAgendar({ isOpen, onClose, conteudo, imagemUrl, titulo }) {
       setDataAgendada('');
       setHoraAgendada('');
 
-      const sugestao = new Date(agora.getTime() + 2 * 60 * 60 * 1000);
-      setDataAgendada(sugestao.toISOString().split('T')[0]);
-      setHoraAgendada(sugestao.toTimeString().slice(0, 5));
+      if (dataPadrao) {
+        setDataAgendada(dataPadrao);
+        setHoraAgendada('11:00');
+      } else {
+        const sugestao = new Date(agora.getTime() + 2 * 60 * 60 * 1000);
+        setDataAgendada(sugestao.toISOString().split('T')[0]);
+        setHoraAgendada(sugestao.toTimeString().slice(0, 5));
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, dataPadrao]);
 
   const handleAgendar = async () => {
     if (!dataAgendada || !horaAgendada) {
@@ -691,39 +732,140 @@ function ModalAgendar({ isOpen, onClose, conteudo, imagemUrl, titulo }) {
   );
 }
 
-function ModalMeusAgendamentos({ isOpen, onClose }) {
-  const { meusAgendamentos, cancelarAgendamento, deletarAgendamento, recarregarAgendamentos } = useAuth();
+// =====================================================
+// HELPERS DO CALENDARIO
+// =====================================================
+const MELHORES_HORARIOS = {
+  instagram: {
+    diasUteis: ['11h-13h', '18h-20h'],
+    fimDeSemana: ['10h-12h']
+  },
+  linkedin: {
+    diasUteis: ['7h-9h', '11h-12h'],
+    diasPreferidos: [2, 3, 4],
+    fimDeSemana: []
+  },
+  facebook: {
+    diasUteis: ['13h-16h'],
+    fimDeSemana: ['12h-15h']
+  }
+};
+
+function getDiasDoMes(date) {
+  const ano = date.getFullYear();
+  const mes = date.getMonth();
+  const primeiroDia = new Date(ano, mes, 1);
+  const ultimoDia = new Date(ano, mes + 1, 0);
+
+  const dias = [];
+
+  const inicioDaSemana = primeiroDia.getDay();
+  for (let i = inicioDaSemana - 1; i >= 0; i--) {
+    const d = new Date(ano, mes, -i);
+    dias.push({ date: d, mesAtual: false });
+  }
+
+  for (let i = 1; i <= ultimoDia.getDate(); i++) {
+    dias.push({ date: new Date(ano, mes, i), mesAtual: true });
+  }
+
+  const restante = 7 - (dias.length % 7);
+  if (restante < 7) {
+    for (let i = 1; i <= restante; i++) {
+      dias.push({ date: new Date(ano, mes + 1, i), mesAtual: false });
+    }
+  }
+
+  return dias;
+}
+
+function dateKey(date) {
+  const d = new Date(date);
+  const ano = d.getFullYear();
+  const mes = String(d.getMonth() + 1).padStart(2, '0');
+  const dia = String(d.getDate()).padStart(2, '0');
+  return `${ano}-${mes}-${dia}`;
+}
+
+function getSugestoesDia(date) {
+  const diaSemana = date.getDay();
+  const ehFds = diaSemana === 0 || diaSemana === 6;
+  const sugestoes = [];
+
+  if (ehFds) {
+    sugestoes.push({ rede: 'Instagram', horarios: MELHORES_HORARIOS.instagram.fimDeSemana.join(', ') });
+    if (MELHORES_HORARIOS.facebook.fimDeSemana.length > 0) {
+      sugestoes.push({ rede: 'Facebook', horarios: MELHORES_HORARIOS.facebook.fimDeSemana.join(', ') });
+    }
+  } else {
+    sugestoes.push({ rede: 'Instagram', horarios: MELHORES_HORARIOS.instagram.diasUteis.join(', ') });
+    if (MELHORES_HORARIOS.linkedin.diasPreferidos.includes(diaSemana)) {
+      sugestoes.push({ rede: 'LinkedIn', horarios: MELHORES_HORARIOS.linkedin.diasUteis.join(', ') });
+    }
+    sugestoes.push({ rede: 'Facebook', horarios: MELHORES_HORARIOS.facebook.diasUteis.join(', ') });
+  }
+
+  return sugestoes;
+}
+
+// =====================================================
+// COMPONENTE: CALENDARIO DE AGENDAMENTOS
+// =====================================================
+function ModalCalendarioAgendamentos({ isOpen, onClose, onNovoAgendamento, conteudoDisponivel }) {
+  const { meusAgendamentos, cancelarAgendamento, deletarAgendamento, reagendarAgendamento, recarregarAgendamentos } = useAuth();
+  const [mesAtual, setMesAtual] = useState(() => new Date());
+  const [diaSelecionado, setDiaSelecionado] = useState(null);
   const [loading, setLoading] = useState(null);
+  const [dicasAbertas, setDicasAbertas] = useState(false);
+  const [dragOverDate, setDragOverDate] = useState(null);
+  const [modoMover, setModoMover] = useState(null);
+  const [reagendando, setReagendando] = useState(null); // {id, data_agendada, targetDate}
+  const [novoHorario, setNovoHorario] = useState('');
 
   useEffect(() => {
     if (isOpen) {
       recarregarAgendamentos();
+      setDiaSelecionado(null);
+      setModoMover(null);
+      setReagendando(null);
     }
   }, [isOpen]);
 
-  const formatarData = (dataISO) => {
-    const data = new Date(dataISO);
-    return data.toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+  const agendamentosPorDia = useMemo(() => {
+    const mapa = {};
+    (meusAgendamentos || []).forEach(ag => {
+      const chave = dateKey(ag.data_agendada);
+      if (!mapa[chave]) mapa[chave] = [];
+      mapa[chave].push(ag);
     });
+    return mapa;
+  }, [meusAgendamentos]);
+
+  const diasGrid = useMemo(() => getDiasDoMes(mesAtual), [mesAtual]);
+
+  const hoje = dateKey(new Date());
+
+  const mesAnterior = () => setMesAtual(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  const mesProximo = () => setMesAtual(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+
+  const nomeMes = mesAtual.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+
+  const getStatusDot = (status) => {
+    switch (status) {
+      case 'pendente': return 'bg-yellow-400';
+      case 'enviado': return 'bg-green-400';
+      case 'erro': return 'bg-red-400';
+      default: return 'bg-slate-500';
+    }
   };
 
   const getStatusConfig = (status) => {
     switch (status) {
-      case 'pendente':
-        return { cor: 'bg-yellow-500/20 text-yellow-400', label: 'Pendente', icon: Clock };
-      case 'enviado':
-        return { cor: 'bg-green-500/20 text-green-400', label: 'Enviado', icon: CheckCircle };
-      case 'erro':
-        return { cor: 'bg-red-500/20 text-red-400', label: 'Erro', icon: AlertCircle };
-      case 'cancelado':
-        return { cor: 'bg-slate-500/20 text-slate-400', label: 'Cancelado', icon: X };
-      default:
-        return { cor: 'bg-slate-500/20 text-slate-400', label: status, icon: Clock };
+      case 'pendente': return { cor: 'bg-yellow-500/20 text-yellow-400', label: 'Pendente', icon: Clock };
+      case 'enviado': return { cor: 'bg-green-500/20 text-green-400', label: 'Enviado', icon: CheckCircle };
+      case 'erro': return { cor: 'bg-red-500/20 text-red-400', label: 'Erro', icon: AlertCircle };
+      case 'cancelado': return { cor: 'bg-slate-500/20 text-slate-400', label: 'Cancelado', icon: X };
+      default: return { cor: 'bg-slate-500/20 text-slate-400', label: status, icon: Clock };
     }
   };
 
@@ -736,146 +878,426 @@ function ModalMeusAgendamentos({ isOpen, onClose }) {
     }
   };
 
-  const handleCancelar = async (id) => {
-    if (!confirm('Cancelar este agendamento?')) return;
-    setLoading(id);
+  const handleDragStart = (e, ag) => {
+    if (ag.status !== 'pendente') return;
+    e.dataTransfer.setData('text/plain', JSON.stringify({ id: ag.id, data_agendada: ag.data_agendada }));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e, diaKey) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverDate(diaKey);
+  };
+
+  const handleDragLeave = () => setDragOverDate(null);
+
+  const handleDrop = (e, targetDate) => {
+    e.preventDefault();
+    setDragOverDate(null);
     try {
-      await cancelarAgendamento(id);
+      const dados = JSON.parse(e.dataTransfer.getData('text/plain'));
+      const horaOriginal = new Date(dados.data_agendada);
+      const hh = String(horaOriginal.getHours()).padStart(2, '0');
+      const mm = String(horaOriginal.getMinutes()).padStart(2, '0');
+      setNovoHorario(`${hh}:${mm}`);
+      setReagendando({ id: dados.id, data_agendada: dados.data_agendada, targetDate });
+    } catch (err) {
+      console.error('Erro ao reagendar:', err);
+    }
+  };
+
+  const handleMoverPara = (targetDateStr) => {
+    if (!modoMover) return;
+    const horaOriginal = new Date(modoMover.data_agendada);
+    const hh = String(horaOriginal.getHours()).padStart(2, '0');
+    const mm = String(horaOriginal.getMinutes()).padStart(2, '0');
+    setNovoHorario(`${hh}:${mm}`);
+    setReagendando({ id: modoMover.id, data_agendada: modoMover.data_agendada, targetDate: targetDateStr });
+    setModoMover(null);
+  };
+
+  const confirmarReagendamento = async () => {
+    if (!reagendando || !novoHorario) return;
+    setLoading(reagendando.id);
+    try {
+      const [hh, mm] = novoHorario.split(':').map(Number);
+      const novaData = new Date(reagendando.targetDate + 'T12:00:00');
+      novaData.setHours(hh, mm, 0);
+      await reagendarAgendamento(reagendando.id, novaData.toISOString());
+      setReagendando(null);
+    } catch (err) {
+      console.error('Erro ao reagendar:', err);
     } finally {
       setLoading(null);
     }
+  };
+
+  const handleCancelar = async (id) => {
+    if (!confirm('Cancelar este agendamento?')) return;
+    setLoading(id);
+    try { await cancelarAgendamento(id); } finally { setLoading(null); }
   };
 
   const handleDeletar = async (id) => {
     if (!confirm('Excluir permanentemente este agendamento?')) return;
     setLoading(id);
-    try {
-      await deletarAgendamento(id);
-    } finally {
-      setLoading(null);
-    }
+    try { await deletarAgendamento(id); } finally { setLoading(null); }
   };
 
   if (!isOpen) return null;
 
-  const agendamentosPendentes = meusAgendamentos?.filter(a => a.status === 'pendente') || [];
-  const agendamentosAntigos = meusAgendamentos?.filter(a => a.status !== 'pendente') || [];
+  const agDia = diaSelecionado ? (agendamentosPorDia[diaSelecionado] || []) : [];
+  const diaSel = diaSelecionado ? new Date(diaSelecionado + 'T12:00:00') : null;
+  const sugestoesDia = diaSel ? getSugestoesDia(diaSel) : [];
+  const diasSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'];
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-      <div className="bg-slate-800 rounded-2xl max-w-2xl w-full max-h-[80vh] flex flex-col">
-        <div className="flex items-center justify-between p-6 border-b border-slate-700">
+      <div className="bg-slate-800 rounded-2xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+
+        {/* HEADER */}
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-700">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
-              <Calendar className="w-5 h-5 text-amber-400" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold text-white">Meus Agendamentos</h2>
-              <p className="text-sm text-slate-400">{meusAgendamentos?.length || 0} agendamento(s)</p>
-            </div>
+            <button onClick={mesAnterior} className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition-colors">
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <h2 className="text-lg sm:text-xl font-bold text-white capitalize min-w-[180px] text-center">{nomeMes}</h2>
+            <button onClick={mesProximo} className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition-colors">
+              <ChevronRight className="w-5 h-5" />
+            </button>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white">
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-white transition-colors">
             <X className="w-6 h-6" />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
-          {!meusAgendamentos?.length ? (
-            <div className="text-center py-12">
-              <Calendar className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-slate-400 mb-2">Nenhum agendamento</h3>
-              <p className="text-slate-500">Após gerar um conteúdo, clique em "Agendar" para programar o envio.</p>
+        <div className="flex-1 overflow-y-auto">
+          {/* DICAS DE HORARIOS */}
+          <div className="mx-4 sm:mx-6 mt-4">
+            <button
+              onClick={() => setDicasAbertas(!dicasAbertas)}
+              className="w-full flex items-center justify-between px-4 py-3 bg-slate-700/40 border border-slate-600/40 rounded-xl text-slate-300 hover:bg-slate-700/60 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <Lightbulb className="w-4 h-4 text-amber-400" />
+                <span className="text-sm font-medium">Melhores horarios para postar</span>
+              </div>
+              <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${dicasAbertas ? 'rotate-180' : ''}`} />
+            </button>
+            {dicasAbertas && (
+              <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {/* Instagram */}
+                <div className="p-3 bg-slate-700/40 rounded-xl border border-pink-500/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-7 h-7 rounded-lg bg-pink-500/15 flex items-center justify-center">
+                      <Instagram className="w-4 h-4 text-pink-400" />
+                    </div>
+                    <span className="text-sm font-semibold text-pink-400">Instagram</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-0.5">Dias uteis</p>
+                      <div className="flex flex-wrap gap-1">
+                        <span className="px-2 py-0.5 bg-pink-500/10 text-pink-300 rounded text-xs">11h - 13h</span>
+                        <span className="px-2 py-0.5 bg-pink-500/10 text-pink-300 rounded text-xs">18h - 20h</span>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-0.5">Fim de semana</p>
+                      <div className="flex flex-wrap gap-1">
+                        <span className="px-2 py-0.5 bg-pink-500/10 text-pink-300 rounded text-xs">10h - 12h</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* LinkedIn */}
+                <div className="p-3 bg-slate-700/40 rounded-xl border border-blue-400/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-7 h-7 rounded-lg bg-blue-500/15 flex items-center justify-center">
+                      <Linkedin className="w-4 h-4 text-blue-400" />
+                    </div>
+                    <span className="text-sm font-semibold text-blue-400">LinkedIn</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-0.5">Ter a Qui</p>
+                      <div className="flex flex-wrap gap-1">
+                        <span className="px-2 py-0.5 bg-blue-500/10 text-blue-300 rounded text-xs">7h - 9h</span>
+                        <span className="px-2 py-0.5 bg-blue-500/10 text-blue-300 rounded text-xs">11h - 12h</span>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-0.5">Melhor dia</p>
+                      <span className="px-2 py-0.5 bg-blue-500/10 text-blue-300 rounded text-xs">Quarta-feira</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Facebook */}
+                <div className="p-3 bg-slate-700/40 rounded-xl border border-blue-500/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-7 h-7 rounded-lg bg-blue-600/15 flex items-center justify-center">
+                      <Facebook className="w-4 h-4 text-blue-500" />
+                    </div>
+                    <span className="text-sm font-semibold text-blue-500">Facebook</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-0.5">Dias uteis</p>
+                      <div className="flex flex-wrap gap-1">
+                        <span className="px-2 py-0.5 bg-blue-600/10 text-blue-300 rounded text-xs">13h - 16h</span>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-slate-500 mb-0.5">Fim de semana</p>
+                      <span className="px-2 py-0.5 bg-blue-600/10 text-blue-300 rounded text-xs">12h - 15h</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* GRID DO CALENDARIO */}
+          <div className="px-4 sm:px-6 py-4">
+            {/* Cabeçalho dias da semana */}
+            <div className="grid grid-cols-7 mb-2">
+              {diasSemana.map(d => (
+                <div key={d} className="text-center text-xs font-medium text-slate-500 py-1">{d}</div>
+              ))}
             </div>
-          ) : (
-            <>
-              {agendamentosPendentes.length > 0 && (
-                <div className="mb-6">
-                  <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">
-                    Próximos Envios
-                  </h3>
-                  <div className="space-y-3">
-                    {agendamentosPendentes.map(ag => {
-                      const statusConfig = getStatusConfig(ag.status);
-                      const RedeIcon = getRedeIcon(ag.rede_social);
-                      const StatusIcon = statusConfig.icon;
 
-                      return (
-                        <div key={ag.id} className="bg-slate-700/50 rounded-xl p-4 border border-slate-600/50">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-2">
-                                <RedeIcon className="w-4 h-4 text-slate-400" />
-                                <span className="text-sm font-medium text-white">{ag.titulo}</span>
-                                <span className={`px-2 py-0.5 rounded-full text-xs flex items-center gap-1 ${statusConfig.cor}`}>
-                                  <StatusIcon className="w-3 h-3" />
-                                  {statusConfig.label}
-                                </span>
-                              </div>
-                              <p className="text-sm text-slate-400 line-clamp-2 mb-2">{ag.conteudo?.substring(0, 100)}...</p>
-                              <div className="flex items-center gap-2 text-xs text-slate-500">
-                                <Calendar className="w-3 h-3" />
-                                <span>{formatarData(ag.data_agendada)}</span>
-                              </div>
-                            </div>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => handleCancelar(ag.id)}
-                                disabled={loading === ag.id}
-                                className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                                title="Cancelar"
-                              >
-                                {loading === ag.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+            {/* Dias */}
+            <div className="grid grid-cols-7 gap-px bg-slate-700/30 rounded-xl overflow-hidden">
+              {diasGrid.map((dia, idx) => {
+                const chave = dateKey(dia.date);
+                const ehHoje = chave === hoje;
+                const ehSelecionado = chave === diaSelecionado;
+                const agsDia = agendamentosPorDia[chave] || [];
+                const ehDragOver = chave === dragOverDate;
+                const ehModoMover = modoMover && chave !== dateKey(modoMover.data_agendada);
+
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => {
+                      if (modoMover) {
+                        handleMoverPara(chave);
+                      } else {
+                        setDiaSelecionado(chave === diaSelecionado ? null : chave);
+                      }
+                    }}
+                    onDragOver={(e) => handleDragOver(e, chave)}
+                    onDragLeave={handleDragLeave}
+                    onDrop={(e) => handleDrop(e, chave)}
+                    className={`relative min-h-[52px] sm:min-h-[64px] p-1 sm:p-1.5 flex flex-col items-center transition-all
+                      ${dia.mesAtual ? 'bg-slate-800/80 hover:bg-slate-700/60' : 'bg-slate-800/40'}
+                      ${ehHoje ? 'ring-1 ring-inset ring-amber-500/60' : ''}
+                      ${ehSelecionado ? 'ring-2 ring-inset ring-amber-400 bg-amber-500/10' : ''}
+                      ${ehDragOver ? 'ring-2 ring-inset ring-amber-400 bg-amber-500/20' : ''}
+                      ${ehModoMover ? 'cursor-pointer hover:bg-amber-500/15 hover:ring-1 hover:ring-amber-400' : ''}
+                    `}
+                  >
+                    <span className={`text-xs sm:text-sm leading-none ${dia.mesAtual ? (ehHoje ? 'text-amber-400 font-bold' : 'text-slate-200') : 'text-slate-600'}`}>
+                      {dia.date.getDate()}
+                    </span>
+                    {agsDia.length > 0 && (
+                      <div className="flex items-center gap-0.5 mt-1 flex-wrap justify-center">
+                        {agsDia.slice(0, 3).map((ag, i) => (
+                          <span key={i} className={`w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full ${getStatusDot(ag.status)}`} />
+                        ))}
+                        {agsDia.length > 3 && (
+                          <span className="text-[9px] text-slate-400 leading-none">+{agsDia.length - 3}</span>
+                        )}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* MODO MOVER ATIVO */}
+          {modoMover && (
+            <div className="mx-4 sm:mx-6 mb-3 px-4 py-2.5 bg-amber-500/15 border border-amber-500/30 rounded-xl flex items-center justify-between">
+              <span className="text-sm text-amber-300">Clique no dia de destino para mover o agendamento</span>
+              <button onClick={() => setModoMover(null)} className="text-xs text-amber-400 hover:text-amber-300 font-medium">Cancelar</button>
+            </div>
+          )}
+
+          {/* PAINEL CONFIRMAR REAGENDAMENTO COM HORARIO */}
+          {reagendando && (
+            <div className="mx-4 sm:mx-6 mb-3 p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl">
+              <p className="text-sm text-amber-200 mb-3">
+                Mover para <strong className="text-white">{new Date(reagendando.targetDate + 'T12:00:00').toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</strong>
+              </p>
+              <div className="flex items-center gap-3">
+                <div className="flex-1">
+                  <label className="block text-xs text-slate-400 mb-1">Novo horario</label>
+                  <input
+                    type="time"
+                    value={novoHorario}
+                    onChange={(e) => setNovoHorario(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  />
                 </div>
-              )}
+                <div className="flex gap-2 pt-4">
+                  <button
+                    onClick={() => setReagendando(null)}
+                    className="px-3 py-2 bg-slate-700 text-slate-300 rounded-lg text-sm hover:bg-slate-600 transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={confirmarReagendamento}
+                    disabled={loading === reagendando.id}
+                    className="px-4 py-2 bg-amber-500 text-slate-900 font-medium rounded-lg text-sm hover:bg-amber-400 transition-colors disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {loading === reagendando.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                    Confirmar
+                  </button>
+                </div>
+              </div>
+              {/* Sugestoes rapidas de horario */}
+              <div className="flex flex-wrap gap-1.5 mt-3">
+                {['07:00', '09:00', '11:00', '13:00', '15:00', '18:00', '20:00'].map(h => (
+                  <button
+                    key={h}
+                    onClick={() => setNovoHorario(h)}
+                    className={`px-2.5 py-1 rounded-md text-xs transition-colors ${novoHorario === h ? 'bg-amber-500 text-slate-900 font-medium' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+                  >
+                    {h}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
-              {agendamentosAntigos.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">
-                    Histórico
+          {/* PAINEL DETALHES DO DIA */}
+          {diaSelecionado && diaSel && (
+            <div className="mx-4 sm:mx-6 mb-4 bg-slate-700/40 rounded-xl border border-slate-600/50 overflow-hidden">
+              <div className="p-4 border-b border-slate-600/30">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <h3 className="text-sm font-semibold text-white">
+                    {diaSel.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
                   </h3>
+                  {sugestoesDia.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {sugestoesDia.map((s, i) => (
+                        <span key={i} className="text-[11px] px-2 py-0.5 rounded-full bg-slate-600/50 text-slate-300">
+                          {s.rede} {s.horarios}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-4">
+                {agDia.length === 0 ? (
+                  <p className="text-sm text-slate-500 text-center py-3">Nenhum agendamento neste dia</p>
+                ) : (
                   <div className="space-y-2">
-                    {agendamentosAntigos.slice(0, 10).map(ag => {
+                    {agDia.map(ag => {
                       const statusConfig = getStatusConfig(ag.status);
                       const RedeIcon = getRedeIcon(ag.rede_social);
                       const StatusIcon = statusConfig.icon;
+                      const hora = new Date(ag.data_agendada).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
                       return (
-                        <div key={ag.id} className="bg-slate-700/30 rounded-lg p-3 flex items-center justify-between">
-                          <div className="flex items-center gap-3 flex-1 min-w-0">
-                            <RedeIcon className="w-4 h-4 text-slate-500" />
-                            <span className="text-sm text-slate-400 truncate">{ag.titulo}</span>
-                            <span className={`px-2 py-0.5 rounded-full text-xs flex items-center gap-1 ${statusConfig.cor}`}>
-                              <StatusIcon className="w-3 h-3" />
-                              {statusConfig.label}
-                            </span>
+                        <div
+                          key={ag.id}
+                          draggable={ag.status === 'pendente'}
+                          onDragStart={(e) => handleDragStart(e, ag)}
+                          className={`flex items-center gap-3 p-3 rounded-lg bg-slate-800/60 border border-slate-600/30 group ${ag.status === 'pendente' ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                        >
+                          <RedeIcon className="w-4 h-4 text-slate-400 shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-white truncate">{ag.titulo}</p>
+                            <p className="text-xs text-slate-500 truncate">{ag.conteudo?.substring(0, 60)}...</p>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <span className="text-xs text-slate-500">{formatarData(ag.data_agendada)}</span>
-                            <button
-                              onClick={() => handleDeletar(ag.id)}
-                              disabled={loading === ag.id}
-                              className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
-                              title="Excluir"
-                            >
-                              {loading === ag.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
-                            </button>
+                          <span className="text-xs text-slate-400 shrink-0">{hora}</span>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] flex items-center gap-1 shrink-0 ${statusConfig.cor}`}>
+                            <StatusIcon className="w-3 h-3" />
+                            {statusConfig.label}
+                          </span>
+                          <div className="flex items-center gap-1 shrink-0">
+                            {ag.status === 'pendente' && (
+                              <>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setModoMover(ag); }}
+                                  className="p-1 text-slate-500 hover:text-amber-400 rounded sm:hidden transition-colors"
+                                  title="Mover"
+                                >
+                                  <Calendar className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleCancelar(ag.id); }}
+                                  disabled={loading === ag.id}
+                                  className="p-1 text-slate-500 hover:text-red-400 rounded transition-colors"
+                                  title="Cancelar"
+                                >
+                                  {loading === ag.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+                                </button>
+                              </>
+                            )}
+                            {ag.status !== 'pendente' && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleDeletar(ag.id); }}
+                                disabled={loading === ag.id}
+                                className="p-1 text-slate-500 hover:text-red-400 rounded transition-colors"
+                                title="Excluir"
+                              >
+                                {loading === ag.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                              </button>
+                            )}
+                            {ag.status === 'pendente' && (
+                              <div className="hidden sm:block p-1 text-slate-600 group-hover:text-slate-400 transition-colors">
+                                <GripVertical className="w-3.5 h-3.5" />
+                              </div>
+                            )}
                           </div>
                         </div>
                       );
                     })}
                   </div>
+                )}
+
+                {/* Botao novo agendamento */}
+                <div className="mt-4 pt-3 border-t border-slate-600/30">
+                  <button
+                    onClick={() => onNovoAgendamento && onNovoAgendamento(diaSelecionado)}
+                    className="w-full p-3 rounded-xl border border-dashed border-slate-600 hover:border-amber-500/50 hover:bg-amber-500/5 transition-all group"
+                  >
+                    <div className="flex items-center justify-center gap-2 mb-1">
+                      <div className="w-7 h-7 rounded-lg bg-amber-500/20 flex items-center justify-center group-hover:bg-amber-500/30 transition-colors">
+                        <Plus className="w-4 h-4 text-amber-400" />
+                      </div>
+                      <span className="text-sm font-medium text-slate-300 group-hover:text-amber-400 transition-colors">Agendar novo post</span>
+                    </div>
+                    {conteudoDisponivel ? (
+                      <p className="text-[11px] text-green-400/70 mt-1">Conteudo pronto - clique para agendar</p>
+                    ) : (
+                      <p className="text-[11px] text-slate-500 mt-1">Fechar e gerar um conteudo primeiro</p>
+                    )}
+                    {sugestoesDia.length > 0 && (
+                      <div className="flex flex-wrap justify-center gap-1.5 mt-2">
+                        {sugestoesDia.map((s, i) => (
+                          <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-slate-700/50 text-slate-400">
+                            {s.rede} {s.horarios}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </button>
                 </div>
-              )}
-            </>
+              </div>
+            </div>
           )}
         </div>
+
       </div>
     </div>
   );
@@ -954,6 +1376,227 @@ function RetornoPagamento({ tipo, onFechar }) {
 }
 
 // =====================================================
+// TERMOS DE USO
+// =====================================================
+function TermosDeUso() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-12 px-4">
+      <div className="max-w-3xl mx-auto">
+        <button onClick={() => { window.history.replaceState({}, '', '/'); window.location.reload(); }} className="mb-6 text-amber-400 hover:text-amber-300 text-sm flex items-center gap-1">&larr; Voltar</button>
+        <div className="bg-slate-800/50 backdrop-blur rounded-2xl p-8 border border-slate-700">
+          <h1 className="text-2xl font-bold text-white mb-6">Termos de Uso</h1>
+          <p className="text-slate-400 text-sm mb-6">Ultima atualizacao: 05 de fevereiro de 2025</p>
+          <div className="space-y-6 text-slate-300 text-sm leading-relaxed">
+
+            <section>
+              <h2 className="text-lg font-semibold text-white mb-2">1. Aceitacao dos Termos</h2>
+              <p>Ao acessar e utilizar a plataforma JurisContent ("Plataforma"), voce concorda com estes Termos de Uso. Se nao concordar, nao utilize a Plataforma. O uso continuado constitui aceitacao integral destes termos.</p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-white mb-2">2. Descricao do Servico</h2>
+              <p>O JurisContent e uma plataforma SaaS (Software as a Service) que oferece ferramentas de geracao de conteudo visual para profissionais do Direito, incluindo:</p>
+              <ul className="list-disc pl-5 mt-2 space-y-1">
+                <li>Geracao de imagens para redes sociais (feed e stories)</li>
+                <li>Geracao de conteudo textual com auxilio de inteligencia artificial</li>
+                <li>Personalizacao visual com logotipo e paleta de cores</li>
+                <li>Galeria de imagens geradas</li>
+              </ul>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-white mb-2">3. Cadastro e Conta</h2>
+              <p>Para utilizar a Plataforma, voce deve criar uma conta fornecendo informacoes verdadeiras e completas. Voce e responsavel por manter a confidencialidade de suas credenciais de acesso e por todas as atividades realizadas em sua conta.</p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-white mb-2">4. Planos e Pagamentos</h2>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>A Plataforma oferece planos gratuitos e pagos com diferentes limites de geracao.</li>
+                <li>Os pagamentos sao processados pelo Mercado Pago. Ao efetuar um pagamento, voce concorda com os termos do processador de pagamentos.</li>
+                <li>Os planos pagos tem validade de 30 dias a partir da data de aprovacao do pagamento.</li>
+                <li>Nao ha reembolso automatico. Solicitacoes de reembolso devem ser feitas pelo email de suporte.</li>
+                <li>Os precos podem ser alterados com aviso previo de 30 dias.</li>
+              </ul>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-white mb-2">5. Uso do Conteudo Gerado</h2>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>O conteudo gerado pela Plataforma e de uso do usuario que o criou.</li>
+                <li>O usuario e integralmente responsavel pela revisao, verificacao juridica e publicacao do conteudo.</li>
+                <li>O conteudo gerado por IA tem carater informativo e nao substitui consultoria juridica profissional.</li>
+                <li>A Plataforma nao se responsabiliza por erros, imprecisoes ou uso inadequado do conteudo gerado.</li>
+              </ul>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-white mb-2">6. Propriedade Intelectual</h2>
+              <p>A Plataforma, sua marca, codigo-fonte, design e funcionalidades sao propriedade exclusiva do JurisContent. E proibida a reproducao, copia ou engenharia reversa sem autorizacao expressa.</p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-white mb-2">7. Limitacao de Responsabilidade</h2>
+              <p>A Plataforma e fornecida "como esta". Nao garantimos disponibilidade ininterrupta, ausencia de erros ou adequacao a finalidades especificas. Em nenhuma hipotese seremos responsaveis por danos indiretos, incidentais ou consequentes decorrentes do uso da Plataforma.</p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-white mb-2">8. Cancelamento e Suspensao</h2>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>O usuario pode cancelar sua conta a qualquer momento.</li>
+                <li>Reservamo-nos o direito de suspender ou encerrar contas que violem estes Termos.</li>
+                <li>Em caso de cancelamento, os dados serao mantidos por 30 dias e depois excluidos permanentemente.</li>
+              </ul>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-white mb-2">9. Alteracoes nos Termos</h2>
+              <p>Podemos alterar estes Termos a qualquer momento. Alteracoes significativas serao comunicadas por email ou notificacao na Plataforma. O uso continuado apos as alteracoes constitui aceitacao dos novos termos.</p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-white mb-2">10. Contato</h2>
+              <p>Para duvidas sobre estes Termos, entre em contato pelo email: <a href="mailto:contato@juriscontent.com.br" className="text-amber-400 hover:underline">contato@juriscontent.com.br</a></p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-white mb-2">11. Foro</h2>
+              <p>Estes Termos sao regidos pelas leis da Republica Federativa do Brasil. Fica eleito o foro da comarca do domicilio do usuario para dirimir quaisquer controversias.</p>
+            </section>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =====================================================
+// POLITICA DE PRIVACIDADE
+// =====================================================
+function PoliticaPrivacidade() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-12 px-4">
+      <div className="max-w-3xl mx-auto">
+        <button onClick={() => { window.history.replaceState({}, '', '/'); window.location.reload(); }} className="mb-6 text-amber-400 hover:text-amber-300 text-sm flex items-center gap-1">&larr; Voltar</button>
+        <div className="bg-slate-800/50 backdrop-blur rounded-2xl p-8 border border-slate-700">
+          <h1 className="text-2xl font-bold text-white mb-6">Politica de Privacidade</h1>
+          <p className="text-slate-400 text-sm mb-6">Ultima atualizacao: 05 de fevereiro de 2025</p>
+          <p className="text-slate-300 text-sm mb-6">Esta Politica de Privacidade descreve como o JurisContent coleta, utiliza, armazena e protege seus dados pessoais, em conformidade com a Lei Geral de Protecao de Dados (LGPD - Lei 13.709/2018).</p>
+          <div className="space-y-6 text-slate-300 text-sm leading-relaxed">
+
+            <section>
+              <h2 className="text-lg font-semibold text-white mb-2">1. Dados Coletados</h2>
+              <p>Coletamos os seguintes dados pessoais:</p>
+              <ul className="list-disc pl-5 mt-2 space-y-1">
+                <li><strong className="text-white">Dados de cadastro:</strong> nome, email, numero da OAB (opcional), telefone (opcional)</li>
+                <li><strong className="text-white">Dados de uso:</strong> conteudos gerados, imagens criadas, preferencias de estilo</li>
+                <li><strong className="text-white">Dados de pagamento:</strong> processados pelo Mercado Pago (nao armazenamos dados de cartao)</li>
+                <li><strong className="text-white">Dados tecnicos:</strong> IP, navegador, logs de acesso</li>
+                <li><strong className="text-white">Logo/imagem:</strong> logotipo enviado pelo usuario para personalizacao</li>
+              </ul>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-white mb-2">2. Finalidade do Tratamento</h2>
+              <p>Utilizamos seus dados para:</p>
+              <ul className="list-disc pl-5 mt-2 space-y-1">
+                <li>Fornecer e operar a Plataforma</li>
+                <li>Gerar conteudo personalizado com seu nome e logotipo</li>
+                <li>Processar pagamentos e gerenciar assinaturas</li>
+                <li>Enviar comunicacoes sobre sua conta (confirmacoes, alertas)</li>
+                <li>Melhorar a qualidade do servico</li>
+                <li>Cumprir obrigacoes legais</li>
+              </ul>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-white mb-2">3. Base Legal (LGPD)</h2>
+              <p>O tratamento dos dados e realizado com base em:</p>
+              <ul className="list-disc pl-5 mt-2 space-y-1">
+                <li><strong className="text-white">Execucao de contrato:</strong> para fornecer o servico contratado</li>
+                <li><strong className="text-white">Consentimento:</strong> para envio de comunicacoes de marketing</li>
+                <li><strong className="text-white">Interesse legitimo:</strong> para melhorias no servico e seguranca</li>
+                <li><strong className="text-white">Obrigacao legal:</strong> para cumprimento de legislacao aplicavel</li>
+              </ul>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-white mb-2">4. Compartilhamento de Dados</h2>
+              <p>Seus dados podem ser compartilhados com:</p>
+              <ul className="list-disc pl-5 mt-2 space-y-1">
+                <li><strong className="text-white">Mercado Pago:</strong> processamento de pagamentos</li>
+                <li><strong className="text-white">Supabase:</strong> armazenamento seguro de dados (servidores na AWS)</li>
+                <li><strong className="text-white">Cloudinary:</strong> armazenamento de imagens geradas</li>
+                <li><strong className="text-white">Provedores de IA:</strong> para geracao de conteudo (dados anonimizados)</li>
+              </ul>
+              <p className="mt-2">Nao vendemos, alugamos ou compartilhamos seus dados pessoais com terceiros para fins de marketing.</p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-white mb-2">5. Armazenamento e Seguranca</h2>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Dados armazenados em servidores seguros com criptografia</li>
+                <li>Acesso restrito a dados pessoais</li>
+                <li>Comunicacoes protegidas por HTTPS/SSL</li>
+                <li>Senhas armazenadas com hash criptografico (nunca em texto plano)</li>
+                <li>Backups regulares com retencao de 30 dias</li>
+              </ul>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-white mb-2">6. Seus Direitos (LGPD Art. 18)</h2>
+              <p>Voce tem direito a:</p>
+              <ul className="list-disc pl-5 mt-2 space-y-1">
+                <li>Confirmar a existencia de tratamento de seus dados</li>
+                <li>Acessar seus dados pessoais</li>
+                <li>Corrigir dados incompletos ou desatualizados</li>
+                <li>Solicitar anonimizacao ou exclusao de dados desnecessarios</li>
+                <li>Solicitar portabilidade dos dados</li>
+                <li>Revogar consentimento a qualquer momento</li>
+                <li>Solicitar exclusao dos dados pessoais (direito ao esquecimento)</li>
+              </ul>
+              <p className="mt-2">Para exercer seus direitos, envie email para: <a href="mailto:contato@juriscontent.com.br" className="text-amber-400 hover:underline">contato@juriscontent.com.br</a></p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-white mb-2">7. Cookies</h2>
+              <p>Utilizamos cookies essenciais para autenticacao e funcionamento da Plataforma. Nao utilizamos cookies de rastreamento ou publicidade de terceiros.</p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-white mb-2">8. Retencao de Dados</h2>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Dados de conta: mantidos enquanto a conta estiver ativa</li>
+                <li>Imagens geradas: mantidas ate exclusao pelo usuario ou cancelamento da conta</li>
+                <li>Dados de pagamento: mantidos por 5 anos (obrigacao fiscal)</li>
+                <li>Apos cancelamento: dados excluidos em ate 30 dias, exceto obrigacoes legais</li>
+              </ul>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-white mb-2">9. Menores de Idade</h2>
+              <p>A Plataforma nao e destinada a menores de 18 anos. Nao coletamos intencionalmente dados de menores. Se identificarmos dados de menores, estes serao excluidos imediatamente.</p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-white mb-2">10. Alteracoes nesta Politica</h2>
+              <p>Esta Politica pode ser atualizada periodicamente. Alteracoes significativas serao comunicadas por email. Recomendamos a revisao periodica desta pagina.</p>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-semibold text-white mb-2">11. Contato do Encarregado (DPO)</h2>
+              <p>Para questoes relacionadas a protecao de dados pessoais:</p>
+              <p className="mt-1">Email: <a href="mailto:contato@juriscontent.com.br" className="text-amber-400 hover:underline">contato@juriscontent.com.br</a></p>
+            </section>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =====================================================
 // COMPONENTE PRINCIPAL APP
 // =====================================================
 export default function App() {
@@ -965,7 +1608,7 @@ export default function App() {
 }
 
 function AppContent() {
-  const { user, perfil, loading, fazerLogout, minhasImagens, salvarImagemGerada } = useAuth();
+  const { user, perfil, loading, fazerLogout, minhasImagens, salvarImagemGerada, recuperandoSenha } = useAuth();
   const [mostrarGaleria, setMostrarGaleria] = useState(false);
   const [mostrarPerfil, setMostrarPerfil] = useState(false);
   const [mostrarPlanos, setMostrarPlanos] = useState(false);
@@ -989,6 +1632,11 @@ function AppContent() {
     window.history.replaceState({}, '', '/');
   };
 
+  // Páginas públicas (acessíveis sem login)
+  const path = window.location.pathname;
+  if (path === '/termos') return <TermosDeUso />;
+  if (path === '/privacidade') return <PoliticaPrivacidade />;
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center">
@@ -997,7 +1645,7 @@ function AppContent() {
     );
   }
 
-  if (!user) {
+  if (!user || recuperandoSenha) {
     return <LoginSupabase />;
   }
 
@@ -1047,9 +1695,9 @@ function AppContent() {
 // TELA DE LOGIN SUPABASE
 // =====================================================
 function LoginSupabase() {
-  const { fazerLogin, fazerRegistro, loginGoogle } = useAuth();
+  const { fazerLogin, fazerRegistro, loginGoogle, recuperarSenha, atualizarSenha, recuperandoSenha, setRecuperandoSenha } = useAuth();
 
-  const [modo, setModo] = useState('login');
+  const [modo, setModo] = useState('login'); // 'login' | 'registro' | 'recuperar' | 'nova-senha'
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
@@ -1057,8 +1705,16 @@ function LoginSupabase() {
 
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
+  const [confirmarSenha, setConfirmarSenha] = useState('');
   const [nome, setNome] = useState('');
   const [oab, setOab] = useState('');
+
+  // Quando Supabase detecta PASSWORD_RECOVERY, mudar para tela de nova senha
+  useEffect(() => {
+    if (recuperandoSenha) {
+      setModo('nova-senha');
+    }
+  }, [recuperandoSenha]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -1069,13 +1725,26 @@ function LoginSupabase() {
     try {
       if (modo === 'login') {
         await fazerLogin(email, senha);
-      } else {
+      } else if (modo === 'registro') {
         if (!nome.trim()) throw new Error('Nome é obrigatório');
         const result = await fazerRegistro(email, senha, nome, oab);
         if (result.user && !result.session) {
           setSucesso('Conta criada! Verifique seu email para confirmar.');
           setModo('login');
         }
+      } else if (modo === 'recuperar') {
+        if (!email.trim()) throw new Error('Informe seu email');
+        await recuperarSenha(email);
+        setSucesso('Email enviado! Verifique sua caixa de entrada e spam.');
+      } else if (modo === 'nova-senha') {
+        if (senha.length < 6) throw new Error('Senha deve ter no mínimo 6 caracteres');
+        if (senha !== confirmarSenha) throw new Error('As senhas não conferem');
+        await atualizarSenha(senha);
+        setRecuperandoSenha(false);
+        setSucesso('Senha alterada com sucesso!');
+        setModo('login');
+        setSenha('');
+        setConfirmarSenha('');
       }
     } catch (error) {
       if (error.message.includes('Invalid login')) setErro('Email ou senha incorretos');
@@ -1101,34 +1770,49 @@ function LoginSupabase() {
 
         {/* Card */}
         <div className="bg-slate-800/50 backdrop-blur rounded-2xl p-8 border border-slate-700">
-          {/* Tabs */}
-          <div className="flex mb-6 bg-slate-900/50 rounded-lg p-1">
-            <button
-              onClick={() => { setModo('login'); setErro(''); setSucesso(''); }}
-              className={`flex-1 py-2.5 rounded-md text-sm font-medium transition-all ${modo === 'login' ? 'bg-amber-500 text-white' : 'text-slate-400 hover:text-white'
-                }`}
-            >
-              Entrar
-            </button>
-            <button
-              onClick={() => { setModo('registro'); setErro(''); setSucesso(''); }}
-              className={`flex-1 py-2.5 rounded-md text-sm font-medium transition-all ${modo === 'registro' ? 'bg-amber-500 text-white' : 'text-slate-400 hover:text-white'
-                }`}
-            >
-              Criar Conta
-            </button>
-          </div>
+
+          {/* Tabs - esconder quando recuperando/nova senha */}
+          {(modo === 'login' || modo === 'registro') && (
+            <div className="flex mb-6 bg-slate-900/50 rounded-lg p-1">
+              <button
+                onClick={() => { setModo('login'); setErro(''); setSucesso(''); }}
+                className={`flex-1 py-2.5 rounded-md text-sm font-medium transition-all ${modo === 'login' ? 'bg-amber-500 text-white' : 'text-slate-400 hover:text-white'}`}
+              >
+                Entrar
+              </button>
+              <button
+                onClick={() => { setModo('registro'); setErro(''); setSucesso(''); }}
+                className={`flex-1 py-2.5 rounded-md text-sm font-medium transition-all ${modo === 'registro' ? 'bg-amber-500 text-white' : 'text-slate-400 hover:text-white'}`}
+              >
+                Criar Conta
+              </button>
+            </div>
+          )}
+
+          {/* Titulo para recuperar/nova senha */}
+          {modo === 'recuperar' && (
+            <div className="mb-6 text-center">
+              <h2 className="text-lg font-semibold text-white mb-1">Recuperar Senha</h2>
+              <p className="text-slate-400 text-sm">Informe seu email para receber o link de recuperação</p>
+            </div>
+          )}
+          {modo === 'nova-senha' && (
+            <div className="mb-6 text-center">
+              <h2 className="text-lg font-semibold text-white mb-1">Definir Nova Senha</h2>
+              <p className="text-slate-400 text-sm">Escolha sua nova senha</p>
+            </div>
+          )}
 
           {/* Mensagens */}
           {erro && (
             <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center gap-2 text-red-400 text-sm">
-              <AlertCircle className="w-4 h-4" />
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
               {erro}
             </div>
           )}
           {sucesso && (
             <div className="mb-4 p-3 bg-green-500/10 border border-green-500/30 rounded-lg flex items-center gap-2 text-green-400 text-sm">
-              <CheckCircle className="w-4 h-4" />
+              <CheckCircle className="w-4 h-4 flex-shrink-0" />
               {sucesso}
             </div>
           )}
@@ -1167,43 +1851,83 @@ function LoginSupabase() {
               </>
             )}
 
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">Email *</label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="seu@email.com"
-                  className="w-full bg-slate-700 border border-slate-600 rounded-lg pl-10 pr-4 py-2.5 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400"
-                  required
-                />
+            {/* Email - mostrar em login, registro e recuperar */}
+            {modo !== 'nova-senha' && (
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">Email *</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="seu@email.com"
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg pl-10 pr-4 py-2.5 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    required
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">Senha *</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input
-                  type={mostrarSenha ? 'text' : 'password'}
-                  value={senha}
-                  onChange={(e) => setSenha(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full bg-slate-700 border border-slate-600 rounded-lg pl-10 pr-12 py-2.5 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400"
-                  required
-                  minLength={6}
-                />
+            {/* Senha - mostrar em login, registro e nova-senha */}
+            {modo !== 'recuperar' && (
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">
+                  {modo === 'nova-senha' ? 'Nova Senha *' : 'Senha *'}
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <input
+                    type={mostrarSenha ? 'text' : 'password'}
+                    value={senha}
+                    onChange={(e) => setSenha(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg pl-10 pr-12 py-2.5 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    required
+                    minLength={6}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setMostrarSenha(!mostrarSenha)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  >
+                    {mostrarSenha ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Confirmar senha - apenas nova-senha */}
+            {modo === 'nova-senha' && (
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-1.5">Confirmar Nova Senha *</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <input
+                    type={mostrarSenha ? 'text' : 'password'}
+                    value={confirmarSenha}
+                    onChange={(e) => setConfirmarSenha(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg pl-10 pr-4 py-2.5 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    required
+                    minLength={6}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Link "Esqueci minha senha" - apenas na tela de login */}
+            {modo === 'login' && (
+              <div className="text-right">
                 <button
                   type="button"
-                  onClick={() => setMostrarSenha(!mostrarSenha)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  onClick={() => { setModo('recuperar'); setErro(''); setSucesso(''); }}
+                  className="text-sm text-amber-400 hover:text-amber-300 transition-colors"
                 >
-                  {mostrarSenha ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  Esqueci minha senha
                 </button>
               </div>
-            </div>
+            )}
 
             <button
               type="submit"
@@ -1211,34 +1935,58 @@ function LoginSupabase() {
               className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-medium py-3 rounded-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
-              {loading ? 'Aguarde...' : modo === 'login' ? 'Entrar' : 'Criar Conta'}
+              {loading ? 'Aguarde...' :
+                modo === 'login' ? 'Entrar' :
+                modo === 'registro' ? 'Criar Conta' :
+                modo === 'recuperar' ? 'Enviar Email' :
+                'Salvar Nova Senha'}
             </button>
           </form>
 
-          {/* Divisor */}
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-600"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-2 bg-slate-800/50 text-slate-400">ou</span>
-            </div>
-          </div>
+          {/* Link voltar - para recuperar e nova-senha */}
+          {(modo === 'recuperar' || modo === 'nova-senha') && (
+            <button
+              onClick={() => { setModo('login'); setErro(''); setSucesso(''); setRecuperandoSenha(false); }}
+              className="w-full mt-4 text-sm text-slate-400 hover:text-white transition-colors text-center"
+            >
+              Voltar para o login
+            </button>
+          )}
 
-          {/* Google */}
-          <button
-            onClick={loginGoogle}
-            disabled={loading}
-            className="w-full bg-white hover:bg-gray-100 text-gray-800 font-medium py-3 rounded-lg transition-all flex items-center justify-center gap-3"
-          >
-            <svg className="w-5 h-5" viewBox="0 0 24 24">
-              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
-              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
-            </svg>
-            Continuar com Google
-          </button>
+          {/* Divisor e Google - apenas login/registro */}
+          {(modo === 'login' || modo === 'registro') && (
+            <>
+              <div className="relative my-6">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-slate-600"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-slate-800/50 text-slate-400">ou</span>
+                </div>
+              </div>
+
+              <button
+                onClick={loginGoogle}
+                disabled={loading}
+                className="w-full bg-white hover:bg-gray-100 text-gray-800 font-medium py-3 rounded-lg transition-all flex items-center justify-center gap-3"
+              >
+                <svg className="w-5 h-5" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
+                </svg>
+                Continuar com Google
+              </button>
+            </>
+          )}
+
+          {/* Links legais */}
+          <div className="mt-6 pt-4 border-t border-slate-700 flex justify-center gap-4 text-xs text-slate-500">
+            <a href="/termos" className="hover:text-slate-300 transition-colors">Termos de Uso</a>
+            <span>|</span>
+            <a href="/privacidade" className="hover:text-slate-300 transition-colors">Politica de Privacidade</a>
+          </div>
         </div>
       </div>
     </div>
@@ -2971,68 +3719,44 @@ function SeletorPaletaCores() {
     }
   ];
 
-  const selecionarPaleta = (paleta) => {
-    try {
-      localStorage.setItem('paleta-cores-advogado', JSON.stringify(paleta));
-    } catch (e) {
-      console.log('Erro ao salvar no localStorage');
-    }
+  const { perfil, atualizarPerfil } = useAuth();
+
+  const selecionarPaleta = async (paleta) => {
     setPaletaSelecionada(paleta);
-    // Disparar evento para sincronizar com CriadorCompleto
+    // Salvar no banco (persistente entre navegadores)
+    try {
+      await atualizarPerfil({ paleta_cores: paleta });
+    } catch (e) {
+      console.log('Erro ao salvar paleta no perfil');
+    }
+    // Cache local + evento para sincronizar CriadorCompleto
+    try { localStorage.setItem('paleta-cores-advogado', JSON.stringify(paleta)); } catch (e) {}
     window.dispatchEvent(new Event("paletaCoresAtualizada"));
   };
 
   useEffect(() => {
-    const carregarPaleta = async () => {
+    // Carregar paleta: prioridade banco > localStorage
+    if (perfil?.paleta_cores) {
+      setPaletaSelecionada(perfil.paleta_cores);
+      try { localStorage.setItem('paleta-cores-advogado', JSON.stringify(perfil.paleta_cores)); } catch (e) {}
+    } else {
       try {
-        let paleta;
-        try {
-          // Tentar carregar nova paleta
-          paleta = localStorage.getItem('paleta-cores-advogado');
-
-          // Migração: Se não tiver paleta nova, tentar migrar da antiga
-          if (!paleta) {
-            const perfilAntigo = localStorage.getItem('perfil-visual-advogado');
-            if (perfilAntigo) {
-              const perfil = JSON.parse(perfilAntigo);
-              // Migrar para novo formato
-              const paletaMigrada = {
-                id: perfil.id || 'customizado',
-                nome: perfil.nome || perfil.estilo_visual || 'Customizado',
-                desc: perfil.desc || 'Cores da sua marca',
-                cores: perfil.cores_principais || [
-                  perfil.cor_primaria,
-                  perfil.cor_secundaria,
-                  perfil.cor_acento
-                ].filter(Boolean)
-              };
-              localStorage.setItem('paleta-cores-advogado', JSON.stringify(paletaMigrada));
-              paleta = JSON.stringify(paletaMigrada);
-              console.log('✅ Paleta migrada do formato antigo');
-            }
-          }
-        } catch (e) {
-          console.log('Acesso ao localStorage bloqueado');
+        const local = localStorage.getItem('paleta-cores-advogado');
+        if (local) {
+          const parsed = JSON.parse(local);
+          setPaletaSelecionada(parsed);
+          // Migrar localStorage para o banco
+          atualizarPerfil({ paleta_cores: parsed }).catch(() => {});
         }
+      } catch (e) {}
+    }
+  }, [perfil?.paleta_cores]);
 
-        if (paleta) {
-          setPaletaSelecionada(JSON.parse(paleta));
-        }
-      } catch (error) {
-        console.log('Erro ao carregar paleta:', error);
-      }
-    };
-    carregarPaleta();
-  }, []);
-
-  const removerPaleta = () => {
+  const removerPaleta = async () => {
     if (confirm('Remover paleta de cores?')) {
-      try {
-        localStorage.removeItem('paleta-cores-advogado');
-      } catch (e) {
-        console.log('Erro ao limpar localStorage');
-      }
       setPaletaSelecionada(null);
+      try { localStorage.removeItem('paleta-cores-advogado'); } catch (e) {}
+      try { await atualizarPerfil({ paleta_cores: null }); } catch (e) {}
     }
   };
 
@@ -3462,89 +4186,61 @@ function CriadorCompleto({ user, onLogout, onAbrirGaleria, onAbrirPerfil, onAbri
     return 'quadrado'; // 1:1
   })();
 
+  const aplicarPaleta = (paletaParsed) => {
+    setPaletaCores(paletaParsed);
+    if (paletaParsed?.nome) {
+      const estiloMap = {
+        'classico': 'classico', 'clássico': 'classico',
+        'moderno': 'moderno', 'contemporâneo': 'moderno', 'contemporaneo': 'moderno',
+        'executivo': 'executivo', 'corporativo': 'executivo', 'profissional': 'executivo',
+        'acolhedor': 'acolhedor', 'humanizado': 'acolhedor', 'minimalista': 'moderno'
+      };
+      setEstiloImagem(estiloMap[paletaParsed.nome.toLowerCase()] || 'classico');
+    }
+  };
+
   useEffect(() => {
-    const carregarPaleta = () => {
+    // Carregar paleta: prioridade banco > localStorage
+    if (perfil?.paleta_cores) {
+      aplicarPaleta(perfil.paleta_cores);
+    } else {
       try {
-        let paleta = localStorage.getItem("paleta-cores-advogado");
+        const local = localStorage.getItem("paleta-cores-advogado");
+        if (local) aplicarPaleta(JSON.parse(local));
+      } catch (e) {}
+    }
+  }, [perfil?.paleta_cores]);
 
-        // Migração: tentar carregar do formato antigo se não tiver novo
-        if (!paleta) {
-          const perfilAntigo = localStorage.getItem("perfil-visual-advogado");
-          if (perfilAntigo) {
-            const perfil = JSON.parse(perfilAntigo);
-            paleta = JSON.stringify({
-              id: perfil.id || 'customizado',
-              nome: perfil.nome || perfil.estilo_visual || 'Customizado',
-              desc: perfil.desc || 'Cores da sua marca',
-              cores: perfil.cores_principais || [
-                perfil.cor_primaria,
-                perfil.cor_secundaria,
-                perfil.cor_acento
-              ].filter(Boolean)
-            });
-            localStorage.setItem("paleta-cores-advogado", paleta);
-            console.log('✅ Paleta migrada do formato antigo');
-          }
-        }
-
-        if (paleta) {
-          const paletaParsed = JSON.parse(paleta);
-          setPaletaCores(paletaParsed);
-
-          // Mapear nome da paleta para estiloImagem
-          if (paletaParsed.nome) {
-            const estiloMap = {
-              'classico': 'classico',
-              'clássico': 'classico',
-              'moderno': 'moderno',
-              'contemporâneo': 'moderno',
-              'contemporaneo': 'moderno',
-              'executivo': 'executivo',
-              'corporativo': 'executivo',
-              'profissional': 'executivo',
-              'acolhedor': 'acolhedor',
-              'humanizado': 'acolhedor',
-              'minimalista': 'moderno'
-            };
-            const estiloLower = paletaParsed.nome.toLowerCase();
-            const novoEstilo = estiloMap[estiloLower] || 'classico';
-            setEstiloImagem(novoEstilo);
-            console.log('🎨 Estilo visual aplicado:', paletaParsed.nome, '→', novoEstilo);
-          }
-        }
-      } catch (error) {
-        console.log("Erro ao carregar paleta:", error);
-      }
+  useEffect(() => {
+    // Listener para quando paleta é alterada nas configurações
+    const handlePaletaUpdate = () => {
+      try {
+        const local = localStorage.getItem("paleta-cores-advogado");
+        if (local) aplicarPaleta(JSON.parse(local));
+        else setPaletaCores(null);
+      } catch (e) {}
     };
-    carregarPaleta();
-    // Listener para mudanças no localStorage (quando paleta é selecionada)
-    const handleStorageChange = () => {
-      carregarPaleta();
-    };
-    window.addEventListener("storage", handleStorageChange);
-    window.addEventListener("paletaCoresAtualizada", handleStorageChange);
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-      window.removeEventListener("paletaCoresAtualizada", handleStorageChange);
-    };
+    window.addEventListener("paletaCoresAtualizada", handlePaletaUpdate);
+    return () => window.removeEventListener("paletaCoresAtualizada", handlePaletaUpdate);
   }, []);
   // Estados para configurações e logo
   const [mostrarConfig, setMostrarConfig] = useState(false);
-  const [logoUser, setLogoUser] = useState(user.logo || null);
+  const [logoUser, setLogoUser] = useState(perfil?.logo_url || null);
   const [mostrarMaisTipos, setMostrarMaisTipos] = useState(false);
   const [camposComErro, setCamposComErro] = useState([]);
 
   // Estados para agendamento
   const [mostrarModalAgendar, setMostrarModalAgendar] = useState(false);
   const [mostrarMeusAgendamentos, setMostrarMeusAgendamentos] = useState(false);
+  const [dataParaAgendar, setDataParaAgendar] = useState(null);
 
-  // Atualizar logoUser quando user.logo mudar (ex: após upload no perfil)
+  // Atualizar logoUser quando perfil.logo_url mudar (ex: após upload no perfil)
   useEffect(() => {
-    if (user.logo) {
-      console.log('🖼️ Logo atualizada');
-      setLogoUser(user.logo);
+    if (perfil?.logo_url) {
+      console.log('Logo atualizada via perfil');
+      setLogoUser(perfil.logo_url);
     }
-  }, [user.logo]);
+  }, [perfil?.logo_url]);
   // Handler para selecionar tema do trending
   const handleSelectTrending = (temaEscolhido, areaEscolhida) => {
     setTema(temaEscolhido);
@@ -4302,7 +4998,8 @@ Crie agora:`;
       }
 
       console.log('🎨 Adicionando texto...');
-      console.log('🖼️ Logo a enviar:', logoUser ? (logoUser.substring(0, 60) + '...') : 'NENHUMA');
+      const logoEnviar = logoUser || perfil?.logo_url || '';
+      console.log('Logo a enviar:', logoEnviar ? (logoEnviar.substring(0, 60) + '...') : 'NENHUMA');
       console.log('🎨 Estilo:', estiloImagem);
       console.log('🎨 Paleta de Cores:', paletaCores ? 'SIM' : 'NÃO');
 
@@ -4327,7 +5024,7 @@ Crie agora:`;
           telefone: '',
           formato: formatoUsar,
           estilo: estiloImagem,
-          logo: logoUser,
+          logo: logoUser || perfil?.logo_url || '',
           bullet1: bullet1,
           bullet2: bullet2,
           bullet3: bullet3,
@@ -4473,7 +5170,7 @@ Crie agora:`;
         </div>
 
         {/* CARD DE PERFIL E PALETA DE CORES */}
-        <div className={`mb-6 p-4 rounded-xl border ${(!logoUser && !paletaCores) ? 'bg-amber-500/10 border-amber-500/50' : 'bg-slate-800/50 border-slate-700'}`}>
+        <div className={`mb-6 p-4 rounded-xl border ${!paletaCores ? 'bg-amber-500/10 border-amber-500/50' : 'bg-slate-800/50 border-slate-700'}`}>
           <div className="flex flex-wrap items-center gap-4">
             {/* Logo */}
             <div className="flex items-center gap-3">
@@ -4520,7 +5217,7 @@ Crie agora:`;
               )}
             </div>
             {/* Alerta se faltar algo */}
-            {(!logoUser && !paletaCores) && (
+            {!paletaCores && (
               <div className="flex-1 flex items-center justify-end">
                 <div className="flex items-center gap-2 text-amber-400 text-sm">
                   <AlertCircle className="w-4 h-4" />
@@ -5394,15 +6091,6 @@ Crie agora:`;
 
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-sm font-medium text-slate-400 mb-3 uppercase tracking-wider">Logo do Advogado</h3>
-                  <ConfiguracoesLogo
-                    user={user}
-                    onSaveLogo={(logo) => setLogoUser(logo)}
-                    onClose={() => setMostrarConfig(false)}
-                  />
-                </div>
-
-                <div className="pt-4 border-t border-slate-700">
                   <h3 className="text-sm font-medium text-slate-400 mb-3 uppercase tracking-wider">Cores das Imagens</h3>
                   <SeletorPaletaCores />
                 </div>
@@ -5414,15 +6102,24 @@ Crie agora:`;
         {/* MODAIS DE AGENDAMENTO */}
         <ModalAgendar
           isOpen={mostrarModalAgendar}
-          onClose={() => setMostrarModalAgendar(false)}
+          onClose={() => { setMostrarModalAgendar(false); setDataParaAgendar(null); }}
           conteudo={conteudoGerado}
           imagemUrl={imagemPreview}
           titulo={tema || tipoConteudo}
+          dataPadrao={dataParaAgendar}
         />
 
-        <ModalMeusAgendamentos
+        <ModalCalendarioAgendamentos
           isOpen={mostrarMeusAgendamentos}
           onClose={() => setMostrarMeusAgendamentos(false)}
+          conteudoDisponivel={!!conteudoGerado}
+          onNovoAgendamento={(data) => {
+            setMostrarMeusAgendamentos(false);
+            if (conteudoGerado) {
+              setDataParaAgendar(data);
+              setTimeout(() => setMostrarModalAgendar(true), 200);
+            }
+          }}
         />
 
         {/* MODAL DE IMAGEM REMOVIDO - GERAÇÃO AGORA É AUTOMÁTICA */}
