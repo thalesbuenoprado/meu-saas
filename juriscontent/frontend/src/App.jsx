@@ -1655,6 +1655,19 @@ function PlanosModal({ isOpen, onClose }) {
   };
 
   const handleAssinar = async (planoSlug) => {
+    // Se tem assinatura ativa e está tentando ir para plano grátis, bloquear
+    if (planoSlug === 'gratis' && assinatura?.status === 'ativa') {
+      setErro('Você possui uma assinatura ativa. Cancele primeiro antes de mudar para o plano grátis.');
+      return;
+    }
+
+    // Se tem assinatura ativa e clica em outro plano pago, avisar
+    if (assinatura?.status === 'ativa' && planoSlug !== 'gratis') {
+      if (!confirm(`Você já possui o plano ${planoAtual}. Deseja fazer upgrade para o plano ${planoSlug}? Seu plano atual será substituído após o pagamento.`)) {
+        return;
+      }
+    }
+
     setProcessando(true);
     setErro('');
     try {
@@ -3424,6 +3437,7 @@ function CriadorCompleto({ user, onLogout, onAbrirGaleria, onAbrirPerfil, onAbri
   const [templateStory, setTemplateStory] = useState('voce-sabia');
   const [imagemGerada, setImagemGerada] = useState(null);
   const [conteudoStoryEditavel, setConteudoStoryEditavel] = useState(null);
+  const [tipoImagemStory, setTipoImagemStory] = useState('stock');
   const [mostrarEditorConteudo, setMostrarEditorConteudo] = useState(false);
   const [loadingConteudo, setLoadingConteudo] = useState(false);
 
@@ -4085,6 +4099,7 @@ Crie agora:`;
           area: areaAtuacao,
           template: templateStory,
           paleta_cores: paletaCores,
+          tipo_imagem: tipoImagemStory,
           nome_advogado: user?.nome || '',
           oab: user?.oab || '',
           telefone: user?.telefone || '',
@@ -4665,6 +4680,35 @@ Crie agora:`;
               </div>
             )}
 
+            {/* TIPO DE IMAGEM DO STORY */}
+            {(formatoPost === 'stories' || formatoPost === 'reels') && (
+              <div className="mb-6 p-3 rounded-lg bg-slate-800/50 border border-slate-700">
+                <label className="block text-sm font-medium text-slate-300 mb-3">Imagem de fundo</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setTipoImagemStory('stock')}
+                    className={`p-3 rounded-xl border transition-all text-center ${tipoImagemStory === 'stock'
+                      ? 'border-amber-400 bg-amber-400/10'
+                      : 'border-slate-700 hover:border-slate-600 bg-slate-800/40'}`}
+                  >
+                    <ImageIcon className={`w-5 h-5 mx-auto mb-1 ${tipoImagemStory === 'stock' ? 'text-amber-400' : 'text-slate-400'}`} />
+                    <div className={`text-sm font-bold ${tipoImagemStory === 'stock' ? 'text-amber-400' : 'text-slate-300'}`}>Foto Profissional</div>
+                    <div className={`text-[10px] mt-0.5 ${tipoImagemStory === 'stock' ? 'text-amber-400/70' : 'text-slate-500'}`}>Banco de imagens</div>
+                  </button>
+                  <button
+                    onClick={() => setTipoImagemStory('ia')}
+                    className={`p-3 rounded-xl border transition-all text-center ${tipoImagemStory === 'ia'
+                      ? 'border-amber-400 bg-amber-400/10'
+                      : 'border-slate-700 hover:border-slate-600 bg-slate-800/40'}`}
+                  >
+                    <Sparkles className={`w-5 h-5 mx-auto mb-1 ${tipoImagemStory === 'ia' ? 'text-amber-400' : 'text-slate-400'}`} />
+                    <div className={`text-sm font-bold ${tipoImagemStory === 'ia' ? 'text-amber-400' : 'text-slate-300'}`}>Imagem IA</div>
+                    <div className={`text-[10px] mt-0.5 ${tipoImagemStory === 'ia' ? 'text-amber-400/70' : 'text-slate-500'}`}>Gerada por inteligência artificial</div>
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Área de Atuação */}
             <div id="campo-areaAtuacao" className={`mb-6 p-3 rounded-lg transition-all ${camposComErro.includes('areaAtuacao') ? 'bg-red-500/10 border border-red-500/50 ring-2 ring-red-500/30' : ''}`}>
               <label className="block text-sm font-medium text-slate-300 mb-3">
@@ -5117,10 +5161,7 @@ Crie agora:`;
                   Editar Conteúdo do Story
                 </h2>
                 <button
-                  onClick={() => {
-                    setMostrarEditorConteudo(false);
-                    setConteudoStoryEditavel(null);
-                  }}
+                  onClick={() => setMostrarEditorConteudo(false)}
                   className="text-slate-400 hover:text-white transition-colors"
                 >
                   <X className="w-6 h-6" />
@@ -5257,13 +5298,10 @@ Crie agora:`;
               {/* Botões */}
               <div className="flex gap-3 mt-6">
                 <button
-                  onClick={() => {
-                    setMostrarEditorConteudo(false);
-                    setConteudoStoryEditavel(null);
-                  }}
+                  onClick={() => setMostrarEditorConteudo(false)}
                   className="flex-1 px-4 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg text-white font-medium transition-all"
                 >
-                  Cancelar
+                  Fechar
                 </button>
                 <button
                   onClick={() => {
@@ -5274,7 +5312,7 @@ Crie agora:`;
                   className="flex-1 px-4 py-3 bg-amber-500 hover:bg-amber-600 rounded-lg text-white font-semibold transition-all flex items-center justify-center gap-2"
                 >
                   <Sparkles className="w-5 h-5" />
-                  Regerar Story
+                  Aplicar Alterações
                 </button>
               </div>
             </div>

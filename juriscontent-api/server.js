@@ -626,6 +626,7 @@ app.post('/api/gerar-story', limiterGeracaoConteudo, authMiddleware, async (req,
       area,
       template,
       perfil_visual,
+      tipo_imagem,
       nome_advogado,
       oab,
       telefone,
@@ -678,12 +679,13 @@ app.post('/api/gerar-story', limiterGeracaoConteudo, authMiddleware, async (req,
         oab: oab || '',
         telefone: telefone || '',
         instagram: instagram || '',
-        iniciais: nome_advogado 
-          ? nome_advogado.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() 
+        iniciais: nome_advogado
+          ? nome_advogado.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
           : '',
         area: area || '',
         tema: tema || '',
         logo: logo || '',
+        tipoImagem: tipo_imagem || 'stock',
         ...dadosProcessados
       }
     };
@@ -1243,8 +1245,21 @@ app.post('/api/criar-assinatura', limiterPagamentos, authMiddleware, async (req,
       return res.status(404).json({ error: 'Plano não encontrado' });
     }
 
-    // Se for plano grátis, apenas atualiza o perfil
+    // Se for plano grátis, verificar se tem assinatura ativa antes
     if (plano.preco === 0) {
+      const { data: assinaturaAtiva } = await supabase
+        .from('assinaturas')
+        .select('id, status')
+        .eq('user_id', userId)
+        .eq('status', 'ativa')
+        .single();
+
+      if (assinaturaAtiva) {
+        return res.status(400).json({
+          error: 'Você possui uma assinatura ativa. Cancele primeiro antes de mudar para o plano grátis.'
+        });
+      }
+
       await supabase
         .from('perfis')
         .update({ plano_atual: 'gratis' })
