@@ -2335,6 +2335,11 @@ function LoginSupabase({ isModal = false, onClose = null, modoInicial = 'login' 
         if (!nome.trim()) throw new Error('Nome é obrigatório');
         const result = await fazerRegistro(email, senha, nome, oab);
         if (result.user && !result.session) {
+          // Facebook Pixel - Evento de conversao
+          if (typeof fbq !== 'undefined') {
+            fbq('track', 'Lead');
+            fbq('track', 'CompleteRegistration');
+          }
           setSucesso('Conta criada! Verifique seu email para confirmar.');
           setModo('login');
         }
