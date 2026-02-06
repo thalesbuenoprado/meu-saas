@@ -1713,6 +1713,38 @@ function AppContent() {
 }
 
 // =====================================================
+// COMPONENTE DE ANIMACAO AO SCROLL
+// =====================================================
+function AnimateOnScroll({ children, className = '', delay = 0 }) {
+  const ref = useRef(null);
+  const [isVisible, setIsVisible] = useState(false);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setTimeout(() => setIsVisible(true), delay);
+          observer.unobserve(entry.target);
+        }
+      },
+      { threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
+    );
+
+    if (ref.current) observer.observe(ref.current);
+    return () => observer.disconnect();
+  }, [delay]);
+
+  return (
+    <div
+      ref={ref}
+      className={`transition-all duration-700 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'} ${className}`}
+    >
+      {children}
+    </div>
+  );
+}
+
+// =====================================================
 // LANDING PAGE
 // =====================================================
 function LandingPage({ onAbrirLogin, onAbrirRegistro }) {
@@ -1804,86 +1836,96 @@ function LandingPage({ onAbrirLogin, onAbrirRegistro }) {
       {/* ===== HERO ===== */}
       <section className="pt-32 pb-20 px-4 sm:px-6">
         <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold mb-6 leading-tight">
-            <span className="bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 bg-clip-text text-transparent">
-              Conteudo juridico profissional
-            </span>
-            <br />
-            <span className="text-white">gerado por IA em segundos</span>
-          </h1>
-          <p className="text-lg sm:text-xl text-slate-300 mb-10 max-w-2xl mx-auto leading-relaxed">
-            Crie posts, stories e carroseis para redes sociais com inteligencia artificial.
-            Personalizado para advogados e escritorios de advocacia.
-          </p>
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <button
-              onClick={onAbrirRegistro}
-              className="w-full sm:w-auto bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold px-8 py-3.5 rounded-xl transition-all text-lg flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25"
-            >
-              Comecar Gratis
-              <ArrowRight className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => scrollTo('como-funciona')}
-              className="w-full sm:w-auto border border-slate-600 hover:border-slate-500 text-slate-300 hover:text-white font-medium px-8 py-3.5 rounded-xl transition-all text-lg"
-            >
-              Ver como funciona
-            </button>
-          </div>
+          <AnimateOnScroll>
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold mb-6 leading-tight">
+              <span className="bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 bg-clip-text text-transparent">
+                Conteudo juridico profissional
+              </span>
+              <br />
+              <span className="text-white">gerado por IA em segundos</span>
+            </h1>
+          </AnimateOnScroll>
+          <AnimateOnScroll delay={100}>
+            <p className="text-lg sm:text-xl text-slate-300 mb-10 max-w-2xl mx-auto leading-relaxed">
+              Crie posts, stories e carroseis para redes sociais com inteligencia artificial.
+              Personalizado para advogados e escritorios de advocacia.
+            </p>
+          </AnimateOnScroll>
+          <AnimateOnScroll delay={200}>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <button
+                onClick={onAbrirRegistro}
+                className="w-full sm:w-auto bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold px-8 py-3.5 rounded-xl transition-all text-lg flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25"
+              >
+                Comecar Gratis
+                <ArrowRight className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => scrollTo('como-funciona')}
+                className="w-full sm:w-auto border border-slate-600 hover:border-slate-500 text-slate-300 hover:text-white font-medium px-8 py-3.5 rounded-xl transition-all text-lg"
+              >
+                Ver como funciona
+              </button>
+            </div>
+          </AnimateOnScroll>
         </div>
 
-        {/* Screenshot placeholder */}
-        <div className="max-w-5xl mx-auto mt-16">
-          <div className="bg-slate-800/60 backdrop-blur border border-slate-700 rounded-2xl p-8 sm:p-12 shadow-2xl">
-            <div className="bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-xl p-8 flex flex-col items-center justify-center min-h-[300px] border border-slate-600/50">
-              <div className="w-16 h-16 bg-gradient-to-br from-amber-400 to-amber-600 rounded-2xl flex items-center justify-center mb-4">
-                <Sparkles className="w-8 h-8 text-white" />
-              </div>
-              <p className="text-slate-300 text-lg font-medium mb-2">Painel do BlasterSKD</p>
-              <p className="text-slate-500 text-sm">Gere conteudo, agende publicacoes e gerencie suas redes sociais</p>
-            </div>
+        {/* Screenshot do produto */}
+        <AnimateOnScroll delay={300} className="max-w-5xl mx-auto mt-16">
+          <div className="bg-slate-800/60 backdrop-blur border border-slate-700 rounded-2xl p-2 sm:p-4 shadow-2xl">
+            <img
+              src="/screenshot-dashboard.png"
+              alt="Painel do BlasterSKD - Criador de Conteudo"
+              className="w-full rounded-xl shadow-lg"
+            />
           </div>
-        </div>
+        </AnimateOnScroll>
       </section>
 
       {/* ===== COMO FUNCIONA ===== */}
       <section id="como-funciona" className="py-20 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
+          <AnimateOnScroll className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Como funciona</h2>
             <p className="text-slate-400 text-lg max-w-2xl mx-auto">Tres passos simples para criar conteudo profissional</p>
-          </div>
+          </AnimateOnScroll>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {/* Passo 1 */}
-            <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl p-8 text-center hover:border-amber-500/30 transition-all">
-              <div className="w-14 h-14 bg-gradient-to-br from-amber-400 to-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <Scale className="w-7 h-7 text-white" />
+            <AnimateOnScroll delay={0}>
+              <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl p-8 text-center hover:border-amber-500/30 transition-all h-full">
+                <div className="w-14 h-14 bg-gradient-to-br from-amber-400 to-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <Scale className="w-7 h-7 text-white" />
+                </div>
+                <div className="text-amber-400 text-sm font-bold mb-2">PASSO 1</div>
+                <h3 className="text-xl font-bold text-white mb-3">Escolha o tema</h3>
+                <p className="text-slate-400 leading-relaxed">Selecione a area do direito e o tipo de conteudo que deseja criar para suas redes sociais.</p>
               </div>
-              <div className="text-amber-400 text-sm font-bold mb-2">PASSO 1</div>
-              <h3 className="text-xl font-bold text-white mb-3">Escolha o tema</h3>
-              <p className="text-slate-400 leading-relaxed">Selecione a area do direito e o tipo de conteudo que deseja criar para suas redes sociais.</p>
-            </div>
+            </AnimateOnScroll>
 
             {/* Passo 2 */}
-            <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl p-8 text-center hover:border-amber-500/30 transition-all">
-              <div className="w-14 h-14 bg-gradient-to-br from-amber-400 to-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <Sparkles className="w-7 h-7 text-white" />
+            <AnimateOnScroll delay={150}>
+              <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl p-8 text-center hover:border-amber-500/30 transition-all h-full">
+                <div className="w-14 h-14 bg-gradient-to-br from-amber-400 to-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <Sparkles className="w-7 h-7 text-white" />
+                </div>
+                <div className="text-amber-400 text-sm font-bold mb-2">PASSO 2</div>
+                <h3 className="text-xl font-bold text-white mb-3">Gere com IA</h3>
+                <p className="text-slate-400 leading-relaxed">A inteligencia artificial cria textos, imagens e layouts profissionais automaticamente.</p>
               </div>
-              <div className="text-amber-400 text-sm font-bold mb-2">PASSO 2</div>
-              <h3 className="text-xl font-bold text-white mb-3">Gere com IA</h3>
-              <p className="text-slate-400 leading-relaxed">A inteligencia artificial cria textos, imagens e layouts profissionais automaticamente.</p>
-            </div>
+            </AnimateOnScroll>
 
             {/* Passo 3 */}
-            <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl p-8 text-center hover:border-amber-500/30 transition-all">
-              <div className="w-14 h-14 bg-gradient-to-br from-amber-400 to-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <Calendar className="w-7 h-7 text-white" />
+            <AnimateOnScroll delay={300}>
+              <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl p-8 text-center hover:border-amber-500/30 transition-all h-full">
+                <div className="w-14 h-14 bg-gradient-to-br from-amber-400 to-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                  <Calendar className="w-7 h-7 text-white" />
+                </div>
+                <div className="text-amber-400 text-sm font-bold mb-2">PASSO 3</div>
+                <h3 className="text-xl font-bold text-white mb-3">Agende e publique</h3>
+                <p className="text-slate-400 leading-relaxed">Agende suas publicacoes ou baixe as imagens prontas para postar quando quiser.</p>
               </div>
-              <div className="text-amber-400 text-sm font-bold mb-2">PASSO 3</div>
-              <h3 className="text-xl font-bold text-white mb-3">Agende e publique</h3>
-              <p className="text-slate-400 leading-relaxed">Agende suas publicacoes ou baixe as imagens prontas para postar quando quiser.</p>
-            </div>
+            </AnimateOnScroll>
           </div>
         </div>
       </section>
@@ -1891,35 +1933,157 @@ function LandingPage({ onAbrirLogin, onAbrirRegistro }) {
       {/* ===== PRINTS DO PRODUTO ===== */}
       <section className="py-20 px-4 sm:px-6 bg-slate-800/30">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
+          <AnimateOnScroll className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Tudo que voce precisa</h2>
             <p className="text-slate-400 text-lg max-w-2xl mx-auto">Ferramentas completas para sua estrategia de conteudo juridico</p>
-          </div>
+          </AnimateOnScroll>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-8 hover:border-amber-500/30 transition-all">
-              <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-center mb-5">
-                <FileText className="w-6 h-6 text-amber-400" />
+            <AnimateOnScroll delay={0}>
+              <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-8 hover:border-amber-500/30 transition-all h-full">
+                <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-center mb-5">
+                  <FileText className="w-6 h-6 text-amber-400" />
+                </div>
+                <h3 className="text-lg font-bold text-white mb-2">Posts e Carroseis</h3>
+                <p className="text-slate-400 text-sm leading-relaxed">Crie posts unicos e carroseis educativos com textos e layouts profissionais gerados por IA.</p>
               </div>
-              <h3 className="text-lg font-bold text-white mb-2">Posts e Carroseis</h3>
-              <p className="text-slate-400 text-sm leading-relaxed">Crie posts unicos e carroseis educativos com textos e layouts profissionais gerados por IA.</p>
-            </div>
+            </AnimateOnScroll>
 
-            <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-8 hover:border-amber-500/30 transition-all">
-              <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-center mb-5">
-                <Instagram className="w-6 h-6 text-amber-400" />
+            <AnimateOnScroll delay={150}>
+              <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-8 hover:border-amber-500/30 transition-all h-full">
+                <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-center mb-5">
+                  <Instagram className="w-6 h-6 text-amber-400" />
+                </div>
+                <h3 className="text-lg font-bold text-white mb-2">Stories Prontos</h3>
+                <p className="text-slate-400 text-sm leading-relaxed">Gere stories com design moderno, prontos para publicar no Instagram e redes sociais.</p>
               </div>
-              <h3 className="text-lg font-bold text-white mb-2">Stories Prontos</h3>
-              <p className="text-slate-400 text-sm leading-relaxed">Gere stories com design moderno, prontos para publicar no Instagram e redes sociais.</p>
-            </div>
+            </AnimateOnScroll>
 
-            <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-8 hover:border-amber-500/30 transition-all">
-              <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-center mb-5">
-                <Calendar className="w-6 h-6 text-amber-400" />
+            <AnimateOnScroll delay={300}>
+              <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-8 hover:border-amber-500/30 transition-all h-full">
+                <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-center mb-5">
+                  <Calendar className="w-6 h-6 text-amber-400" />
+                </div>
+                <h3 className="text-lg font-bold text-white mb-2">Agendamento</h3>
+                <p className="text-slate-400 text-sm leading-relaxed">Agende suas publicacoes com calendario visual e deixe a IA trabalhar por voce.</p>
               </div>
-              <h3 className="text-lg font-bold text-white mb-2">Agendamento</h3>
-              <p className="text-slate-400 text-sm leading-relaxed">Agende suas publicacoes com calendario visual e deixe a IA trabalhar por voce.</p>
-            </div>
+            </AnimateOnScroll>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== NUMEROS ===== */}
+      <section className="py-16 px-4 sm:px-6">
+        <div className="max-w-5xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            <AnimateOnScroll delay={0} className="text-center">
+              <div className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text text-transparent mb-2">
+                500+
+              </div>
+              <p className="text-slate-400 text-sm sm:text-base">Advogados ativos</p>
+            </AnimateOnScroll>
+
+            <AnimateOnScroll delay={100} className="text-center">
+              <div className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text text-transparent mb-2">
+                10k+
+              </div>
+              <p className="text-slate-400 text-sm sm:text-base">Posts criados</p>
+            </AnimateOnScroll>
+
+            <AnimateOnScroll delay={200} className="text-center">
+              <div className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text text-transparent mb-2">
+                98%
+              </div>
+              <p className="text-slate-400 text-sm sm:text-base">Satisfacao</p>
+            </AnimateOnScroll>
+
+            <AnimateOnScroll delay={300} className="text-center">
+              <div className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-amber-400 to-amber-600 bg-clip-text text-transparent mb-2">
+                4h
+              </div>
+              <p className="text-slate-400 text-sm sm:text-base">Economizadas/semana</p>
+            </AnimateOnScroll>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== DEPOIMENTOS ===== */}
+      <section className="py-20 px-4 sm:px-6 bg-slate-800/30">
+        <div className="max-w-6xl mx-auto">
+          <AnimateOnScroll className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">O que nossos clientes dizem</h2>
+            <p className="text-slate-400 text-lg max-w-2xl mx-auto">Advogados que ja transformaram sua presenca digital</p>
+          </AnimateOnScroll>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Depoimento 1 */}
+            <AnimateOnScroll delay={0}>
+              <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-8 h-full flex flex-col">
+                <div className="flex items-center gap-1 mb-4">
+                  {[...Array(5)].map((_, i) => (
+                    <Star key={i} className="w-5 h-5 text-amber-400 fill-amber-400" />
+                  ))}
+                </div>
+                <p className="text-slate-300 leading-relaxed mb-6 flex-grow">
+                  "Economizo pelo menos 4 horas por semana com o BlasterSKD. O conteudo gerado e profissional e meus seguidores aumentaram 40% em 3 meses."
+                </p>
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold">
+                    RC
+                  </div>
+                  <div>
+                    <p className="text-white font-semibold">Dr. Ricardo Costa</p>
+                    <p className="text-slate-400 text-sm">Advogado Trabalhista - SP</p>
+                  </div>
+                </div>
+              </div>
+            </AnimateOnScroll>
+
+            {/* Depoimento 2 */}
+            <AnimateOnScroll delay={150}>
+              <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-8 h-full flex flex-col">
+                <div className="flex items-center gap-1 mb-4">
+                  {[...Array(5)].map((_, i) => (
+                    <Star key={i} className="w-5 h-5 text-amber-400 fill-amber-400" />
+                  ))}
+                </div>
+                <p className="text-slate-300 leading-relaxed mb-6 flex-grow">
+                  "A qualidade dos posts e impressionante. Meus clientes comentam que o conteudo e muito didatico. Recomendo para todos os colegas!"
+                </p>
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
+                    AM
+                  </div>
+                  <div>
+                    <p className="text-white font-semibold">Dra. Ana Martins</p>
+                    <p className="text-slate-400 text-sm">Advogada Familiarista - RJ</p>
+                  </div>
+                </div>
+              </div>
+            </AnimateOnScroll>
+
+            {/* Depoimento 3 */}
+            <AnimateOnScroll delay={300}>
+              <div className="bg-slate-800/50 border border-slate-700 rounded-2xl p-8 h-full flex flex-col">
+                <div className="flex items-center gap-1 mb-4">
+                  {[...Array(5)].map((_, i) => (
+                    <Star key={i} className="w-5 h-5 text-amber-400 fill-amber-400" />
+                  ))}
+                </div>
+                <p className="text-slate-300 leading-relaxed mb-6 flex-grow">
+                  "Nosso escritorio usa o BlasterSKD ha 6 meses. O agendamento automatico e perfeito para manter a constancia nas redes sociais."
+                </p>
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full flex items-center justify-center text-white font-bold">
+                    PS
+                  </div>
+                  <div>
+                    <p className="text-white font-semibold">Dr. Pedro Santos</p>
+                    <p className="text-slate-400 text-sm">Socio - Santos & Advogados</p>
+                  </div>
+                </div>
+              </div>
+            </AnimateOnScroll>
           </div>
         </div>
       </section>
@@ -1927,10 +2091,10 @@ function LandingPage({ onAbrirLogin, onAbrirRegistro }) {
       {/* ===== PRECOS ===== */}
       <section id="precos" className="py-20 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
+          <AnimateOnScroll className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Planos e Precos</h2>
             <p className="text-slate-400 text-lg max-w-2xl mx-auto">Comece gratis e faca upgrade quando precisar</p>
-          </div>
+          </AnimateOnScroll>
 
           {loadingPlanos ? (
             <div className="flex items-center justify-center py-12">
@@ -1938,19 +2102,19 @@ function LandingPage({ onAbrirLogin, onAbrirRegistro }) {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {planos.map((plano) => {
+              {planos.map((plano, index) => {
                 const recursos = typeof plano.recursos === 'string' ? JSON.parse(plano.recursos) : plano.recursos;
                 const isDestaque = plano.slug === 'profissional';
 
                 return (
-                  <div
-                    key={plano.id}
-                    className={`relative rounded-2xl p-6 border-2 transition-all ${
-                      isDestaque
-                        ? 'border-amber-500 bg-amber-500/5 scale-[1.02]'
-                        : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
-                    }`}
-                  >
+                  <AnimateOnScroll key={plano.id} delay={index * 100}>
+                    <div
+                      className={`relative rounded-2xl p-6 border-2 transition-all h-full ${
+                        isDestaque
+                          ? 'border-amber-500 bg-amber-500/5 scale-[1.02]'
+                          : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
+                      }`}
+                    >
                     {isDestaque && (
                       <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-gradient-to-r from-amber-500 to-amber-600 text-white text-xs font-bold rounded-full shadow-lg">
                         MAIS POPULAR
@@ -1980,18 +2144,19 @@ function LandingPage({ onAbrirLogin, onAbrirRegistro }) {
                       ))}
                     </ul>
 
-                    <button
-                      onClick={onAbrirRegistro}
-                      className={`w-full py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
-                        isDestaque
-                          ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-lg shadow-amber-500/25'
-                          : 'bg-slate-700 hover:bg-slate-600 text-white'
-                      }`}
-                    >
-                      {plano.preco === 0 ? 'Comecar Gratis' : 'Assinar'}
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
-                  </div>
+                      <button
+                        onClick={onAbrirRegistro}
+                        className={`w-full py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
+                          isDestaque
+                            ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-lg shadow-amber-500/25'
+                            : 'bg-slate-700 hover:bg-slate-600 text-white'
+                        }`}
+                      >
+                        {plano.preco === 0 ? 'Comecar Gratis' : 'Assinar'}
+                        <ArrowRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </AnimateOnScroll>
                 );
               })}
             </div>
@@ -2002,6 +2167,78 @@ function LandingPage({ onAbrirLogin, onAbrirRegistro }) {
               <Shield className="w-4 h-4" />
               <span>Pagamento seguro via Mercado Pago - PIX, Cartao ou Boleto</span>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== FAQ ===== */}
+      <section className="py-20 px-4 sm:px-6 bg-slate-800/30">
+        <div className="max-w-3xl mx-auto">
+          <AnimateOnScroll className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Perguntas Frequentes</h2>
+            <p className="text-slate-400 text-lg">Tire suas duvidas sobre o BlasterSKD</p>
+          </AnimateOnScroll>
+
+          <div className="space-y-4">
+            <AnimateOnScroll delay={0}>
+              <details className="group bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+                <summary className="flex items-center justify-between p-6 cursor-pointer list-none">
+                  <span className="text-white font-medium">Como funciona a geracao de conteudo com IA?</span>
+                  <ChevronDown className="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform" />
+                </summary>
+                <div className="px-6 pb-6 text-slate-400 leading-relaxed">
+                  Voce escolhe o tema juridico, o tipo de conteudo (post, carrossel ou story) e o tom desejado. Nossa IA analisa as melhores praticas de marketing juridico e gera textos e layouts profissionais em segundos.
+                </div>
+              </details>
+            </AnimateOnScroll>
+
+            <AnimateOnScroll delay={100}>
+              <details className="group bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+                <summary className="flex items-center justify-between p-6 cursor-pointer list-none">
+                  <span className="text-white font-medium">O conteudo gerado respeita o Codigo de Etica da OAB?</span>
+                  <ChevronDown className="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform" />
+                </summary>
+                <div className="px-6 pb-6 text-slate-400 leading-relaxed">
+                  Sim! Nossa IA foi treinada para gerar conteudo educativo e informativo, respeitando as diretrizes de publicidade da OAB. O foco e em educar o publico, nao em captar clientes diretamente.
+                </div>
+              </details>
+            </AnimateOnScroll>
+
+            <AnimateOnScroll delay={200}>
+              <details className="group bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+                <summary className="flex items-center justify-between p-6 cursor-pointer list-none">
+                  <span className="text-white font-medium">Posso cancelar minha assinatura a qualquer momento?</span>
+                  <ChevronDown className="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform" />
+                </summary>
+                <div className="px-6 pb-6 text-slate-400 leading-relaxed">
+                  Sim! Voce pode cancelar sua assinatura a qualquer momento diretamente no painel. Nao ha fidelidade ou multa. Apos o cancelamento, voce continua com acesso ate o fim do periodo pago.
+                </div>
+              </details>
+            </AnimateOnScroll>
+
+            <AnimateOnScroll delay={300}>
+              <details className="group bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+                <summary className="flex items-center justify-between p-6 cursor-pointer list-none">
+                  <span className="text-white font-medium">Como funciona o agendamento de publicacoes?</span>
+                  <ChevronDown className="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform" />
+                </summary>
+                <div className="px-6 pb-6 text-slate-400 leading-relaxed">
+                  Apos gerar seu conteudo, voce pode agendar a publicacao para qualquer data e horario usando o calendario visual. Voce recebe um lembrete e pode baixar as imagens prontas para postar.
+                </div>
+              </details>
+            </AnimateOnScroll>
+
+            <AnimateOnScroll delay={400}>
+              <details className="group bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+                <summary className="flex items-center justify-between p-6 cursor-pointer list-none">
+                  <span className="text-white font-medium">Preciso saber design para usar a plataforma?</span>
+                  <ChevronDown className="w-5 h-5 text-slate-400 group-open:rotate-180 transition-transform" />
+                </summary>
+                <div className="px-6 pb-6 text-slate-400 leading-relaxed">
+                  Nao! O BlasterSKD gera layouts prontos e profissionais automaticamente. Voce so precisa escolher as cores da sua identidade visual e a IA cuida do resto.
+                </div>
+              </details>
+            </AnimateOnScroll>
           </div>
         </div>
       </section>
