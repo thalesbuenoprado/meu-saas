@@ -6,7 +6,7 @@
 
 import { Share2, Link2, MoreVertical } from 'lucide-react';
 import React, { useState, useEffect, useMemo, useCallback, createContext, useContext, useRef } from 'react';
-import { Scale, Loader2, Eye, EyeOff, LogOut, Copy, Check, Image as ImageIcon, Download, X, Lightbulb, Users, Settings, Upload, Palette, TrendingUp, Flame, RefreshCw, Sparkles, Instagram, Facebook, Linkedin, Twitter, FileText, MessageCircle, Edit3, ZoomIn, Mail, Lock, User, Award, AlertCircle, CheckCircle, Camera, Save, Phone, Trash2, ExternalLink, Calendar, Tag, FolderOpen, ChevronUp, Clock, CreditCard, Crown, Zap, Star, ChevronLeft, ChevronRight, ChevronDown, Plus, GripVertical } from 'lucide-react';
+import { Scale, Loader2, Eye, EyeOff, LogOut, Copy, Check, Image as ImageIcon, Download, X, Lightbulb, Users, Settings, Upload, Palette, TrendingUp, Flame, RefreshCw, Sparkles, Instagram, Facebook, Linkedin, Twitter, FileText, MessageCircle, Edit3, ZoomIn, Mail, Lock, User, Award, AlertCircle, CheckCircle, Camera, Save, Phone, Trash2, ExternalLink, Calendar, Tag, FolderOpen, ChevronUp, Clock, CreditCard, Crown, Zap, Star, ChevronLeft, ChevronRight, ChevronDown, Plus, GripVertical, ArrowRight, Menu, Shield, Layout } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
 // =====================================================
@@ -1613,6 +1613,8 @@ function AppContent() {
   const [mostrarPerfil, setMostrarPerfil] = useState(false);
   const [mostrarPlanos, setMostrarPlanos] = useState(false);
   const [retornoPagamento, setRetornoPagamento] = useState(null);
+  const [mostrarLogin, setMostrarLogin] = useState(false);
+  const [modoLogin, setModoLogin] = useState('login'); // 'login' | 'registro'
 
   // Detectar retorno do Mercado Pago
   useEffect(() => {
@@ -1645,8 +1647,27 @@ function AppContent() {
     );
   }
 
-  if (!user || recuperandoSenha) {
-    return <LoginSupabase />;
+  if (!user) {
+    // Se esta recuperando senha, mostra login fullscreen
+    if (recuperandoSenha) {
+      return <LoginSupabase isModal={false} modoInicial="nova-senha" />;
+    }
+    // Senao mostra landing page com login como modal
+    return (
+      <>
+        <LandingPage
+          onAbrirLogin={() => { setModoLogin('login'); setMostrarLogin(true); }}
+          onAbrirRegistro={() => { setModoLogin('registro'); setMostrarLogin(true); }}
+        />
+        {mostrarLogin && (
+          <LoginSupabase
+            isModal={true}
+            onClose={() => setMostrarLogin(false)}
+            modoInicial={modoLogin}
+          />
+        )}
+      </>
+    );
   }
 
   // Mostrar página de retorno do Mercado Pago
@@ -1692,12 +1713,353 @@ function AppContent() {
 }
 
 // =====================================================
+// LANDING PAGE
+// =====================================================
+function LandingPage({ onAbrirLogin, onAbrirRegistro }) {
+  const [planos, setPlanos] = useState([]);
+  const [loadingPlanos, setLoadingPlanos] = useState(true);
+  const [menuAberto, setMenuAberto] = useState(false);
+
+  useEffect(() => {
+    fetch('https://blasterskd.com.br/api/planos')
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) setPlanos(data.planos || []);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingPlanos(false));
+  }, []);
+
+  const scrollTo = (id) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+    setMenuAberto(false);
+  };
+
+  const getIconePlano = (slug) => {
+    switch (slug) {
+      case 'gratis': return <Zap className="w-6 h-6" />;
+      case 'essencial': return <Star className="w-6 h-6" />;
+      case 'profissional': return <Award className="w-6 h-6" />;
+      case 'escritorio': return <Crown className="w-6 h-6" />;
+      default: return <Zap className="w-6 h-6" />;
+    }
+  };
+
+  const getCorPlano = (slug) => {
+    switch (slug) {
+      case 'gratis': return 'from-slate-500 to-slate-600';
+      case 'essencial': return 'from-blue-500 to-blue-600';
+      case 'profissional': return 'from-amber-500 to-amber-600';
+      case 'escritorio': return 'from-purple-500 to-purple-600';
+      default: return 'from-slate-500 to-slate-600';
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
+      {/* ===== HEADER ===== */}
+      <header className="fixed top-0 left-0 right-0 z-50 bg-slate-900/80 backdrop-blur-lg border-b border-slate-700/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 bg-gradient-to-br from-amber-400 to-amber-600 rounded-xl flex items-center justify-center">
+              <Scale className="w-5 h-5 text-white" />
+            </div>
+            <span className="text-xl font-bold text-white">BlasterSKD</span>
+          </div>
+
+          {/* Links desktop */}
+          <nav className="hidden md:flex items-center gap-6">
+            <button onClick={() => scrollTo('como-funciona')} className="text-slate-300 hover:text-white text-sm transition-colors">Como funciona</button>
+            <button onClick={() => scrollTo('precos')} className="text-slate-300 hover:text-white text-sm transition-colors">Precos</button>
+          </nav>
+
+          {/* Botoes desktop */}
+          <div className="hidden md:flex items-center gap-3">
+            <button onClick={onAbrirLogin} className="text-slate-300 hover:text-white text-sm font-medium px-4 py-2 transition-colors">
+              Entrar
+            </button>
+            <button onClick={onAbrirRegistro} className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-sm font-medium px-5 py-2 rounded-lg transition-all">
+              Comecar Gratis
+            </button>
+          </div>
+
+          {/* Menu mobile */}
+          <button onClick={() => setMenuAberto(!menuAberto)} className="md:hidden p-2 text-slate-300 hover:text-white">
+            {menuAberto ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
+        </div>
+
+        {/* Menu mobile dropdown */}
+        {menuAberto && (
+          <div className="md:hidden bg-slate-800 border-t border-slate-700 px-4 py-4 space-y-3">
+            <button onClick={() => scrollTo('como-funciona')} className="block w-full text-left text-slate-300 hover:text-white py-2">Como funciona</button>
+            <button onClick={() => scrollTo('precos')} className="block w-full text-left text-slate-300 hover:text-white py-2">Precos</button>
+            <hr className="border-slate-700" />
+            <button onClick={() => { setMenuAberto(false); onAbrirLogin(); }} className="block w-full text-left text-slate-300 hover:text-white py-2">Entrar</button>
+            <button onClick={() => { setMenuAberto(false); onAbrirRegistro(); }} className="block w-full bg-gradient-to-r from-amber-500 to-amber-600 text-white text-center font-medium py-2.5 rounded-lg">Comecar Gratis</button>
+          </div>
+        )}
+      </header>
+
+      {/* ===== HERO ===== */}
+      <section className="pt-32 pb-20 px-4 sm:px-6">
+        <div className="max-w-4xl mx-auto text-center">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold mb-6 leading-tight">
+            <span className="bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 bg-clip-text text-transparent">
+              Conteudo juridico profissional
+            </span>
+            <br />
+            <span className="text-white">gerado por IA em segundos</span>
+          </h1>
+          <p className="text-lg sm:text-xl text-slate-300 mb-10 max-w-2xl mx-auto leading-relaxed">
+            Crie posts, stories e carroseis para redes sociais com inteligencia artificial.
+            Personalizado para advogados e escritorios de advocacia.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <button
+              onClick={onAbrirRegistro}
+              className="w-full sm:w-auto bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold px-8 py-3.5 rounded-xl transition-all text-lg flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25"
+            >
+              Comecar Gratis
+              <ArrowRight className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => scrollTo('como-funciona')}
+              className="w-full sm:w-auto border border-slate-600 hover:border-slate-500 text-slate-300 hover:text-white font-medium px-8 py-3.5 rounded-xl transition-all text-lg"
+            >
+              Ver como funciona
+            </button>
+          </div>
+        </div>
+
+        {/* Screenshot placeholder */}
+        <div className="max-w-5xl mx-auto mt-16">
+          <div className="bg-slate-800/60 backdrop-blur border border-slate-700 rounded-2xl p-8 sm:p-12 shadow-2xl">
+            <div className="bg-gradient-to-br from-slate-700/50 to-slate-800/50 rounded-xl p-8 flex flex-col items-center justify-center min-h-[300px] border border-slate-600/50">
+              <div className="w-16 h-16 bg-gradient-to-br from-amber-400 to-amber-600 rounded-2xl flex items-center justify-center mb-4">
+                <Sparkles className="w-8 h-8 text-white" />
+              </div>
+              <p className="text-slate-300 text-lg font-medium mb-2">Painel do BlasterSKD</p>
+              <p className="text-slate-500 text-sm">Gere conteudo, agende publicacoes e gerencie suas redes sociais</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== COMO FUNCIONA ===== */}
+      <section id="como-funciona" className="py-20 px-4 sm:px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Como funciona</h2>
+            <p className="text-slate-400 text-lg max-w-2xl mx-auto">Tres passos simples para criar conteudo profissional</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Passo 1 */}
+            <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl p-8 text-center hover:border-amber-500/30 transition-all">
+              <div className="w-14 h-14 bg-gradient-to-br from-amber-400 to-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <Scale className="w-7 h-7 text-white" />
+              </div>
+              <div className="text-amber-400 text-sm font-bold mb-2">PASSO 1</div>
+              <h3 className="text-xl font-bold text-white mb-3">Escolha o tema</h3>
+              <p className="text-slate-400 leading-relaxed">Selecione a area do direito e o tipo de conteudo que deseja criar para suas redes sociais.</p>
+            </div>
+
+            {/* Passo 2 */}
+            <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl p-8 text-center hover:border-amber-500/30 transition-all">
+              <div className="w-14 h-14 bg-gradient-to-br from-amber-400 to-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <Sparkles className="w-7 h-7 text-white" />
+              </div>
+              <div className="text-amber-400 text-sm font-bold mb-2">PASSO 2</div>
+              <h3 className="text-xl font-bold text-white mb-3">Gere com IA</h3>
+              <p className="text-slate-400 leading-relaxed">A inteligencia artificial cria textos, imagens e layouts profissionais automaticamente.</p>
+            </div>
+
+            {/* Passo 3 */}
+            <div className="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl p-8 text-center hover:border-amber-500/30 transition-all">
+              <div className="w-14 h-14 bg-gradient-to-br from-amber-400 to-amber-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <Calendar className="w-7 h-7 text-white" />
+              </div>
+              <div className="text-amber-400 text-sm font-bold mb-2">PASSO 3</div>
+              <h3 className="text-xl font-bold text-white mb-3">Agende e publique</h3>
+              <p className="text-slate-400 leading-relaxed">Agende suas publicacoes ou baixe as imagens prontas para postar quando quiser.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== PRINTS DO PRODUTO ===== */}
+      <section className="py-20 px-4 sm:px-6 bg-slate-800/30">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Tudo que voce precisa</h2>
+            <p className="text-slate-400 text-lg max-w-2xl mx-auto">Ferramentas completas para sua estrategia de conteudo juridico</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-8 hover:border-amber-500/30 transition-all">
+              <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-center mb-5">
+                <FileText className="w-6 h-6 text-amber-400" />
+              </div>
+              <h3 className="text-lg font-bold text-white mb-2">Posts e Carroseis</h3>
+              <p className="text-slate-400 text-sm leading-relaxed">Crie posts unicos e carroseis educativos com textos e layouts profissionais gerados por IA.</p>
+            </div>
+
+            <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-8 hover:border-amber-500/30 transition-all">
+              <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-center mb-5">
+                <Instagram className="w-6 h-6 text-amber-400" />
+              </div>
+              <h3 className="text-lg font-bold text-white mb-2">Stories Prontos</h3>
+              <p className="text-slate-400 text-sm leading-relaxed">Gere stories com design moderno, prontos para publicar no Instagram e redes sociais.</p>
+            </div>
+
+            <div className="bg-slate-800/60 border border-slate-700 rounded-2xl p-8 hover:border-amber-500/30 transition-all">
+              <div className="w-12 h-12 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center justify-center mb-5">
+                <Calendar className="w-6 h-6 text-amber-400" />
+              </div>
+              <h3 className="text-lg font-bold text-white mb-2">Agendamento</h3>
+              <p className="text-slate-400 text-sm leading-relaxed">Agende suas publicacoes com calendario visual e deixe a IA trabalhar por voce.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== PRECOS ===== */}
+      <section id="precos" className="py-20 px-4 sm:px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Planos e Precos</h2>
+            <p className="text-slate-400 text-lg max-w-2xl mx-auto">Comece gratis e faca upgrade quando precisar</p>
+          </div>
+
+          {loadingPlanos ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 text-amber-400 animate-spin" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {planos.map((plano) => {
+                const recursos = typeof plano.recursos === 'string' ? JSON.parse(plano.recursos) : plano.recursos;
+                const isDestaque = plano.slug === 'profissional';
+
+                return (
+                  <div
+                    key={plano.id}
+                    className={`relative rounded-2xl p-6 border-2 transition-all ${
+                      isDestaque
+                        ? 'border-amber-500 bg-amber-500/5 scale-[1.02]'
+                        : 'border-slate-700 bg-slate-800/50 hover:border-slate-600'
+                    }`}
+                  >
+                    {isDestaque && (
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-gradient-to-r from-amber-500 to-amber-600 text-white text-xs font-bold rounded-full shadow-lg">
+                        MAIS POPULAR
+                      </div>
+                    )}
+
+                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${getCorPlano(plano.slug)} flex items-center justify-center text-white mb-4`}>
+                      {getIconePlano(plano.slug)}
+                    </div>
+
+                    <h3 className="text-xl font-bold text-white mb-1">{plano.nome}</h3>
+                    <p className="text-slate-400 text-sm mb-4">{plano.descricao}</p>
+
+                    <div className="mb-6">
+                      <span className="text-3xl font-bold text-white">
+                        {plano.preco === 0 ? 'Gratis' : `R$ ${plano.preco}`}
+                      </span>
+                      {plano.preco > 0 && <span className="text-slate-400">/mes</span>}
+                    </div>
+
+                    <ul className="space-y-2.5 mb-6">
+                      {recursos?.map((recurso, idx) => (
+                        <li key={idx} className="flex items-start gap-2 text-sm">
+                          <CheckCircle className="w-4 h-4 text-green-400 mt-0.5 shrink-0" />
+                          <span className="text-slate-300">{recurso}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <button
+                      onClick={onAbrirRegistro}
+                      className={`w-full py-2.5 rounded-lg font-medium transition-all flex items-center justify-center gap-2 ${
+                        isDestaque
+                          ? 'bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white shadow-lg shadow-amber-500/25'
+                          : 'bg-slate-700 hover:bg-slate-600 text-white'
+                      }`}
+                    >
+                      {plano.preco === 0 ? 'Comecar Gratis' : 'Assinar'}
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="mt-8 text-center">
+            <div className="inline-flex items-center gap-2 text-slate-400 text-sm">
+              <Shield className="w-4 h-4" />
+              <span>Pagamento seguro via Mercado Pago - PIX, Cartao ou Boleto</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ===== FOOTER ===== */}
+      <footer className="border-t border-slate-700/50 py-12 px-4 sm:px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Logo e descricao */}
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-9 h-9 bg-gradient-to-br from-amber-400 to-amber-600 rounded-xl flex items-center justify-center">
+                  <Scale className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-lg font-bold text-white">BlasterSKD</span>
+              </div>
+              <p className="text-slate-400 text-sm leading-relaxed">
+                Plataforma de criacao de conteudo juridico para redes sociais com inteligencia artificial.
+              </p>
+            </div>
+
+            {/* Links uteis */}
+            <div>
+              <h4 className="text-white font-semibold mb-4">Links</h4>
+              <div className="space-y-2">
+                <button onClick={() => scrollTo('como-funciona')} className="block text-slate-400 hover:text-white text-sm transition-colors">Como funciona</button>
+                <button onClick={() => scrollTo('precos')} className="block text-slate-400 hover:text-white text-sm transition-colors">Precos</button>
+                <button onClick={onAbrirLogin} className="block text-slate-400 hover:text-white text-sm transition-colors">Entrar</button>
+                <button onClick={onAbrirRegistro} className="block text-slate-400 hover:text-white text-sm transition-colors">Criar conta</button>
+              </div>
+            </div>
+
+            {/* Links legais */}
+            <div>
+              <h4 className="text-white font-semibold mb-4">Legal</h4>
+              <div className="space-y-2">
+                <a href="/termos" className="block text-slate-400 hover:text-white text-sm transition-colors">Termos de Uso</a>
+                <a href="/privacidade" className="block text-slate-400 hover:text-white text-sm transition-colors">Politica de Privacidade</a>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-10 pt-6 border-t border-slate-700/50 text-center text-slate-500 text-sm">
+            &copy; {new Date().getFullYear()} BlasterSKD. Todos os direitos reservados.
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+// =====================================================
 // TELA DE LOGIN SUPABASE
 // =====================================================
-function LoginSupabase() {
+function LoginSupabase({ isModal = false, onClose = null, modoInicial = 'login' }) {
   const { fazerLogin, fazerRegistro, loginGoogle, recuperarSenha, atualizarSenha, recuperandoSenha, setRecuperandoSenha } = useAuth();
 
-  const [modo, setModo] = useState('login'); // 'login' | 'registro' | 'recuperar' | 'nova-senha'
+  const [modo, setModo] = useState(modoInicial); // 'login' | 'registro' | 'recuperar' | 'nova-senha'
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
@@ -1715,6 +2077,13 @@ function LoginSupabase() {
       setModo('nova-senha');
     }
   }, [recuperandoSenha]);
+
+  // Atualizar modo quando modoInicial muda
+  useEffect(() => {
+    if (modoInicial && !recuperandoSenha) {
+      setModo(modoInicial);
+    }
+  }, [modoInicial]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -1756,20 +2125,20 @@ function LoginSupabase() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-amber-400 to-amber-600 rounded-2xl mb-4 shadow-lg">
-            <Scale className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-3xl font-bold text-white mb-2">JurisContent</h1>
-          <p className="text-slate-400">Conteúdo jurídico profissional</p>
+  // Conteudo do formulario
+  const formContent = (
+    <>
+      {/* Logo */}
+      <div className="text-center mb-8">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-amber-400 to-amber-600 rounded-2xl mb-4 shadow-lg">
+          <Scale className="w-8 h-8 text-white" />
         </div>
+        <h1 className="text-3xl font-bold text-white mb-2">BlasterSKD</h1>
+        <p className="text-slate-400">Conteudo juridico profissional</p>
+      </div>
 
-        {/* Card */}
-        <div className="bg-slate-800/50 backdrop-blur rounded-2xl p-8 border border-slate-700">
+      {/* Card */}
+      <div className="bg-slate-800/50 backdrop-blur rounded-2xl p-8 border border-slate-700">
 
           {/* Tabs - esconder quando recuperando/nova senha */}
           {(modo === 'login' || modo === 'registro') && (
@@ -1988,6 +2357,34 @@ function LoginSupabase() {
             <a href="/privacidade" className="hover:text-slate-300 transition-colors">Politica de Privacidade</a>
           </div>
         </div>
+      </>
+  );
+
+  // Modal mode: overlay com fundo escuro
+  if (isModal) {
+    return (
+      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+        <div className="relative w-full max-w-md">
+          {/* Botao fechar */}
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="absolute -top-2 -right-2 z-10 w-8 h-8 bg-slate-700 hover:bg-slate-600 rounded-full flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+          {formContent}
+        </div>
+      </div>
+    );
+  }
+
+  // Fullscreen mode (fallback)
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        {formContent}
       </div>
     </div>
   );
