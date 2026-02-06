@@ -568,9 +568,9 @@ async function verificarEIncrementarLimite(userId) {
       plano: planoSlug
     };
   } catch (error) {
-    console.error('Erro ao verificar limite:', error);
-    // Em caso de erro, permite (fail-open)
-    return { permitido: true, limite: 3, usado: 0, restante: 3, plano: 'gratis' };
+    console.error('Erro ao verificar limite:', error.message);
+    // Em caso de erro, bloquear (fail-closed)
+    return { permitido: false, limite: 0, usado: 0, restante: 0, plano: 'erro', erro: 'Erro ao verificar limite. Tente novamente.' };
   }
 }
 
@@ -1071,7 +1071,7 @@ app.post('/api/remover-fundo', authMiddleware, async (req, res) => {
       path: '/v1.0/removebg',
       method: 'POST',
       headers: {
-        'X-Api-Key': process.env.REMOVEBG_API_KEY || 'cz67CSF3ZrSWHxhXuvWzVgTz',
+        'X-Api-Key': process.env.REMOVEBG_API_KEY,
         'Content-Type': 'application/x-www-form-urlencoded',
         'Content-Length': Buffer.byteLength(postData)
       }
@@ -1306,18 +1306,17 @@ app.post('/api/criar-assinatura', limiterPagamentos, authMiddleware, async (req,
 
 // Função para validar assinatura do webhook do Mercado Pago
 function validarWebhookMP(req) {
+  const webhookSecret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    console.error('MERCADOPAGO_WEBHOOK_SECRET nao configurado - webhook REJEITADO');
+    return false;
+  }
+
   const xSignature = req.headers['x-signature'];
   const xRequestId = req.headers['x-request-id'];
 
-  // Se não há webhook secret configurado, pular validação (desenvolvimento)
-  const webhookSecret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
-  if (!webhookSecret) {
-    console.log('⚠️ MERCADOPAGO_WEBHOOK_SECRET não configurado - validação desabilitada');
-    return true;
-  }
-
   if (!xSignature || !xRequestId) {
-    console.log('❌ Headers de segurança ausentes');
+    console.log('Webhook rejeitado: headers de seguranca ausentes');
     return false;
   }
 
@@ -1329,18 +1328,18 @@ function validarWebhookMP(req) {
     let v1 = '';
 
     for (const part of parts) {
-      const [key, value] = part.split('=');
+      const [key, value] = part.trim().split('=');
       if (key === 'ts') ts = value;
       if (key === 'v1') v1 = value;
     }
 
     if (!ts || !v1) {
-      console.log('❌ Formato de x-signature inválido');
+      console.log('Webhook rejeitado: formato x-signature invalido');
       return false;
     }
 
-    // Construir string de assinatura
-    // Formato: id=[data.id];request-id=[x-request-id];ts=[ts];
+    // Construir string de assinatura conforme docs do Mercado Pago
+    // Formato: id:[data.id];request-id:[x-request-id];ts:[ts];
     const dataId = req.body.data?.id || '';
     const signedTemplate = `id:${dataId};request-id:${xRequestId};ts:${ts};`;
 
@@ -1349,19 +1348,24 @@ function validarWebhookMP(req) {
     hmac.update(signedTemplate);
     const calculatedSignature = hmac.digest('hex');
 
-    // Comparar assinaturas
+    // Comparar assinaturas (timing-safe)
+    if (v1.length !== calculatedSignature.length) {
+      console.log('Webhook rejeitado: assinatura invalida');
+      return false;
+    }
+
     const isValid = crypto.timingSafeEqual(
       Buffer.from(v1),
       Buffer.from(calculatedSignature)
     );
 
     if (!isValid) {
-      console.log('❌ Assinatura do webhook inválida');
+      console.log('Webhook rejeitado: assinatura invalida');
     }
 
     return isValid;
   } catch (error) {
-    console.error('Erro ao validar webhook:', error);
+    console.error('Erro ao validar webhook:', error.message);
     return false;
   }
 }
