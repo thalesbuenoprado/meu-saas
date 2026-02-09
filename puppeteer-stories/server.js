@@ -543,8 +543,8 @@ function generateStoryHTML(template, data) {
         </style></head><body>
         <div class="story">
             <div class="header">
-                ${logo ? `<img src="${logo}" class="header-logo" />` : '<div></div>'}
                 <div class="header-badge">⚖️ ${area || 'DIREITO'}</div>
+                ${logo ? `<img src="${logo}" class="header-logo" />` : '<div></div>'}
             </div>
 
             <div class="voce-sabia-header">
@@ -714,8 +714,8 @@ function generateStoryHTML(template, data) {
         </style></head><body>
         <div class="story">
             <div class="header">
-                ${logo ? `<img src="${logo}" class="header-logo" />` : '<div></div>'}
                 <div class="badge">${area || 'DIREITO'}</div>
+                ${logo ? `<img src="${logo}" class="header-logo" />` : '<div></div>'}
             </div>
             <div class="headline">${headline}</div>
             <div class="bullets">${bulletsHTML}</div>
@@ -875,8 +875,8 @@ function generateStoryHTML(template, data) {
         </style></head><body>
         <div class="story">
             <div class="header">
-                ${logo ? `<img src="${logo}" class="header-logo" />` : '<div></div>'}
                 <div class="badge">${area || 'ESTATÍSTICA'}</div>
+                ${logo ? `<img src="${logo}" class="header-logo" />` : '<div></div>'}
             </div>
             <div class="headline">${headline}</div>
             <div class="stat-card">
@@ -1051,8 +1051,8 @@ function generateStoryHTML(template, data) {
         </style></head><body>
         <div class="story">
             <div class="header">
-                ${logo ? `<img src="${logo}" class="header-logo" />` : '<div></div>'}
                 <div class="alert-badge">URGENTE</div>
+                ${logo ? `<img src="${logo}" class="header-logo" />` : '<div></div>'}
             </div>
             <div class="headline">${alerta}</div>
             ${prazo ? `
@@ -1248,8 +1248,8 @@ function generateStoryHTML(template, data) {
         </style></head><body>
         <div class="story">
             <div class="header">
-                ${logo ? `<img src="${logo}" class="header-logo" />` : '<div></div>'}
                 <div class="badge">Premium</div>
+                ${logo ? `<img src="${logo}" class="header-logo" />` : '<div></div>'}
             </div>
             <div class="brand-name">${nomeAdvogado || 'Advocacia'}</div>
             <div class="divider"></div>
