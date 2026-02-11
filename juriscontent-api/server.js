@@ -113,6 +113,121 @@ const limiterPagamentos = rateLimit({
 // Aplicar rate limit geral
 app.use('/api/', limiterGeral);
 
+// ================================================
+// SISTEMA DE FILA PARA GERAÇÃO
+// ================================================
+const filaGeracao = {
+  pendentes: [], // { id, userId, tipo, resolve, reject, timestamp }
+  emProcessamento: 0,
+  maxConcorrente: 2, // Máximo de gerações simultâneas
+  totalProcessado: 0,
+  erros: 0
+};
+
+function adicionarNaFila(userId, tipo) {
+  return new Promise((resolve, reject) => {
+    const item = {
+      id: Date.now() + Math.random().toString(36).substr(2, 9),
+      userId,
+      tipo,
+      resolve,
+      reject,
+      timestamp: Date.now()
+    };
+    filaGeracao.pendentes.push(item);
+    console.log(`📋 Fila: +1 (${filaGeracao.pendentes.length} pendentes, ${filaGeracao.emProcessamento} processando)`);
+    processarFila();
+  });
+}
+
+async function processarFila() {
+  // Se já está no limite ou não tem pendentes, retorna
+  if (filaGeracao.emProcessamento >= filaGeracao.maxConcorrente || filaGeracao.pendentes.length === 0) {
+    return;
+  }
+
+  // Pegar próximo da fila
+  const item = filaGeracao.pendentes.shift();
+  if (!item) return;
+
+  filaGeracao.emProcessamento++;
+
+  // Resolver a promise para liberar a requisição continuar
+  item.resolve({
+    posicao: 0,
+    processando: true,
+    tempoEspera: Date.now() - item.timestamp
+  });
+}
+
+function finalizarProcessamento(sucesso = true) {
+  filaGeracao.emProcessamento = Math.max(0, filaGeracao.emProcessamento - 1);
+  filaGeracao.totalProcessado++;
+  if (!sucesso) filaGeracao.erros++;
+  console.log(`✅ Fila: -1 (${filaGeracao.pendentes.length} pendentes, ${filaGeracao.emProcessamento} processando)`);
+  // Processar próximo
+  setTimeout(processarFila, 100);
+}
+
+function posicaoNaFila(userId) {
+  const idx = filaGeracao.pendentes.findIndex(p => p.userId === userId);
+  return idx === -1 ? 0 : idx + 1;
+}
+
+// Endpoint para status da fila
+app.get('/api/fila/status', (req, res) => {
+  res.json({
+    pendentes: filaGeracao.pendentes.length,
+    processando: filaGeracao.emProcessamento,
+    maxConcorrente: filaGeracao.maxConcorrente,
+    totalProcessado: filaGeracao.totalProcessado,
+    erros: filaGeracao.erros
+  });
+});
+
+// Middleware para controlar fila de geração
+async function filaMiddleware(req, res, next) {
+  const userId = req.user?.id || 'anon';
+
+  // Se a fila está cheia, verificar posição
+  if (filaGeracao.emProcessamento >= filaGeracao.maxConcorrente) {
+    const posicaoAtual = filaGeracao.pendentes.length + 1;
+
+    // Limite máximo de fila
+    if (posicaoAtual > 20) {
+      return res.status(503).json({
+        error: 'Servidor ocupado',
+        message: 'Muitas requisições no momento. Tente novamente em alguns segundos.',
+        filaCheia: true
+      });
+    }
+
+    try {
+      // Esperar na fila (timeout de 30 segundos)
+      const resultado = await Promise.race([
+        adicionarNaFila(userId, req.path),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout na fila')), 30000))
+      ]);
+
+      console.log(`🚀 Processando após ${resultado.tempoEspera}ms na fila`);
+    } catch (error) {
+      return res.status(408).json({
+        error: 'Timeout',
+        message: 'Tempo de espera na fila excedido. Tente novamente.'
+      });
+    }
+  } else {
+    filaGeracao.emProcessamento++;
+  }
+
+  // Adicionar flag para finalizar no final
+  res.on('finish', () => {
+    finalizarProcessamento(res.statusCode < 400);
+  });
+
+  next();
+}
+
 // Cloudinary - credenciais APENAS via variáveis de ambiente
 if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
   console.error('❌ ERRO: Credenciais Cloudinary não configuradas no .env');
@@ -344,14 +459,53 @@ REGRAS:
 // ================================================
 function criarFallback(template, texto, tema) {
   const textoLimpo = (texto || '').substring(0, 180);
-  
+  const temaFallback = tema || 'Informação Jurídica';
+
+  // Fallback específico por template
+  if (template === 'voce-sabia') {
+    return {
+      pergunta: `Você sabia sobre ${temaFallback}?`,
+      topicos: [
+        'Este é um direito garantido por lei',
+        'Muitas pessoas desconhecem essa informação',
+        'Busque sempre orientação profissional',
+        'Fique atento aos prazos legais',
+        'Proteja seus direitos'
+      ],
+      conclusao: 'Conhecimento é poder. Proteja seus direitos!',
+      dica: 'Consulte um advogado especialista',
+      destaque: 'CONHEÇA SEUS DIREITOS'
+    };
+  }
+
+  if (template === 'estatistica') {
+    return {
+      headline: temaFallback,
+      estatistica: {
+        numero: '70%',
+        contexto: 'das pessoas desconhecem seus direitos',
+        explicacao: `Quando se trata de ${temaFallback}, muitas pessoas não sabem que possuem proteção legal. É fundamental buscar informação e orientação profissional para garantir que seus direitos sejam respeitados.`
+      }
+    };
+  }
+
+  if (template === 'urgente') {
+    return {
+      alerta: `ATENÇÃO: Prazo importante sobre ${temaFallback}`,
+      prazo: 'Consulte um especialista',
+      risco: `Não deixe para depois. Seus direitos podem estar em risco. Busque orientação jurídica o quanto antes. O tempo é crucial em questões legais.`,
+      acao: 'CONSULTE UM ADVOGADO ESPECIALISTA'
+    };
+  }
+
+  // Fallback genérico
   return {
-    pergunta: tema || 'Informação Jurídica',
-    resposta: textoLimpo,
+    pergunta: temaFallback,
+    resposta: textoLimpo || 'Informação jurídica importante',
     destaque: 'CONHEÇA SEUS DIREITOS',
-    headline: tema || 'Informação Jurídica',
-    bullets: [],
-    estatistica: { numero: '', contexto: '', explicacao: '' },
+    headline: temaFallback,
+    topicos: ['Busque sempre orientação profissional'],
+    estatistica: { numero: '70%', contexto: 'desconhecem seus direitos', explicacao: textoLimpo },
     cta: 'Siga para mais dicas'
   };
 }
@@ -459,6 +613,102 @@ async function enviarEmailConfirmacaoPagamento(email, dados) {
 }
 
 // ================================================
+// FUNÇÃO: Notificar admin sobre novo usuário
+// ================================================
+async function enviarEmailNovoUsuario(dadosUsuario) {
+  try {
+    if (!process.env.RESEND_API_KEY) {
+      console.log('⚠️ RESEND_API_KEY não configurada - email não enviado');
+      return false;
+    }
+
+    const { email, nome, oab, utm_source, utm_campaign } = dadosUsuario;
+    const dataHora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+
+    const { data, error } = await resend.emails.send({
+      from: process.env.EMAIL_FROM || 'BlasterSKD <onboarding@resend.dev>',
+      to: 'thalesbuenoprado@gmail.com',
+      subject: '🎉 Novo usuário no BlasterSKD!',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #f59e0b;">🎉 Nova conta criada!</h2>
+          <div style="background: #1e293b; padding: 20px; border-radius: 10px; color: #fff;">
+            <p><strong>Email:</strong> ${email}</p>
+            <p><strong>Nome:</strong> ${nome || 'Não informado'}</p>
+            <p><strong>OAB:</strong> ${oab || 'Não informado'}</p>
+            <p><strong>Origem:</strong> ${utm_source || 'Direto'}</p>
+            <p><strong>Campanha:</strong> ${utm_campaign || 'Nenhuma'}</p>
+            <p><strong>Data/Hora:</strong> ${dataHora}</p>
+          </div>
+          <p style="color: #64748b; margin-top: 20px; font-size: 12px;">
+            BlasterSKD - Conteúdo Jurídico com IA
+          </p>
+        </div>
+      `
+    });
+
+    if (error) {
+      console.error('❌ Erro ao enviar email de novo usuário:', error);
+      return false;
+    }
+
+    console.log('📧 Email de novo usuário enviado para admin');
+    return true;
+  } catch (error) {
+    console.error('❌ Erro ao enviar email de novo usuário:', error);
+    return false;
+  }
+}
+
+// ================================================
+// FUNÇÃO: Notificar admin sobre nova assinatura
+// ================================================
+async function enviarEmailNovaAssinatura(dadosAssinatura) {
+  try {
+    if (!process.env.RESEND_API_KEY) {
+      console.log('⚠️ RESEND_API_KEY não configurada - email não enviado');
+      return false;
+    }
+
+    const { email, nome, plano, valor } = dadosAssinatura;
+    const dataHora = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+    const planoFormatado = plano.charAt(0).toUpperCase() + plano.slice(1);
+
+    const { data, error } = await resend.emails.send({
+      from: process.env.EMAIL_FROM || 'BlasterSKD <onboarding@resend.dev>',
+      to: 'thalesbuenoprado@gmail.com',
+      subject: `💰 Nova assinatura: ${planoFormatado}!`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+          <h2 style="color: #22c55e;">💰 Nova assinatura!</h2>
+          <div style="background: #1e293b; padding: 20px; border-radius: 10px; color: #fff;">
+            <p><strong>Plano:</strong> <span style="color: #f59e0b; font-size: 18px;">${planoFormatado}</span></p>
+            <p><strong>Valor:</strong> R$ ${valor?.toFixed(2) || '0.00'}</p>
+            <p><strong>Email:</strong> ${email || 'Não informado'}</p>
+            <p><strong>Nome:</strong> ${nome || 'Não informado'}</p>
+            <p><strong>Data/Hora:</strong> ${dataHora}</p>
+          </div>
+          <p style="color: #64748b; margin-top: 20px; font-size: 12px;">
+            BlasterSKD - Conteúdo Jurídico com IA
+          </p>
+        </div>
+      `
+    });
+
+    if (error) {
+      console.error('❌ Erro ao enviar email de nova assinatura:', error);
+      return false;
+    }
+
+    console.log('📧 Email de nova assinatura enviado para admin');
+    return true;
+  } catch (error) {
+    console.error('❌ Erro ao enviar email de nova assinatura:', error);
+    return false;
+  }
+}
+
+// ================================================
 // FUNÇÃO: Verificar expiração de assinatura
 // ================================================
 async function verificarExpiracaoAssinatura(userId) {
@@ -507,6 +757,13 @@ async function verificarExpiracaoAssinatura(userId) {
 }
 
 // ================================================
+// ADMINS COM GERAÇÃO ILIMITADA
+// ================================================
+const ADMIN_EMAILS = [
+  'thalesbuenoprado@gmail.com'
+];
+
+// ================================================
 // FUNÇÃO: Verificar e incrementar limite de gerações
 // ================================================
 async function verificarEIncrementarLimite(userId) {
@@ -517,9 +774,22 @@ async function verificarEIncrementarLimite(userId) {
     // Buscar perfil (após possível atualização de expiração)
     const { data: perfil } = await supabase
       .from('perfis')
-      .select('geracoes_mes, mes_referencia, plano_atual')
+      .select('geracoes_mes, mes_referencia, plano_atual, email')
       .eq('id', userId)
       .single();
+
+    // Admin tem geração ilimitada
+    if (perfil?.email && ADMIN_EMAILS.includes(perfil.email.toLowerCase())) {
+      console.log('👑 Admin detectado - geração ilimitada:', perfil.email);
+      return {
+        permitido: true,
+        limite: 0,
+        usado: 0,
+        restante: -1,
+        plano: 'admin',
+        isAdmin: true
+      };
+    }
 
     const mesAtual = getMesAtualSaoPaulo(); // Timezone São Paulo
     let geracoesUsadas = perfil?.geracoes_mes || 0;
@@ -577,7 +847,7 @@ async function verificarEIncrementarLimite(userId) {
 // ================================================
 // ROTA: GERAR CONTEÚDO STORY (só IA, sem renderizar)
 // ================================================
-app.post('/api/gerar-conteudo-story', limiterGeracaoConteudo, authMiddleware, async (req, res) => {
+app.post('/api/gerar-conteudo-story', limiterGeracaoConteudo, authMiddleware, filaMiddleware, async (req, res) => {
   try {
     const { texto, tema, area, template } = req.body;
 
@@ -618,7 +888,7 @@ app.post('/api/gerar-conteudo-story', limiterGeracaoConteudo, authMiddleware, as
 // ================================================
 // ROTA: GERAR STORY (renderizar imagem)
 // ================================================
-app.post('/api/gerar-story', limiterGeracaoConteudo, authMiddleware, async (req, res) => {
+app.post('/api/gerar-story', limiterGeracaoConteudo, authMiddleware, filaMiddleware, async (req, res) => {
   try {
     const {
       texto,
@@ -737,7 +1007,7 @@ app.post('/api/gerar-story', limiterGeracaoConteudo, authMiddleware, async (req,
 // ================================================
 // ROTA: GERAR IMAGEM FEED - DESIGN PREMIUM v2
 // ================================================
-app.post('/api/gerar-imagem', limiterGeracaoConteudo, authMiddleware, async (req, res) => {
+app.post('/api/gerar-imagem', limiterGeracaoConteudo, authMiddleware, filaMiddleware, async (req, res) => {
   try {
     const {
       imageUrl, tema, area, nomeAdvogado, oab, instagram, formato, estilo, logo, bullets, conteudo,
@@ -1498,6 +1768,14 @@ app.post('/api/webhook-mercadopago', async (req, res) => {
           } else {
             console.log('⚠️ Email não encontrado para enviar confirmação');
           }
+
+          // Notificar admin sobre nova assinatura
+          await enviarEmailNovaAssinatura({
+            email: emailDestino,
+            nome: paymentInfo.payer?.first_name || userData?.user?.user_metadata?.nome,
+            plano: planoSlug,
+            valor: paymentInfo.transaction_amount
+          });
           break;
 
         case 'pending':
@@ -1647,14 +1925,1797 @@ app.all("/api/n8n/*", (req, res) => {
   proxyReq.end();
 });
 
+// ================================================
+// TRACKING DE VISITANTES
+// ================================================
+const VISITS_FILE = path.join(__dirname, 'visits.json');
+const STATS_HISTORY_FILE = path.join(__dirname, 'stats-history.json');
+
+// Carregar visitas existentes
+let visitas = [];
+try {
+  if (fs.existsSync(VISITS_FILE)) {
+    visitas = JSON.parse(fs.readFileSync(VISITS_FILE, 'utf8'));
+  }
+} catch (e) {
+  visitas = [];
+}
+
+// Carregar histórico de stats
+let statsHistory = {};
+try {
+  if (fs.existsSync(STATS_HISTORY_FILE)) {
+    statsHistory = JSON.parse(fs.readFileSync(STATS_HISTORY_FILE, 'utf8'));
+  }
+} catch (e) {
+  statsHistory = {};
+}
+
+// Salvar visitas no arquivo
+function salvarVisitas() {
+  try {
+    // Manter apenas últimas 1000 visitas
+    if (visitas.length > 1000) {
+      visitas = visitas.slice(-1000);
+    }
+    fs.writeFileSync(VISITS_FILE, JSON.stringify(visitas, null, 2));
+  } catch (e) {
+    console.error('Erro ao salvar visitas:', e);
+  }
+}
+
+// Atualizar histórico diário
+function atualizarHistorico(tipo) {
+  const hoje = new Date().toISOString().split('T')[0];
+  if (!statsHistory[hoje]) {
+    statsHistory[hoje] = { visitas: 0, cadastros: 0 };
+  }
+  if (tipo === 'visita') {
+    statsHistory[hoje].visitas++;
+  } else if (tipo === 'cadastro') {
+    statsHistory[hoje].cadastros++;
+  }
+  try {
+    fs.writeFileSync(STATS_HISTORY_FILE, JSON.stringify(statsHistory, null, 2));
+  } catch (e) {
+    console.error('Erro ao salvar histórico:', e);
+  }
+}
+
+// Endpoint para notificar novo usuário
+app.post('/api/notificar-novo-usuario', async (req, res) => {
+  try {
+    const { email, nome, oab, utm_source, utm_campaign } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email obrigatório' });
+    }
+
+    console.log('🆕 Novo usuário registrado:', email);
+
+    // Enviar email para o admin
+    await enviarEmailNovoUsuario({ email, nome, oab, utm_source, utm_campaign });
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Erro ao notificar novo usuário:', error);
+    res.status(500).json({ error: 'Erro interno' });
+  }
+});
+
+// ================================================
+// ENDPOINT: Postar no Instagram
+// ================================================
+app.post('/api/postar-instagram', authMiddleware, async (req, res) => {
+  try {
+    const { imageUrl, caption, type = 'feed' } = req.body; // type: 'feed' ou 'story'
+
+    if (!imageUrl) {
+      return res.status(400).json({ error: 'URL da imagem é obrigatória' });
+    }
+
+    const INSTAGRAM_ACCOUNT_ID = process.env.INSTAGRAM_ACCOUNT_ID;
+    const PAGE_TOKEN = process.env.INSTAGRAM_PAGE_TOKEN;
+
+    if (!INSTAGRAM_ACCOUNT_ID || !PAGE_TOKEN) {
+      return res.status(500).json({ error: 'Instagram não configurado no servidor' });
+    }
+
+    const isStory = type === 'story';
+    console.log(`📸 Postando ${isStory ? 'STORY' : 'FEED'} no Instagram:`, imageUrl.substring(0, 50) + '...');
+
+    // Passo 1: Criar container de mídia
+    const mediaPayload = {
+      image_url: imageUrl,
+      access_token: PAGE_TOKEN
+    };
+
+    // Stories usam media_type: STORIES e não suportam caption
+    if (isStory) {
+      mediaPayload.media_type = 'STORIES';
+    } else {
+      mediaPayload.caption = caption || '';
+    }
+
+    const createMediaResponse = await fetch(
+      `https://graph.facebook.com/v18.0/${INSTAGRAM_ACCOUNT_ID}/media`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(mediaPayload)
+      }
+    );
+
+    const mediaData = await createMediaResponse.json();
+
+    if (mediaData.error) {
+      console.error('❌ Erro ao criar mídia:', mediaData.error);
+      return res.status(400).json({ error: mediaData.error.message });
+    }
+
+    const creationId = mediaData.id;
+    console.log('✅ Container criado:', creationId);
+
+    // Passo 2: Aguardar processamento da mídia (máx 30 segundos)
+    console.log('⏳ Aguardando processamento da mídia...');
+    let mediaReady = false;
+    for (let i = 0; i < 10; i++) {
+      await new Promise(r => setTimeout(r, 3000)); // Espera 3 segundos
+
+      const statusResponse = await fetch(
+        `https://graph.facebook.com/v18.0/${creationId}?fields=status_code&access_token=${PAGE_TOKEN}`
+      );
+      const statusData = await statusResponse.json();
+      console.log(`📊 Status (tentativa ${i + 1}):`, statusData.status_code);
+
+      if (statusData.status_code === 'FINISHED') {
+        mediaReady = true;
+        break;
+      } else if (statusData.status_code === 'ERROR') {
+        return res.status(400).json({ error: 'Erro no processamento da mídia pelo Instagram' });
+      }
+    }
+
+    if (!mediaReady) {
+      return res.status(400).json({ error: 'Timeout: mídia não processada a tempo' });
+    }
+
+    console.log('✅ Mídia pronta para publicar');
+
+    // Passo 3: Publicar o container
+    const publishResponse = await fetch(
+      `https://graph.facebook.com/v18.0/${INSTAGRAM_ACCOUNT_ID}/media_publish`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          creation_id: creationId,
+          access_token: PAGE_TOKEN
+        })
+      }
+    );
+
+    const publishData = await publishResponse.json();
+
+    if (publishData.error) {
+      console.error('❌ Erro ao publicar:', publishData.error);
+      return res.status(400).json({ error: publishData.error.message });
+    }
+
+    console.log('✅ Post publicado no Instagram:', publishData.id);
+
+    res.json({
+      success: true,
+      postId: publishData.id,
+      message: 'Post publicado com sucesso no Instagram!'
+    });
+
+  } catch (error) {
+    console.error('❌ Erro ao postar no Instagram:', error);
+    res.status(500).json({ error: 'Erro ao postar no Instagram' });
+  }
+});
+
+// ================================================
+// ENDPOINT: Auto-post Instagram (para cron/n8n)
+// ================================================
+const CRON_SECRET = process.env.CRON_SECRET;
+
+app.post('/api/auto-post-instagram', async (req, res) => {
+  try {
+    // Verificar chave secreta
+    const { secret } = req.body;
+    if (secret !== CRON_SECRET) {
+      return res.status(401).json({ error: 'Não autorizado' });
+    }
+
+    console.log('🤖 Iniciando auto-post no Instagram...');
+
+    // Áreas de atuação para variar os posts
+    const areas = ['Direito Civil', 'Direito Trabalhista', 'Direito Penal', 'Direito do Consumidor', 'Direito Previdenciário'];
+    const areaAleatoria = areas[Math.floor(Math.random() * areas.length)];
+
+    // Templates para variar
+    const templates = ['voce-sabia', 'estatistica', 'urgente'];
+    const templateAleatorio = templates[Math.floor(Math.random() * templates.length)];
+
+    // Temas jurídicos variados para posts
+    const temasJuridicos = [
+      'Direitos do consumidor em compras online',
+      'Como funciona a rescisão de contrato de trabalho',
+      'Pensão alimentícia: quem tem direito',
+      'Direitos do inquilino na locação',
+      'Aposentadoria por tempo de contribuição',
+      'Horas extras: como calcular corretamente',
+      'Divórcio consensual: passo a passo',
+      'Acidente de trabalho: seus direitos',
+      'Multa por atraso de aluguel',
+      'FGTS: quando posso sacar',
+      'Direitos na compra de imóvel na planta',
+      'Demissão sem justa causa: o que receber',
+      'Guarda compartilhada: como funciona',
+      'Direitos do MEI',
+      'Indenização por danos morais',
+      'Herança: como funciona a partilha',
+      'Direitos do trabalhador CLT',
+      'Contrato de prestação de serviços',
+      'Revisão de aluguel: quando pedir',
+      'Seguro desemprego: quem tem direito'
+    ];
+    const tema = temasJuridicos[Math.floor(Math.random() * temasJuridicos.length)];
+
+    console.log('📝 Tema escolhido:', tema);
+    console.log('🎨 Template:', templateAleatorio);
+    console.log('📚 Área:', areaAleatoria);
+
+    // Gerar story via Puppeteer com estrutura correta
+    const storyData = {
+      template: templateAleatorio,
+      data: {
+        tema: tema,
+        pergunta: tema + '?',
+        area: areaAleatoria,
+        instagram: 'blasterskd',
+        nomeAdvogado: 'BlasterSKD',
+        topicos: [
+          'Conheça seus direitos',
+          'Informação jurídica de qualidade',
+          'Proteja-se com conhecimento',
+          'Consulte sempre um advogado',
+          'Fique por dentro da lei'
+        ],
+        conclusao: 'Conhecimento é poder!',
+        dica: 'Siga @blasterskd para mais dicas jurídicas'
+      }
+    };
+
+    const storyResponse = await fetch('http://localhost:3002/render-story', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(storyData)
+    });
+
+    const storyResult = await storyResponse.json();
+
+    if (!storyResult.success || !storyResult.image) {
+      console.error('❌ Falha ao gerar story:', storyResult);
+      return res.status(500).json({ error: 'Falha ao gerar story' });
+    }
+
+    // Upload para Cloudinary
+    const cloudinary = require('cloudinary').v2;
+    const uploadResult = await cloudinary.uploader.upload(storyResult.image, {
+      folder: 'instagram-auto-post'
+    });
+
+    const imageUrl = uploadResult.secure_url;
+    console.log('✅ Story gerado e uploaded:', imageUrl);
+
+    // Preparar caption
+    const caption = `${tema}\n\n📚 ${areaAleatoria}\n\n💡 Conhecimento jurídico para você!\n\n#direito #advogado #advocacia #juridico #lei #blasterskd #direitocivil #direitopenal #direitotrabalhista`;
+
+    // Postar no Instagram
+    const INSTAGRAM_ACCOUNT_ID = process.env.INSTAGRAM_ACCOUNT_ID;
+    const PAGE_TOKEN = process.env.INSTAGRAM_PAGE_TOKEN;
+
+    // Criar container
+    const createMediaResponse = await fetch(
+      `https://graph.facebook.com/v18.0/${INSTAGRAM_ACCOUNT_ID}/media`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          image_url: imageUrl,
+          caption: caption,
+          access_token: PAGE_TOKEN
+        })
+      }
+    );
+
+    const mediaData = await createMediaResponse.json();
+    if (mediaData.error) {
+      console.error('❌ Erro ao criar mídia:', mediaData.error);
+      return res.status(400).json({ error: mediaData.error.message });
+    }
+
+    // Publicar
+    const publishResponse = await fetch(
+      `https://graph.facebook.com/v18.0/${INSTAGRAM_ACCOUNT_ID}/media_publish`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          creation_id: mediaData.id,
+          access_token: PAGE_TOKEN
+        })
+      }
+    );
+
+    const publishData = await publishResponse.json();
+    if (publishData.error) {
+      console.error('❌ Erro ao publicar:', publishData.error);
+      return res.status(400).json({ error: publishData.error.message });
+    }
+
+    console.log('✅ Auto-post publicado no Instagram:', publishData.id);
+
+    res.json({
+      success: true,
+      postId: publishData.id,
+      tema: tema,
+      template: templateAleatorio,
+      area: areaAleatoria,
+      imageUrl: imageUrl
+    });
+
+  } catch (error) {
+    console.error('❌ Erro no auto-post:', error);
+    res.status(500).json({ error: 'Erro no auto-post' });
+  }
+});
+
+// ================================================
+// ENDPOINT: Postar Instagram via N8N (API Key)
+// ================================================
+const N8N_API_KEY = process.env.N8N_API_KEY || 'blasterskd-n8n-autopost-2024';
+
+app.post('/api/postar-instagram-auto', async (req, res) => {
+  try {
+    // Verificar API key
+    const apiKey = req.headers['x-api-key'];
+    if (apiKey !== N8N_API_KEY) {
+      return res.status(401).json({ error: 'API key inválida' });
+    }
+
+    const { imageUrl, caption, type = 'feed' } = req.body;
+
+    if (!imageUrl) {
+      return res.status(400).json({ error: 'URL da imagem é obrigatória' });
+    }
+
+    const INSTAGRAM_ACCOUNT_ID = process.env.INSTAGRAM_ACCOUNT_ID;
+    const PAGE_TOKEN = process.env.INSTAGRAM_PAGE_TOKEN;
+
+    if (!INSTAGRAM_ACCOUNT_ID || !PAGE_TOKEN) {
+      return res.status(500).json({ error: 'Instagram não configurado' });
+    }
+
+    const isStory = type === 'story' || type === 'stories';
+    console.log(`📸 N8N Auto-post ${isStory ? 'STORY' : 'FEED'}:`, imageUrl.substring(0, 50) + '...');
+
+    // Criar container de mídia
+    const mediaPayload = {
+      image_url: imageUrl,
+      access_token: PAGE_TOKEN
+    };
+
+    if (isStory) {
+      mediaPayload.media_type = 'STORIES';
+    } else {
+      mediaPayload.caption = caption || '';
+    }
+
+    const createMediaResponse = await fetch(
+      `https://graph.facebook.com/v18.0/${INSTAGRAM_ACCOUNT_ID}/media`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(mediaPayload)
+      }
+    );
+
+    const mediaData = await createMediaResponse.json();
+
+    if (mediaData.error) {
+      console.error('❌ Erro ao criar mídia:', mediaData.error);
+      return res.status(400).json({ error: mediaData.error.message });
+    }
+
+    const creationId = mediaData.id;
+    console.log('✅ Container criado:', creationId);
+
+    // Aguardar processamento
+    console.log('⏳ Aguardando processamento...');
+    let mediaReady = false;
+    for (let i = 0; i < 10; i++) {
+      await new Promise(r => setTimeout(r, 3000));
+
+      const statusResponse = await fetch(
+        `https://graph.facebook.com/v18.0/${creationId}?fields=status_code&access_token=${PAGE_TOKEN}`
+      );
+      const statusData = await statusResponse.json();
+      console.log(`📊 Status (${i + 1}/10):`, statusData.status_code);
+
+      if (statusData.status_code === 'FINISHED') {
+        mediaReady = true;
+        break;
+      } else if (statusData.status_code === 'ERROR') {
+        return res.status(400).json({ error: 'Erro no processamento da mídia' });
+      }
+    }
+
+    if (!mediaReady) {
+      return res.status(400).json({ error: 'Timeout: mídia não processada' });
+    }
+
+    // Publicar
+    const publishResponse = await fetch(
+      `https://graph.facebook.com/v18.0/${INSTAGRAM_ACCOUNT_ID}/media_publish`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          creation_id: creationId,
+          access_token: PAGE_TOKEN
+        })
+      }
+    );
+
+    const publishData = await publishResponse.json();
+
+    if (publishData.error) {
+      console.error('❌ Erro ao publicar:', publishData.error);
+      return res.status(400).json({ error: publishData.error.message });
+    }
+
+    console.log(`✅ ${isStory ? 'Story' : 'Post'} publicado via N8N:`, publishData.id);
+
+    res.json({
+      success: true,
+      postId: publishData.id,
+      type: isStory ? 'story' : 'feed',
+      message: `${isStory ? 'Story' : 'Post'} publicado com sucesso!`
+    });
+
+  } catch (error) {
+    console.error('❌ Erro no auto-post N8N:', error);
+    res.status(500).json({ error: 'Erro ao postar no Instagram' });
+  }
+});
+
+// Endpoint para registrar visita
+app.post('/api/track-visit', (req, res) => {
+  try {
+    const ip = req.headers['x-forwarded-for']?.split(',')[0] || req.ip || 'unknown';
+    const userAgent = req.headers['user-agent'] || '';
+    const { utm_source, utm_medium, utm_campaign, referrer, pagina } = req.body;
+
+    // Detectar dispositivo
+    const isMobile = /mobile|android|iphone|ipad/i.test(userAgent);
+    const isBot = /bot|crawl|spider|facebook|google/i.test(userAgent);
+
+    // Não registrar bots
+    if (isBot) {
+      return res.json({ success: true, tracked: false });
+    }
+
+    // Extrair navegador
+    let browser = 'Outro';
+    if (/chrome/i.test(userAgent)) browser = 'Chrome';
+    else if (/firefox/i.test(userAgent)) browser = 'Firefox';
+    else if (/safari/i.test(userAgent)) browser = 'Safari';
+    else if (/edge/i.test(userAgent)) browser = 'Edge';
+    else if (/samsung/i.test(userAgent)) browser = 'Samsung';
+
+    const visita = {
+      id: Date.now(),
+      ip: ip.substring(0, 12) + '***',
+      timestamp: new Date().toISOString(),
+      utm_source: utm_source || 'direto',
+      utm_medium: utm_medium || '',
+      utm_campaign: utm_campaign || '',
+      referrer: referrer || '',
+      pagina: pagina || '/',
+      dispositivo: isMobile ? 'Mobile' : 'Desktop',
+      browser
+    };
+
+    visitas.push(visita);
+    salvarVisitas();
+    atualizarHistorico('visita');
+
+    res.json({ success: true, tracked: true });
+  } catch (error) {
+    console.error('Erro track:', error);
+    res.json({ success: false });
+  }
+});
+
+// ================================================
+// ADMIN STATS - Estatísticas secretas
+// ================================================
+const ADMIN_SECRET = process.env.ADMIN_SECRET;
+
+app.get('/api/admin/stats', async (req, res) => {
+  try {
+    const secret = req.headers['x-admin-key'] || req.headers['x-admin-secret'] || req.query.secret;
+    if (secret !== ADMIN_SECRET) {
+      return res.status(401).json({ success: false, error: 'Nao autorizado' });
+    }
+
+    // Total de usuários
+    const { count: totalUsers } = await supabase
+      .from('perfis')
+      .select('*', { count: 'exact', head: true });
+
+    // Usuários por origem
+    const { data: porOrigem } = await supabase
+      .from('perfis')
+      .select('utm_source, utm_medium, utm_campaign');
+
+    // Agrupar por origem
+    const origens = {};
+    (porOrigem || []).forEach(p => {
+      const source = p.utm_source || 'direto';
+      origens[source] = (origens[source] || 0) + 1;
+    });
+
+    // Últimos 10 usuários
+    const { data: ultimos } = await supabase
+      .from('perfis')
+      .select('nome, email, utm_source, utm_campaign, created_at')
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    // Usuários de hoje
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    const { count: hojeCont } = await supabase
+      .from('perfis')
+      .select('*', { count: 'exact', head: true })
+      .gte('created_at', hoje.toISOString());
+
+    // Estatísticas de visitas
+    const hojeStr = hoje.toISOString().split('T')[0];
+    const visitasHoje = visitas.filter(v => v.timestamp?.startsWith(hojeStr));
+
+    // Agrupar visitas por origem
+    const visitasPorOrigem = {};
+    visitas.forEach(v => {
+      const src = v.utm_source || 'direto';
+      visitasPorOrigem[src] = (visitasPorOrigem[src] || 0) + 1;
+    });
+
+    // Agrupar visitas por dispositivo
+    const visitasPorDispositivo = {};
+    visitas.forEach(v => {
+      const disp = v.dispositivo || 'Desconhecido';
+      visitasPorDispositivo[disp] = (visitasPorDispositivo[disp] || 0) + 1;
+    });
+
+    // Últimas 20 visitas
+    const ultimasVisitas = visitas.slice(-20).reverse();
+
+    // Histórico dos últimos 7 dias
+    const historico = [];
+    for (let i = 6; i >= 0; i--) {
+      const data = new Date();
+      data.setDate(data.getDate() - i);
+      const dataStr = data.toISOString().split('T')[0];
+      const diaSemana = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab'][data.getDay()];
+      historico.push({
+        data: dataStr,
+        dia: diaSemana,
+        visitas: statsHistory[dataStr]?.visitas || 0,
+        cadastros: statsHistory[dataStr]?.cadastros || 0
+      });
+    }
+
+    // Calcular médias para previsão
+    const totalVisitasSemana = historico.reduce((acc, h) => acc + h.visitas, 0);
+    const totalCadastrosSemana = historico.reduce((acc, h) => acc + h.cadastros, 0);
+    const mediaVisitasDia = totalVisitasSemana / 7;
+    const mediaCadastrosDia = totalCadastrosSemana / 7;
+    const taxaConversao = totalVisitasSemana > 0 ? (totalCadastrosSemana / totalVisitasSemana * 100) : 0;
+
+    // Previsão próximos 7 dias
+    const previsao = {
+      visitasSemana: Math.round(mediaVisitasDia * 7),
+      cadastrosSemana: Math.round(mediaCadastrosDia * 7),
+      visitasMes: Math.round(mediaVisitasDia * 30),
+      cadastrosMes: Math.round(mediaCadastrosDia * 30),
+      taxaConversao: taxaConversao.toFixed(1)
+    };
+
+    res.json({
+      success: true,
+      stats: {
+        usuarios: {
+          total: totalUsers || 0,
+          hoje: hojeCont || 0,
+          porOrigem: origens,
+          ultimos: (ultimos || []).map(u => ({
+            nome: u.nome,
+            email: u.email?.substring(0, 3) + '***',
+            origem: u.utm_source || 'direto',
+            campanha: u.utm_campaign || '-',
+            data: u.created_at
+          }))
+        },
+        visitas: {
+          total: visitas.length,
+          hoje: visitasHoje.length,
+          porOrigem: visitasPorOrigem,
+          porDispositivo: visitasPorDispositivo,
+          ultimas: ultimasVisitas
+        },
+        historico,
+        previsao,
+        servidor: {
+          fila: {
+            pendentes: filaGeracao.pendentes.length,
+            processando: filaGeracao.emProcessamento,
+            maxConcorrente: filaGeracao.maxConcorrente,
+            totalProcessado: filaGeracao.totalProcessado,
+            erros: filaGeracao.erros
+          }
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Erro stats:', error);
+    res.status(500).json({ error: 'Erro ao buscar stats' });
+  }
+});
+
+// ================================================
+// INSTAGRAM OAUTH - Conexão por usuário
+// ================================================
+const FB_APP_ID = process.env.FB_APP_ID;
+const FB_APP_SECRET = process.env.FB_APP_SECRET;
+const OAUTH_REDIRECT_URI = process.env.OAUTH_REDIRECT_URI || 'https://blasterskd.com.br/api/instagram/callback';
+
+// Iniciar conexão OAuth
+app.get('/api/instagram/connect', authMiddleware, (req, res) => {
+  const state = Buffer.from(JSON.stringify({
+    userId: req.user.id,
+    timestamp: Date.now()
+  })).toString('base64');
+
+  const scopes = [
+    'instagram_basic',
+    'instagram_content_publish',
+    'instagram_manage_comments',
+    'instagram_manage_insights',
+    'pages_show_list',
+    'pages_read_engagement',
+    'business_management'
+  ].join(',');
+
+  const authUrl = `https://www.facebook.com/v18.0/dialog/oauth?` +
+    `client_id=${FB_APP_ID}` +
+    `&redirect_uri=${encodeURIComponent(OAUTH_REDIRECT_URI)}` +
+    `&scope=${scopes}` +
+    `&state=${state}` +
+    `&response_type=code`;
+
+  res.json({ authUrl });
+});
+
+// Callback do OAuth
+app.get('/api/instagram/callback', async (req, res) => {
+  try {
+    const { code, state, error, error_description } = req.query;
+
+    if (error) {
+      console.error('❌ OAuth error:', error, error_description);
+      return res.redirect('https://blasterskd.com.br/configuracoes?instagram=error&msg=' + encodeURIComponent(error_description || error));
+    }
+
+    if (!code || !state) {
+      return res.redirect('https://blasterskd.com.br/configuracoes?instagram=error&msg=Parametros+invalidos');
+    }
+
+    // Decodificar state
+    let stateData;
+    try {
+      stateData = JSON.parse(Buffer.from(state, 'base64').toString());
+    } catch (e) {
+      return res.redirect('https://blasterskd.com.br/configuracoes?instagram=error&msg=State+invalido');
+    }
+
+    const userId = stateData.userId;
+    console.log('📸 OAuth callback para user:', userId);
+
+    // Trocar code por access token
+    const tokenResponse = await fetch(
+      `https://graph.facebook.com/v18.0/oauth/access_token?` +
+      `client_id=${FB_APP_ID}` +
+      `&redirect_uri=${encodeURIComponent(OAUTH_REDIRECT_URI)}` +
+      `&client_secret=${FB_APP_SECRET}` +
+      `&code=${code}`
+    );
+
+    const tokenData = await tokenResponse.json();
+
+    if (tokenData.error) {
+      console.error('❌ Token error:', tokenData.error);
+      return res.redirect('https://blasterskd.com.br/configuracoes?instagram=error&msg=' + encodeURIComponent(tokenData.error.message));
+    }
+
+    const shortLivedToken = tokenData.access_token;
+
+    // Trocar por long-lived token (60 dias)
+    const longTokenResponse = await fetch(
+      `https://graph.facebook.com/v18.0/oauth/access_token?` +
+      `grant_type=fb_exchange_token` +
+      `&client_id=${FB_APP_ID}` +
+      `&client_secret=${FB_APP_SECRET}` +
+      `&fb_exchange_token=${shortLivedToken}`
+    );
+
+    const longTokenData = await longTokenResponse.json();
+
+    if (longTokenData.error) {
+      console.error('❌ Long token error:', longTokenData.error);
+      return res.redirect('https://blasterskd.com.br/configuracoes?instagram=error&msg=' + encodeURIComponent(longTokenData.error.message));
+    }
+
+    const accessToken = longTokenData.access_token;
+    const expiresIn = longTokenData.expires_in || 5184000; // 60 dias padrão
+
+    // Buscar páginas do usuário
+    const pagesResponse = await fetch(
+      `https://graph.facebook.com/v18.0/me/accounts?access_token=${accessToken}`
+    );
+    const pagesData = await pagesResponse.json();
+
+    if (!pagesData.data || pagesData.data.length === 0) {
+      return res.redirect('https://blasterskd.com.br/configuracoes?instagram=error&msg=Nenhuma+pagina+encontrada.+Voce+precisa+ter+uma+Pagina+do+Facebook+vinculada+ao+Instagram.');
+    }
+
+    // Coletar TODAS as páginas com Instagram Business
+    const pagesWithInstagram = [];
+
+    for (const page of pagesData.data) {
+      const igResponse = await fetch(
+        `https://graph.facebook.com/v18.0/${page.id}?fields=instagram_business_account,name&access_token=${page.access_token}`
+      );
+      const igData = await igResponse.json();
+
+      if (igData.instagram_business_account) {
+        // Buscar username do Instagram
+        const usernameResponse = await fetch(
+          `https://graph.facebook.com/v18.0/${igData.instagram_business_account.id}?fields=username,profile_picture_url&access_token=${page.access_token}`
+        );
+        const usernameData = await usernameResponse.json();
+
+        pagesWithInstagram.push({
+          pageId: page.id,
+          pageName: igData.name,
+          pageToken: page.access_token,
+          instagramAccountId: igData.instagram_business_account.id,
+          instagramUsername: usernameData.username,
+          profilePicture: usernameData.profile_picture_url || null
+        });
+      }
+    }
+
+    if (pagesWithInstagram.length === 0) {
+      return res.redirect('https://blasterskd.com.br/configuracoes?instagram=error&msg=Nenhuma+conta+Instagram+Business+encontrada.+Vincule+seu+Instagram+a+uma+Pagina+do+Facebook.');
+    }
+
+    console.log(`✅ Encontradas ${pagesWithInstagram.length} conta(s) Instagram`);
+
+    // Se tiver apenas 1 conta, conectar automaticamente
+    if (pagesWithInstagram.length === 1) {
+      const account = pagesWithInstagram[0];
+      const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
+
+      const { error: dbError } = await supabase
+        .from('instagram_connections')
+        .upsert({
+          user_id: userId,
+          instagram_account_id: account.instagramAccountId,
+          instagram_username: account.instagramUsername,
+          page_name: account.pageName,
+          access_token: account.pageToken,
+          token_expires_at: expiresAt,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id' });
+
+      if (dbError) {
+        console.error('❌ DB error:', dbError);
+        return res.redirect('https://blasterskd.com.br/configuracoes?instagram=error&msg=Erro+ao+salvar+conexao');
+      }
+
+      console.log('✅ Conexão salva para user:', userId);
+      return res.redirect('https://blasterskd.com.br/configuracoes?instagram=success&username=' + encodeURIComponent(account.instagramUsername));
+    }
+
+    // Se tiver múltiplas contas, salvar temporariamente e redirecionar para seleção
+    const selectionToken = Buffer.from(JSON.stringify({
+      userId,
+      expiresIn,
+      accounts: pagesWithInstagram,
+      createdAt: Date.now()
+    })).toString('base64');
+
+    // Salvar token temporário no banco (expira em 10 minutos)
+    await supabase.from('instagram_pending_selections').upsert({
+      user_id: userId,
+      selection_data: selectionToken,
+      expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString()
+    }, { onConflict: 'user_id' });
+
+    console.log('✅ Múltiplas contas - redirecionando para seleção');
+    res.redirect('https://blasterskd.com.br/configuracoes?instagram=select');
+
+  } catch (error) {
+    console.error('❌ OAuth callback error:', error);
+    res.redirect('https://blasterskd.com.br/configuracoes?instagram=error&msg=Erro+interno');
+  }
+});
+
+// Status da conexão
+app.get('/api/instagram/status', authMiddleware, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('instagram_connections')
+      .select('instagram_username, page_name, token_expires_at, updated_at')
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (error || !data) {
+      return res.json({ connected: false });
+    }
+
+    const expiresAt = new Date(data.token_expires_at);
+    const isExpired = expiresAt < new Date();
+
+    res.json({
+      connected: !isExpired,
+      username: data.instagram_username,
+      pageName: data.page_name,
+      expiresAt: data.token_expires_at,
+      isExpired
+    });
+  } catch (error) {
+    console.error('❌ Status error:', error);
+    res.status(500).json({ error: 'Erro ao verificar status' });
+  }
+});
+
+// Buscar opções de contas para seleção
+app.get('/api/instagram/pending-selection', authMiddleware, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('instagram_pending_selections')
+      .select('selection_data, expires_at')
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (error || !data) {
+      return res.json({ hasPending: false });
+    }
+
+    // Verificar se expirou
+    if (new Date(data.expires_at) < new Date()) {
+      await supabase.from('instagram_pending_selections').delete().eq('user_id', req.user.id);
+      return res.json({ hasPending: false, expired: true });
+    }
+
+    // Decodificar dados
+    const selectionData = JSON.parse(Buffer.from(data.selection_data, 'base64').toString());
+
+    res.json({
+      hasPending: true,
+      accounts: selectionData.accounts.map(a => ({
+        instagramAccountId: a.instagramAccountId,
+        instagramUsername: a.instagramUsername,
+        pageName: a.pageName,
+        profilePicture: a.profilePicture
+      }))
+    });
+  } catch (error) {
+    console.error('❌ Pending selection error:', error);
+    res.status(500).json({ error: 'Erro ao buscar opções' });
+  }
+});
+
+// Finalizar seleção de conta Instagram
+app.post('/api/instagram/select', authMiddleware, async (req, res) => {
+  try {
+    const { instagramAccountId } = req.body;
+
+    if (!instagramAccountId) {
+      return res.status(400).json({ error: 'ID da conta é obrigatório' });
+    }
+
+    // Buscar dados pendentes
+    const { data, error } = await supabase
+      .from('instagram_pending_selections')
+      .select('selection_data')
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (error || !data) {
+      return res.status(400).json({ error: 'Nenhuma seleção pendente encontrada. Conecte novamente.' });
+    }
+
+    const selectionData = JSON.parse(Buffer.from(data.selection_data, 'base64').toString());
+
+    // Encontrar a conta selecionada
+    const selectedAccount = selectionData.accounts.find(a => a.instagramAccountId === instagramAccountId);
+
+    if (!selectedAccount) {
+      return res.status(400).json({ error: 'Conta não encontrada nas opções' });
+    }
+
+    // Salvar conexão
+    const expiresAt = new Date(Date.now() + selectionData.expiresIn * 1000).toISOString();
+
+    const { error: dbError } = await supabase
+      .from('instagram_connections')
+      .upsert({
+        user_id: req.user.id,
+        instagram_account_id: selectedAccount.instagramAccountId,
+        instagram_username: selectedAccount.instagramUsername,
+        page_name: selectedAccount.pageName,
+        access_token: selectedAccount.pageToken,
+        token_expires_at: expiresAt,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'user_id' });
+
+    if (dbError) {
+      console.error('❌ DB error:', dbError);
+      return res.status(500).json({ error: 'Erro ao salvar conexão' });
+    }
+
+    // Limpar seleção pendente
+    await supabase.from('instagram_pending_selections').delete().eq('user_id', req.user.id);
+
+    console.log('✅ Conta selecionada:', selectedAccount.instagramUsername);
+    res.json({
+      success: true,
+      username: selectedAccount.instagramUsername,
+      pageName: selectedAccount.pageName
+    });
+  } catch (error) {
+    console.error('❌ Select error:', error);
+    res.status(500).json({ error: 'Erro ao selecionar conta' });
+  }
+});
+
+// Desconectar Instagram
+app.delete('/api/instagram/disconnect', authMiddleware, async (req, res) => {
+  try {
+    const { error } = await supabase
+      .from('instagram_connections')
+      .delete()
+      .eq('user_id', req.user.id);
+
+    if (error) throw error;
+
+    res.json({ success: true, message: 'Instagram desconectado' });
+  } catch (error) {
+    console.error('❌ Disconnect error:', error);
+    res.status(500).json({ error: 'Erro ao desconectar' });
+  }
+});
+
+// Postar no Instagram do usuário (usa token dele)
+app.post('/api/instagram/post', authMiddleware, async (req, res) => {
+  try {
+    const { imageUrl, caption, type = 'feed' } = req.body;
+
+    if (!imageUrl) {
+      return res.status(400).json({ error: 'URL da imagem é obrigatória' });
+    }
+
+    // Buscar conexão do usuário
+    const { data: connection, error: connError } = await supabase
+      .from('instagram_connections')
+      .select('*')
+      .eq('user_id', req.user.id)
+      .single();
+
+    if (connError || !connection) {
+      return res.status(400).json({
+        error: 'Instagram não conectado',
+        needsConnection: true
+      });
+    }
+
+    // Verificar se token expirou
+    if (new Date(connection.token_expires_at) < new Date()) {
+      return res.status(400).json({
+        error: 'Token expirado. Reconecte seu Instagram.',
+        needsReconnection: true
+      });
+    }
+
+    const isStory = type === 'story' || type === 'stories';
+    console.log(`📸 Postando ${isStory ? 'STORY' : 'FEED'} para @${connection.instagram_username}`);
+
+    // Criar container de mídia
+    const mediaPayload = {
+      image_url: imageUrl,
+      access_token: connection.access_token
+    };
+
+    if (isStory) {
+      mediaPayload.media_type = 'STORIES';
+    } else {
+      mediaPayload.caption = caption || '';
+    }
+
+    const createMediaResponse = await fetch(
+      `https://graph.facebook.com/v18.0/${connection.instagram_account_id}/media`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(mediaPayload)
+      }
+    );
+
+    const mediaData = await createMediaResponse.json();
+
+    if (mediaData.error) {
+      console.error('❌ Erro ao criar mídia:', mediaData.error);
+      return res.status(400).json({ error: mediaData.error.message });
+    }
+
+    const creationId = mediaData.id;
+    console.log('✅ Container criado:', creationId);
+
+    // Aguardar processamento
+    let mediaReady = false;
+    for (let i = 0; i < 10; i++) {
+      await new Promise(r => setTimeout(r, 3000));
+
+      const statusResponse = await fetch(
+        `https://graph.facebook.com/v18.0/${creationId}?fields=status_code&access_token=${connection.access_token}`
+      );
+      const statusData = await statusResponse.json();
+
+      if (statusData.status_code === 'FINISHED') {
+        mediaReady = true;
+        break;
+      } else if (statusData.status_code === 'ERROR') {
+        return res.status(400).json({ error: 'Erro no processamento da mídia' });
+      }
+    }
+
+    if (!mediaReady) {
+      return res.status(400).json({ error: 'Timeout: mídia não processada' });
+    }
+
+    // Publicar
+    const publishResponse = await fetch(
+      `https://graph.facebook.com/v18.0/${connection.instagram_account_id}/media_publish`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          creation_id: creationId,
+          access_token: connection.access_token
+        })
+      }
+    );
+
+    const publishData = await publishResponse.json();
+
+    if (publishData.error) {
+      console.error('❌ Erro ao publicar:', publishData.error);
+      return res.status(400).json({ error: publishData.error.message });
+    }
+
+    console.log(`✅ ${isStory ? 'Story' : 'Post'} publicado: @${connection.instagram_username}`);
+
+    res.json({
+      success: true,
+      postId: publishData.id,
+      type: isStory ? 'story' : 'feed',
+      username: connection.instagram_username
+    });
+
+  } catch (error) {
+    console.error('❌ Post error:', error);
+    res.status(500).json({ error: 'Erro ao postar no Instagram' });
+  }
+});
+
+// ================================================
+// AUTOMAÇÃO DE EMAIL MARKETING
+// ================================================
+
+// Templates de email
+const emailTemplates = {
+  boasVindas: (nome) => ({
+    subject: '🎉 Bem-vindo ao BlasterSKD!',
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+          .container { max-width: 600px; margin: 0 auto; }
+          .header { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); color: white; padding: 40px 30px; text-align: center; }
+          .header h1 { margin: 0; color: #f59e0b; font-size: 28px; }
+          .content { background: #f8fafc; padding: 40px 30px; }
+          .highlight { background: #fef3c7; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #f59e0b; }
+          .btn { display: inline-block; background: #f59e0b; color: #1e293b; padding: 14px 35px; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 20px; }
+          .footer { text-align: center; padding: 20px; color: #64748b; font-size: 12px; }
+          .steps { margin: 20px 0; }
+          .step { display: flex; margin: 15px 0; align-items: flex-start; }
+          .step-num { background: #f59e0b; color: #1e293b; width: 30px; height: 30px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 15px; flex-shrink: 0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>⚖️ BlasterSKD</h1>
+            <p style="margin: 10px 0 0; opacity: 0.9;">Marketing Jurídico com IA</p>
+          </div>
+          <div class="content">
+            <h2>Olá${nome ? `, ${nome}` : ''}! 👋</h2>
+
+            <p>Seja muito bem-vindo ao <strong>BlasterSKD</strong>! Estamos felizes em ter você conosco.</p>
+
+            <div class="highlight">
+              <strong>🚀 Comece agora em 3 passos:</strong>
+              <div class="steps">
+                <div class="step"><span class="step-num">1</span> Escolha a área do direito</div>
+                <div class="step"><span class="step-num">2</span> Selecione um tema</div>
+                <div class="step"><span class="step-num">3</span> Clique em gerar - a IA faz o resto!</div>
+              </div>
+            </div>
+
+            <p>Com o BlasterSKD você cria posts profissionais para Instagram em segundos. Chega de perder horas criando conteúdo!</p>
+
+            <center>
+              <a href="https://blasterskd.com.br" class="btn">Criar meu primeiro post</a>
+            </center>
+          </div>
+          <div class="footer">
+            <p>Dúvidas? Responda este email que ajudamos você.</p>
+            <p>© ${new Date().getFullYear()} BlasterSKD - Marketing Jurídico com IA</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `
+  }),
+
+  onboardingDia2: (nome) => ({
+    subject: '💡 Dica: Conecte seu Instagram',
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; }
+          .header { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); color: white; padding: 30px; text-align: center; }
+          .header h1 { margin: 0; color: #f59e0b; }
+          .content { background: #f8fafc; padding: 30px; }
+          .tip-box { background: #dbeafe; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #3b82f6; }
+          .btn { display: inline-block; background: #f59e0b; color: #1e293b; padding: 14px 35px; text-decoration: none; border-radius: 8px; font-weight: bold; }
+          .footer { text-align: center; padding: 20px; color: #64748b; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>⚖️ BlasterSKD</h1>
+          </div>
+          <div class="content">
+            <h2>${nome ? `${nome}, você` : 'Você'} sabia? 🤔</h2>
+
+            <p>Você pode <strong>postar direto no Instagram</strong> sem sair do BlasterSKD!</p>
+
+            <div class="tip-box">
+              <strong>📱 Como conectar:</strong>
+              <ol>
+                <li>Acesse as Configurações no BlasterSKD</li>
+                <li>Clique em "Conectar Instagram"</li>
+                <li>Autorize com sua conta do Facebook</li>
+                <li>Pronto! Agora é só clicar em "Postar" após gerar o conteúdo</li>
+              </ol>
+            </div>
+
+            <p>Assim você economiza ainda mais tempo - gera o conteúdo e publica com um clique!</p>
+
+            <center>
+              <a href="https://blasterskd.com.br" class="btn">Conectar meu Instagram</a>
+            </center>
+          </div>
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} BlasterSKD</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `
+  }),
+
+  onboardingDia5: (nome) => ({
+    subject: '📅 Já conhece o agendamento?',
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; }
+          .header { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); color: white; padding: 30px; text-align: center; }
+          .header h1 { margin: 0; color: #f59e0b; }
+          .content { background: #f8fafc; padding: 30px; }
+          .feature-box { background: #dcfce7; padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #22c55e; }
+          .btn { display: inline-block; background: #f59e0b; color: #1e293b; padding: 14px 35px; text-decoration: none; border-radius: 8px; font-weight: bold; }
+          .footer { text-align: center; padding: 20px; color: #64748b; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>⚖️ BlasterSKD</h1>
+          </div>
+          <div class="content">
+            <h2>Programe sua semana inteira! 📅</h2>
+
+            <p>${nome ? `${nome}, com` : 'Com'} o <strong>agendamento do BlasterSKD</strong> você pode criar todos os posts da semana de uma vez e deixar tudo programado.</p>
+
+            <div class="feature-box">
+              <strong>✨ Benefícios do agendamento:</strong>
+              <ul>
+                <li>Crie conteúdo quando tiver tempo</li>
+                <li>Posts publicados automaticamente</li>
+                <li>Mantenha consistência nas redes</li>
+                <li>Visualize seu calendário de posts</li>
+              </ul>
+            </div>
+
+            <p>Dedique 1 hora por semana e deixe o BlasterSKD cuidar do resto!</p>
+
+            <center>
+              <a href="https://blasterskd.com.br" class="btn">Agendar meus posts</a>
+            </center>
+          </div>
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} BlasterSKD</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `
+  }),
+
+  onboardingDia7: (nome, planoAtual) => ({
+    subject: planoAtual === 'gratuito' ? '🚀 Desbloqueie todo o potencial!' : '🎯 Como está sua experiência?',
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; }
+          .header { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); color: white; padding: 30px; text-align: center; }
+          .header h1 { margin: 0; color: #f59e0b; }
+          .content { background: #f8fafc; padding: 30px; }
+          .upgrade-box { background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); padding: 25px; border-radius: 10px; margin: 20px 0; text-align: center; }
+          .btn { display: inline-block; background: #f59e0b; color: #1e293b; padding: 14px 35px; text-decoration: none; border-radius: 8px; font-weight: bold; }
+          .btn-secondary { display: inline-block; background: #1e293b; color: #fff; padding: 14px 35px; text-decoration: none; border-radius: 8px; font-weight: bold; margin-left: 10px; }
+          .footer { text-align: center; padding: 20px; color: #64748b; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>⚖️ BlasterSKD</h1>
+          </div>
+          <div class="content">
+            <h2>${nome ? `${nome}, já` : 'Já'} faz 1 semana! 🎉</h2>
+
+            <p>Como está sendo sua experiência com o BlasterSKD?</p>
+
+            ${planoAtual === 'gratuito' ? `
+            <div class="upgrade-box">
+              <h3 style="margin-top: 0; color: #1e293b;">🚀 Quer criar mais conteúdo?</h3>
+              <p>No plano <strong>Essencial</strong> você tem:</p>
+              <ul style="text-align: left; display: inline-block;">
+                <li>30 posts por mês (vs 5 do gratuito)</li>
+                <li>Stories ilimitados</li>
+                <li>Agendamento de posts</li>
+                <li>Suporte prioritário</li>
+              </ul>
+              <p><strong>Por apenas R$ 47/mês</strong></p>
+            </div>
+            ` : `
+            <p>Esperamos que esteja aproveitando todos os recursos do seu plano!</p>
+            `}
+
+            <center>
+              ${planoAtual === 'gratuito' ?
+                '<a href="https://blasterskd.com.br/#precos" class="btn">Ver planos</a>' :
+                '<a href="https://blasterskd.com.br" class="btn">Acessar BlasterSKD</a>'
+              }
+            </center>
+
+            <p style="margin-top: 30px; font-size: 14px; color: #64748b;">Tem alguma dúvida ou sugestão? Responda este email - adoramos ouvir nossos usuários!</p>
+          </div>
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} BlasterSKD</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `
+  }),
+
+  usuarioInativo: (nome) => ({
+    subject: '😢 Sentimos sua falta!',
+    html: `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; }
+          .header { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); color: white; padding: 30px; text-align: center; }
+          .header h1 { margin: 0; color: #f59e0b; }
+          .content { background: #f8fafc; padding: 30px; }
+          .comeback-box { background: #fef3c7; padding: 25px; border-radius: 10px; margin: 20px 0; text-align: center; }
+          .btn { display: inline-block; background: #f59e0b; color: #1e293b; padding: 14px 35px; text-decoration: none; border-radius: 8px; font-weight: bold; }
+          .footer { text-align: center; padding: 20px; color: #64748b; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>⚖️ BlasterSKD</h1>
+          </div>
+          <div class="content">
+            <h2>${nome ? `${nome}, tudo` : 'Tudo'} bem? 👋</h2>
+
+            <p>Notamos que você não acessa o BlasterSKD há alguns dias. Está tudo bem?</p>
+
+            <div class="comeback-box">
+              <h3 style="margin-top: 0;">🆕 Enquanto você estava fora:</h3>
+              <ul style="text-align: left; display: inline-block;">
+                <li>Novos temas de conteúdo disponíveis</li>
+                <li>Melhorias na geração com IA</li>
+                <li>Novos templates de stories</li>
+              </ul>
+            </div>
+
+            <p>Seus seguidores sentem falta do seu conteúdo! Que tal criar um post agora?</p>
+
+            <center>
+              <a href="https://blasterskd.com.br" class="btn">Voltar ao BlasterSKD</a>
+            </center>
+
+            <p style="margin-top: 30px; font-size: 14px; color: #64748b;">Se precisar de ajuda ou tiver algum problema, estamos aqui para ajudar!</p>
+          </div>
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} BlasterSKD</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `
+  })
+};
+
+// Função para enviar email de marketing
+async function enviarEmailMarketing(to, template) {
+  try {
+    if (!process.env.RESEND_API_KEY) {
+      console.log('⚠️ RESEND_API_KEY não configurada');
+      return { success: false, error: 'API key não configurada' };
+    }
+
+    const { data, error } = await resend.emails.send({
+      from: process.env.EMAIL_FROM || 'BlasterSKD <contato@blasterskd.com.br>',
+      to: to,
+      subject: template.subject,
+      html: template.html
+    });
+
+    if (error) {
+      console.error('❌ Erro ao enviar email:', error);
+      return { success: false, error: error.message };
+    }
+
+    console.log('📧 Email marketing enviado para:', to);
+    return { success: true, id: data?.id };
+  } catch (error) {
+    console.error('❌ Erro ao enviar email:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// Endpoint para executar automações de email (chamado pelo n8n)
+app.post('/api/automacao/emails', async (req, res) => {
+  try {
+    const authKey = req.headers['x-automation-key'];
+    if (authKey !== process.env.AUTOMATION_SECRET) {
+      return res.status(401).json({ error: 'Não autorizado' });
+    }
+
+    const hoje = new Date();
+    const resultados = {
+      boasVindas: [],
+      onboardingDia2: [],
+      onboardingDia5: [],
+      onboardingDia7: [],
+      inativos: [],
+      erros: []
+    };
+
+    // Função auxiliar para calcular data X dias atrás
+    const diasAtras = (dias) => {
+      const data = new Date(hoje);
+      data.setDate(data.getDate() - dias);
+      return data.toISOString().split('T')[0];
+    };
+
+    // Buscar configurações de email
+    const { data: configData } = await supabase
+      .from('configuracoes')
+      .select('valor')
+      .eq('chave', 'email_marketing')
+      .single();
+    const emailConfig = configData?.valor || {};
+
+    // 1. BOAS-VINDAS - Usuários criados hoje
+    if (emailConfig.boasVindas?.ativo !== false) {
+      const { data: novosUsuarios } = await supabase
+        .from('perfis')
+        .select('user_id, nome, email, created_at')
+        .gte('created_at', diasAtras(0) + 'T00:00:00')
+        .lt('created_at', diasAtras(0) + 'T23:59:59')
+        .is('email_boas_vindas_enviado', null);
+
+      for (const usuario of novosUsuarios || []) {
+        if (usuario.email) {
+          const template = emailTemplates.boasVindas(usuario.nome);
+          const resultado = await enviarEmailMarketing(usuario.email, template);
+          if (resultado.success) {
+            resultados.boasVindas.push(usuario.email);
+            await supabase.from('perfis').update({ email_boas_vindas_enviado: new Date().toISOString() }).eq('user_id', usuario.user_id);
+          } else {
+            resultados.erros.push({ email: usuario.email, tipo: 'boasVindas', erro: resultado.error });
+          }
+        }
+      }
+    }
+
+    // 2. ONBOARDING DIA 2
+    if (emailConfig.onboardingDia2?.ativo !== false) {
+      const { data: usuariosDia2 } = await supabase
+        .from('perfis')
+        .select('user_id, nome, email, created_at')
+        .gte('created_at', diasAtras(2) + 'T00:00:00')
+        .lt('created_at', diasAtras(2) + 'T23:59:59')
+        .not('email_boas_vindas_enviado', 'is', null)
+        .is('email_onboarding_dia2_enviado', null);
+
+      for (const usuario of usuariosDia2 || []) {
+        if (usuario.email) {
+          const template = emailTemplates.onboardingDia2(usuario.nome);
+          const resultado = await enviarEmailMarketing(usuario.email, template);
+          if (resultado.success) {
+            resultados.onboardingDia2.push(usuario.email);
+            await supabase.from('perfis').update({ email_onboarding_dia2_enviado: new Date().toISOString() }).eq('user_id', usuario.user_id);
+          } else {
+            resultados.erros.push({ email: usuario.email, tipo: 'onboardingDia2', erro: resultado.error });
+          }
+        }
+      }
+    }
+
+    // 3. ONBOARDING DIA 5
+    if (emailConfig.onboardingDia5?.ativo !== false) {
+      const { data: usuariosDia5 } = await supabase
+        .from('perfis')
+        .select('user_id, nome, email, created_at')
+        .gte('created_at', diasAtras(5) + 'T00:00:00')
+        .lt('created_at', diasAtras(5) + 'T23:59:59')
+        .not('email_onboarding_dia2_enviado', 'is', null)
+        .is('email_onboarding_dia5_enviado', null);
+
+      for (const usuario of usuariosDia5 || []) {
+        if (usuario.email) {
+          const template = emailTemplates.onboardingDia5(usuario.nome);
+          const resultado = await enviarEmailMarketing(usuario.email, template);
+          if (resultado.success) {
+            resultados.onboardingDia5.push(usuario.email);
+            await supabase.from('perfis').update({ email_onboarding_dia5_enviado: new Date().toISOString() }).eq('user_id', usuario.user_id);
+          } else {
+            resultados.erros.push({ email: usuario.email, tipo: 'onboardingDia5', erro: resultado.error });
+          }
+        }
+      }
+    }
+
+    // 4. ONBOARDING DIA 7 (com info do plano)
+    if (emailConfig.onboardingDia7?.ativo !== false) {
+      const { data: usuariosDia7 } = await supabase
+        .from('perfis')
+        .select('user_id, nome, email, created_at, plano')
+        .gte('created_at', diasAtras(7) + 'T00:00:00')
+        .lt('created_at', diasAtras(7) + 'T23:59:59')
+        .not('email_onboarding_dia5_enviado', 'is', null)
+        .is('email_onboarding_dia7_enviado', null);
+
+      for (const usuario of usuariosDia7 || []) {
+        if (usuario.email) {
+          const template = emailTemplates.onboardingDia7(usuario.nome, usuario.plano || 'gratuito');
+          const resultado = await enviarEmailMarketing(usuario.email, template);
+          if (resultado.success) {
+            resultados.onboardingDia7.push(usuario.email);
+            await supabase.from('perfis').update({ email_onboarding_dia7_enviado: new Date().toISOString() }).eq('user_id', usuario.user_id);
+          } else {
+            resultados.erros.push({ email: usuario.email, tipo: 'onboardingDia7', erro: resultado.error });
+          }
+        }
+      }
+    }
+
+    // 5. USUÁRIOS INATIVOS (último acesso > 7 dias, não recebeu email de inativo nos últimos 30 dias)
+    if (emailConfig.inativo?.ativo !== false) {
+      const { data: usuariosInativos } = await supabase
+        .from('perfis')
+        .select('user_id, nome, email, ultimo_acesso, email_inativo_enviado')
+        .lt('ultimo_acesso', diasAtras(7))
+        .or(`email_inativo_enviado.is.null,email_inativo_enviado.lt.${diasAtras(30)}`);
+
+      for (const usuario of usuariosInativos || []) {
+        if (usuario.email) {
+          const template = emailTemplates.usuarioInativo(usuario.nome);
+          const resultado = await enviarEmailMarketing(usuario.email, template);
+          if (resultado.success) {
+            resultados.inativos.push(usuario.email);
+            await supabase.from('perfis').update({ email_inativo_enviado: new Date().toISOString() }).eq('user_id', usuario.user_id);
+          } else {
+            resultados.erros.push({ email: usuario.email, tipo: 'inativo', erro: resultado.error });
+          }
+        }
+      }
+    }
+
+    console.log('📧 Automação de emails executada:', {
+      boasVindas: resultados.boasVindas.length,
+      onboardingDia2: resultados.onboardingDia2.length,
+      onboardingDia5: resultados.onboardingDia5.length,
+      onboardingDia7: resultados.onboardingDia7.length,
+      inativos: resultados.inativos.length,
+      erros: resultados.erros.length
+    });
+
+    res.json({
+      success: true,
+      resumo: {
+        boasVindas: resultados.boasVindas.length,
+        onboardingDia2: resultados.onboardingDia2.length,
+        onboardingDia5: resultados.onboardingDia5.length,
+        onboardingDia7: resultados.onboardingDia7.length,
+        inativos: resultados.inativos.length,
+        erros: resultados.erros.length
+      },
+      detalhes: resultados
+    });
+
+  } catch (error) {
+    console.error('❌ Erro na automação de emails:', error);
+    res.status(500).json({ error: 'Erro ao executar automação', details: error.message });
+  }
+});
+
+// Endpoint para testar envio de email específico
+app.post('/api/automacao/teste-email', async (req, res) => {
+  try {
+    const authKey = req.headers['x-automation-key'];
+    if (authKey !== process.env.AUTOMATION_SECRET) {
+      return res.status(401).json({ error: 'Não autorizado' });
+    }
+
+    const { tipo, email, nome } = req.body;
+
+    if (!tipo || !email) {
+      return res.status(400).json({ error: 'tipo e email são obrigatórios' });
+    }
+
+    const templates = {
+      boasVindas: emailTemplates.boasVindas(nome),
+      onboardingDia2: emailTemplates.onboardingDia2(nome),
+      onboardingDia5: emailTemplates.onboardingDia5(nome),
+      onboardingDia7: emailTemplates.onboardingDia7(nome, 'gratuito'),
+      inativo: emailTemplates.usuarioInativo(nome)
+    };
+
+    const template = templates[tipo];
+    if (!template) {
+      return res.status(400).json({ error: 'Tipo de email inválido', tiposDisponiveis: Object.keys(templates) });
+    }
+
+    const resultado = await enviarEmailMarketing(email, template);
+    res.json(resultado);
+
+  } catch (error) {
+    console.error('❌ Erro no teste de email:', error);
+    res.status(500).json({ error: 'Erro ao enviar email de teste', details: error.message });
+  }
+});
+
+// ================================================
+// CONFIGURAÇÕES DE EMAIL (para painel admin)
+// ================================================
+
+// Configurações padrão de email
+const emailConfigPadrao = {
+  boasVindas: { ativo: true, nome: 'Boas-vindas', descricao: 'Enviado quando usuário se cadastra' },
+  onboardingDia2: { ativo: true, nome: 'Onboarding Dia 2', descricao: 'Dica para conectar Instagram' },
+  onboardingDia5: { ativo: true, nome: 'Onboarding Dia 5', descricao: 'Dica sobre agendamento' },
+  onboardingDia7: { ativo: true, nome: 'Onboarding Dia 7', descricao: 'Oferta de upgrade' },
+  inativo: { ativo: true, nome: 'Usuário Inativo', descricao: 'Enviado após 7 dias sem acesso' }
+};
+
+// GET - Obter configurações de email
+app.get('/api/admin/email-config', async (req, res) => {
+  try {
+    const authKey = req.headers['x-admin-key'];
+    if (authKey !== process.env.AUTOMATION_SECRET) {
+      return res.status(401).json({ error: 'Não autorizado' });
+    }
+
+    // Buscar config do Supabase
+    const { data, error } = await supabase
+      .from('configuracoes')
+      .select('*')
+      .eq('chave', 'email_marketing')
+      .single();
+
+    if (error || !data) {
+      // Retorna config padrão se não existir
+      return res.json({ success: true, config: emailConfigPadrao });
+    }
+
+    res.json({ success: true, config: data.valor });
+  } catch (error) {
+    console.error('❌ Erro ao buscar config:', error);
+    res.status(500).json({ error: 'Erro ao buscar configurações' });
+  }
+});
+
+// POST - Atualizar configurações de email
+app.post('/api/admin/email-config', async (req, res) => {
+  try {
+    const authKey = req.headers['x-admin-key'];
+    if (authKey !== process.env.AUTOMATION_SECRET) {
+      return res.status(401).json({ error: 'Não autorizado' });
+    }
+
+    const { config } = req.body;
+    if (!config) {
+      return res.status(400).json({ error: 'config é obrigatório' });
+    }
+
+    // Salvar no Supabase
+    const { error } = await supabase
+      .from('configuracoes')
+      .upsert({
+        chave: 'email_marketing',
+        valor: config,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'chave' });
+
+    if (error) {
+      console.error('❌ Erro ao salvar config:', error);
+      return res.status(500).json({ error: 'Erro ao salvar configurações' });
+    }
+
+    console.log('✅ Configurações de email atualizadas');
+    res.json({ success: true, config });
+  } catch (error) {
+    console.error('❌ Erro ao salvar config:', error);
+    res.status(500).json({ error: 'Erro ao salvar configurações' });
+  }
+});
+
+// GET - Histórico de emails enviados
+app.get('/api/admin/email-historico', async (req, res) => {
+  try {
+    const authKey = req.headers['x-admin-key'];
+    if (authKey !== process.env.AUTOMATION_SECRET) {
+      return res.status(401).json({ error: 'Não autorizado' });
+    }
+
+    // Buscar últimos envios do Supabase
+    const { data, error } = await supabase
+      .from('perfis')
+      .select('email, nome, email_boas_vindas_enviado, email_onboarding_dia2_enviado, email_onboarding_dia5_enviado, email_onboarding_dia7_enviado, email_inativo_enviado')
+      .or('email_boas_vindas_enviado.not.is.null,email_onboarding_dia2_enviado.not.is.null,email_inativo_enviado.not.is.null')
+      .order('email_boas_vindas_enviado', { ascending: false, nullsFirst: false })
+      .limit(50);
+
+    if (error) {
+      console.error('❌ Erro ao buscar histórico:', error);
+      return res.status(500).json({ error: 'Erro ao buscar histórico' });
+    }
+
+    // Formatar dados
+    const historico = [];
+    for (const perfil of data || []) {
+      if (perfil.email_boas_vindas_enviado) {
+        historico.push({ email: perfil.email, nome: perfil.nome, tipo: 'Boas-vindas', data: perfil.email_boas_vindas_enviado });
+      }
+      if (perfil.email_onboarding_dia2_enviado) {
+        historico.push({ email: perfil.email, nome: perfil.nome, tipo: 'Onboarding Dia 2', data: perfil.email_onboarding_dia2_enviado });
+      }
+      if (perfil.email_onboarding_dia5_enviado) {
+        historico.push({ email: perfil.email, nome: perfil.nome, tipo: 'Onboarding Dia 5', data: perfil.email_onboarding_dia5_enviado });
+      }
+      if (perfil.email_onboarding_dia7_enviado) {
+        historico.push({ email: perfil.email, nome: perfil.nome, tipo: 'Onboarding Dia 7', data: perfil.email_onboarding_dia7_enviado });
+      }
+      if (perfil.email_inativo_enviado) {
+        historico.push({ email: perfil.email, nome: perfil.nome, tipo: 'Inativo', data: perfil.email_inativo_enviado });
+      }
+    }
+
+    // Ordenar por data
+    historico.sort((a, b) => new Date(b.data) - new Date(a.data));
+
+    res.json({ success: true, historico: historico.slice(0, 50) });
+  } catch (error) {
+    console.error('❌ Erro ao buscar histórico:', error);
+    res.status(500).json({ error: 'Erro ao buscar histórico' });
+  }
+});
+
+// Modificar a função de automação para verificar configs
+async function verificarEmailAtivo(tipo) {
+  try {
+    const { data } = await supabase
+      .from('configuracoes')
+      .select('valor')
+      .eq('chave', 'email_marketing')
+      .single();
+
+    if (!data || !data.valor) return true; // Se não tem config, está ativo
+    return data.valor[tipo]?.ativo !== false;
+  } catch {
+    return true; // Em caso de erro, considera ativo
+  }
+}
+
 app.listen(PORT, () => {
   console.log('=================================');
-  console.log('🚀 Backend v2.1 - Design Premium');
+  console.log('🚀 Backend v2.3 - Email Marketing');
   console.log('=================================');
   console.log('✅ Porta:', PORT);
   console.log('🤖 IA: ATIVA para Stories');
   console.log('📱 Stories: Textos otimizados');
   console.log('🎨 Feed: Caixas Premium com gradiente');
   console.log('✨ Badges dinâmicos por área');
+  console.log('📸 Instagram OAuth: ATIVO');
   console.log('=================================');
 });
