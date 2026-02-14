@@ -1475,13 +1475,19 @@ app.get('/api/minha-assinatura', authMiddleware, async (req, res) => {
 // Criar checkout de assinatura
 app.post('/api/criar-assinatura', limiterPagamentos, authMiddleware, async (req, res) => {
   try {
-    const { plano_slug } = req.body;
+    const { plano_slug, cupom } = req.body;
     const userId = req.user.id;
     const userEmail = req.user.email;
 
     if (!plano_slug) {
       return res.status(400).json({ error: 'Plano não informado' });
     }
+
+    // Cupons validos
+    const cuponsValidos = {
+      'BLASTER10': { desconto: 0.10, descricao: '10% off primeiro mes' }
+    };
+    const cupomAplicado = cupom ? cuponsValidos[cupom.toUpperCase()] : null;
 
     // Buscar plano
     const { data: plano, error: errPlano } = await supabase
@@ -1533,7 +1539,9 @@ app.post('/api/criar-assinatura', limiterPagamentos, authMiddleware, async (req,
           description: plano.descricao,
           quantity: 1,
           currency_id: 'BRL',
-          unit_price: parseFloat(plano.preco)
+          unit_price: cupomAplicado
+            ? parseFloat((plano.preco * (1 - cupomAplicado.desconto)).toFixed(2))
+            : parseFloat(plano.preco)
         }
       ],
       payer: {
@@ -1776,6 +1784,42 @@ app.post('/api/webhook-mercadopago', async (req, res) => {
             plano: planoSlug,
             valor: paymentInfo.transaction_amount
           });
+
+          // Facebook Conversions API - Evento Purchase
+          try {
+            const pixelId = '1050340382912228';
+            const accessToken = process.env.FB_CONVERSIONS_TOKEN;
+            if (accessToken) {
+              const crypto = require('crypto');
+              const hashedEmail = emailDestino ? crypto.createHash('sha256').update(emailDestino.toLowerCase().trim()).digest('hex') : null;
+              const eventData = {
+                data: [{
+                  event_name: 'Purchase',
+                  event_time: Math.floor(Date.now() / 1000),
+                  action_source: 'website',
+                  event_source_url: 'https://blasterskd.com.br/pagamento/sucesso',
+                  user_data: {
+                    em: hashedEmail ? [hashedEmail] : undefined,
+                    client_ip_address: req.headers['x-forwarded-for']?.split(',')[0] || req.ip
+                  },
+                  custom_data: {
+                    value: paymentInfo.transaction_amount,
+                    currency: 'BRL',
+                    content_name: `Plano ${planoSlug}`,
+                    content_type: 'product'
+                  }
+                }]
+              };
+              await fetch(`https://graph.facebook.com/v18.0/${pixelId}/events?access_token=${accessToken}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(eventData)
+              });
+              console.log('📊 Facebook Purchase event enviado para:', emailDestino);
+            }
+          } catch (fbErr) {
+            console.log('⚠️ Erro ao enviar evento Facebook:', fbErr.message);
+          }
           break;
 
         case 'pending':
@@ -2287,14 +2331,56 @@ app.post('/api/postar-instagram-auto', async (req, res) => {
       return res.status(401).json({ error: 'API key inválida' });
     }
 
-    const { imageUrl, caption, type = 'feed' } = req.body;
+    const { imageUrl, caption, type = 'feed', userId, email } = req.body;
 
     if (!imageUrl) {
       return res.status(400).json({ error: 'URL da imagem é obrigatória' });
     }
 
-    const INSTAGRAM_ACCOUNT_ID = process.env.INSTAGRAM_ACCOUNT_ID;
-    const PAGE_TOKEN = process.env.INSTAGRAM_PAGE_TOKEN;
+    // Buscar credenciais do Instagram: por user_id (agendamento) ou env vars (fallback)
+    let INSTAGRAM_ACCOUNT_ID = process.env.INSTAGRAM_ACCOUNT_ID;
+    let PAGE_TOKEN = process.env.INSTAGRAM_PAGE_TOKEN;
+
+    if (userId) {
+      const { data: conn, error: connErr } = await supabase
+        .from('instagram_connections')
+        .select('instagram_account_id, access_token')
+        .eq('user_id', userId)
+        .single();
+
+      if (conn && !connErr) {
+        INSTAGRAM_ACCOUNT_ID = conn.instagram_account_id;
+        PAGE_TOKEN = conn.access_token;
+        console.log(`📱 Usando credenciais do usuário ${userId}`);
+      }
+    }
+
+    // Fallback: se não achou por user_id, busca por outros user_ids do mesmo email
+    if ((!INSTAGRAM_ACCOUNT_ID || !PAGE_TOKEN) && email) {
+      const { data: otherUsers } = await supabase
+        .from('agendamentos')
+        .select('user_id')
+        .eq('email_usuario', email)
+        .limit(20);
+
+      if (otherUsers) {
+        const uniqueIds = [...new Set(otherUsers.map(u => u.user_id).filter(id => id !== userId))];
+        for (const uid of uniqueIds) {
+          const { data: conn2 } = await supabase
+            .from('instagram_connections')
+            .select('instagram_account_id, access_token')
+            .eq('user_id', uid)
+            .single();
+
+          if (conn2) {
+            INSTAGRAM_ACCOUNT_ID = conn2.instagram_account_id;
+            PAGE_TOKEN = conn2.access_token;
+            console.log(`📱 Fallback: usando credenciais do user_id ${uid} (mesmo email: ${email})`);
+            break;
+          }
+        }
+      }
+    }
 
     if (!INSTAGRAM_ACCOUNT_ID || !PAGE_TOKEN) {
       return res.status(500).json({ error: 'Instagram não configurado' });
@@ -3707,9 +3793,507 @@ async function verificarEmailAtivo(tipo) {
   }
 }
 
+// ================================================
+// BANCO DE TÓPICOS POR ÁREA - GERAÇÃO ALEATÓRIA
+// ================================================
+const TOPICOS_POR_AREA = {
+  'Direito Civil': [
+    'Usucapião: como adquirir propriedade pela posse prolongada',
+    'Responsabilidade civil por danos morais',
+    'Prescrição de dívidas: prazos que você precisa conhecer',
+    'Direitos do inquilino na locação de imóveis',
+    'Contratos de compra e venda: cuidados essenciais',
+    'Dano moral nas relações de consumo',
+    'Testamento: tipos e como fazer',
+    'Direito de vizinhança e conflitos entre vizinhos',
+    'Doação de bens: regras e limitações',
+    'Indenização por acidente de trânsito'
+  ],
+  'Direito Penal': [
+    'Diferença entre flagrante e prisão preventiva',
+    'Legítima defesa: quando é permitido se defender',
+    'Crimes contra a honra: calúnia, difamação e injúria',
+    'Acordo de não persecução penal',
+    'Direitos do preso: o que a lei garante',
+    'Violência doméstica e a Lei Maria da Penha',
+    'Crimes virtuais e suas consequências',
+    'Tráfico de drogas vs uso pessoal',
+    'Furto vs roubo: qual a diferença',
+    'Medidas protetivas de urgência'
+  ],
+  'Direito Trabalhista': [
+    'Rescisão indireta: quando o empregado pode pedir',
+    'Horas extras: cálculo e direitos',
+    'Assédio moral no trabalho: como identificar',
+    'Acordo trabalhista e seus limites',
+    'Home office: direitos e deveres',
+    'FGTS: saque e multa rescisória',
+    'Estabilidade no emprego: quem tem direito',
+    'Intervalo intrajornada: regras atualizadas',
+    'Demissão por justa causa: motivos legais',
+    'Equiparação salarial: quando exigir'
+  ],
+  'Direito Empresarial': [
+    'MEI vs ME vs EPP: qual escolher',
+    'Como proteger sua marca legalmente',
+    'Sociedade entre sócios: cuidados no contrato social',
+    'Recuperação judicial: quando é a saída',
+    'Due diligence: o que verificar antes de comprar empresa',
+    'Responsabilidade dos sócios pelas dívidas',
+    'Propriedade intelectual para empresas',
+    'Contratos empresariais essenciais',
+    'Falência: processo e consequências',
+    'Compliance empresarial: por que implementar'
+  ],
+  'Direito do Consumidor': [
+    'Produto com defeito: troca ou reembolso',
+    'Direito de arrependimento em compras online',
+    'Nome negativado indevidamente: seus direitos',
+    'Cobrança abusiva: como se proteger',
+    'Voo atrasado ou cancelado: indenização',
+    'Garantia legal vs garantia contratual',
+    'Publicidade enganosa: quando processar',
+    'Plano de saúde negou cobertura: o que fazer',
+    'Superendividamento: nova lei e proteção',
+    'Recall de produtos: obrigações da empresa'
+  ],
+  'Direito de Família': [
+    'Divórcio consensual: passo a passo',
+    'Pensão alimentícia: cálculo e revisão',
+    'Guarda compartilhada: como funciona na prática',
+    'Reconhecimento de paternidade: procedimento',
+    'União estável: direitos garantidos',
+    'Alienação parental: como identificar e combater',
+    'Inventário: judicial vs extrajudicial',
+    'Regime de bens no casamento',
+    'Adoção: requisitos e processo',
+    'Violência doméstica: medidas de proteção'
+  ],
+  'Direito Tributário': [
+    'Como contestar auto de infração fiscal',
+    'Malha fina do IR: como sair',
+    'Parcelamento de dívidas tributárias',
+    'ISS, ICMS, IPI: diferenças e incidência',
+    'Planejamento tributário legal para empresas',
+    'Simples Nacional: vantagens e limites',
+    'Restituição de tributos pagos indevidamente',
+    'Dívida ativa: consequências e negociação',
+    'Imunidade e isenção tributária',
+    'MEI e obrigações fiscais'
+  ],
+  'Direito Imobiliário': [
+    'Documentos essenciais para comprar imóvel',
+    'Distrato imobiliário: direitos do comprador',
+    'Problemas com construtora: como reclamar',
+    'ITBI: quando e quanto pagar',
+    'Condomínio: direitos e deveres do morador',
+    'Usucapião de imóvel urbano',
+    'Financiamento imobiliário: cuidados antes de assinar',
+    'Vício oculto em imóvel: prazo para reclamar',
+    'Contrato de aluguel: cláusulas importantes',
+    'Regularização de imóvel: por que é essencial'
+  ],
+  'Direito Previdenciário': [
+    'Aposentadoria: regras atuais e de transição',
+    'INSS negou benefício: como recorrer',
+    'Revisão da vida toda: quem pode pedir',
+    'BPC-LOAS: benefício para idosos e deficientes',
+    'Auxílio-doença: requisitos e duração',
+    'Aposentadoria especial por insalubridade',
+    'Pensão por morte: quem tem direito',
+    'Tempo de contribuição: como comprovar',
+    'Aposentadoria rural: documentação necessária',
+    'Auxílio-acidente: quando solicitar'
+  ],
+  'Direito Digital': [
+    'LGPD: obrigações das empresas',
+    'Vazamento de dados: responsabilidade e indenização',
+    'Crimes virtuais: tipos e penas',
+    'Contratos digitais: validade jurídica',
+    'Direito ao esquecimento na internet',
+    'E-commerce: obrigações legais do vendedor',
+    'Assinatura digital vs assinatura eletrônica',
+    'Cyberbullying: consequências legais',
+    'Marco Civil da Internet: principais regras',
+    'Proteção de dados de menores online'
+  ]
+};
+
+// ================================================
+// ENDPOINT: Gerar Conteúdo Aleatório
+// ================================================
+app.post('/api/gerar-conteudo-aleatorio', authMiddleware, limiterGeracaoConteudo, async (req, res) => {
+  try {
+    const { area, formato } = req.body;
+    const usuario_id = req.user.id;
+
+    if (!area || !formato) {
+      return res.status(400).json({ error: 'Área e formato são obrigatórios' });
+    }
+
+    const topicos = TOPICOS_POR_AREA[area];
+    if (!topicos) {
+      return res.status(400).json({ error: 'Área de atuação inválida' });
+    }
+
+    // Sortear tópico aleatório
+    const topicoAleatorio = topicos[Math.floor(Math.random() * topicos.length)];
+
+    console.log(`🎲 Conteúdo aleatório: área=${area}, formato=${formato}, tópico="${topicoAleatorio}"`);
+
+    // Gerar conteúdo via N8N/IA
+    let conteudoTexto = '';
+    let imagemUrl = null;
+
+    if (formato === 'story') {
+      // Gerar conteúdo de story
+      const templateAleatorio = ['voce-sabia', 'estatistica', 'urgente'][Math.floor(Math.random() * 3)];
+
+      try {
+        const conteudoIA = await gerarConteudoIA(topicoAleatorio, topicoAleatorio, area, templateAleatorio);
+        conteudoTexto = JSON.stringify(conteudoIA);
+      } catch (iaError) {
+        console.error('Erro IA, usando fallback:', iaError.message);
+        const fallback = criarFallback(topicoAleatorio, area, templateAleatorio);
+        conteudoTexto = JSON.stringify(fallback);
+      }
+
+      res.json({
+        success: true,
+        topico: topicoAleatorio,
+        area,
+        formato,
+        template: templateAleatorio,
+        conteudo: conteudoTexto,
+        tipo: 'story'
+      });
+
+    } else {
+      // Formato Feed - gerar texto via N8N
+      const prompt = `Crie um post para Instagram Feed sobre "${topicoAleatorio}" (área: ${area}).
+Público: pessoas leigas em direito | Tom: didático e acessível
+⚠️ TAMANHO: 150-200 palavras
+Inclua: gancho no início, informação útil, call-to-action, 8-10 hashtags relevantes.
+O conteúdo deve ser informativo e fácil de entender.`;
+
+      try {
+        const response = await fetch('http://localhost:5678/webhook/juridico-working', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt })
+        });
+
+        if (!response.ok) throw new Error(`N8N erro: ${response.status}`);
+        const data = await response.json();
+        conteudoTexto = data.content || data.texto || '';
+      } catch (n8nError) {
+        console.error('Erro N8N, gerando texto padrão:', n8nError.message);
+        conteudoTexto = `📌 ${topicoAleatorio}\n\nVocê sabia que este é um dos temas mais importantes do ${area}?\n\nFique atento aos seus direitos e consulte sempre um advogado especialista.\n\n#${area.replace(/\s/g, '')} #DireitosDosCidadaos #AdvogadoEspecialista`;
+      }
+
+      res.json({
+        success: true,
+        topico: topicoAleatorio,
+        area,
+        formato,
+        conteudo: conteudoTexto,
+        tipo: 'feed'
+      });
+    }
+
+  } catch (error) {
+    console.error('Erro gerar conteúdo aleatório:', error);
+    res.status(500).json({ error: 'Erro ao gerar conteúdo', details: error.message });
+  }
+});
+
+// ================================================
+// AUTO-POST - Configuração e Geração de Agendamentos
+// ================================================
+
+// GET - Buscar configuração de auto-post do usuário
+app.get('/api/auto-post/config', authMiddleware, async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('auto_post_config')
+      .select('*')
+      .eq('usuario_id', req.user.id)
+      .single();
+
+    if (error && error.code !== 'PGRST116') { // PGRST116 = not found
+      throw error;
+    }
+
+    res.json({ config: data || null });
+  } catch (error) {
+    console.error('Erro ao buscar config auto-post:', error);
+    res.status(500).json({ error: 'Erro ao buscar configuração' });
+  }
+});
+
+// POST - Salvar/atualizar configuração de auto-post
+app.post('/api/auto-post/config', authMiddleware, async (req, res) => {
+  try {
+    const { area_atuacao, formato_preferencia, horarios, ativo, instagram_account_id } = req.body;
+    const usuario_id = req.user.id;
+
+    // Verificar se usuário tem plano escritório
+    const { data: perfilData } = await supabase
+      .from('perfis')
+      .select('plano_atual')
+      .eq('id', usuario_id)
+      .single();
+
+    if (!perfilData || perfilData.plano_atual !== 'escritorio') {
+      return res.status(403).json({ error: 'Recurso exclusivo do plano Escritório' });
+    }
+
+    // Verificar se tem Instagram conectado
+    const { data: igConn } = await supabase
+      .from('instagram_connections')
+      .select('instagram_account_id')
+      .eq('user_id', usuario_id)
+      .single();
+
+    if (!igConn) {
+      return res.status(400).json({ error: 'Conecte seu Instagram primeiro' });
+    }
+
+    // Upsert config
+    const configData = {
+      usuario_id,
+      instagram_account_id: instagram_account_id || igConn.instagram_account_id,
+      area_atuacao: area_atuacao || 'Direito Civil',
+      formato_preferencia: formato_preferencia || 'misto',
+      horarios: horarios || ['09:00', '18:00'],
+      ativo: ativo !== undefined ? ativo : true,
+      updated_at: new Date().toISOString()
+    };
+
+    // Verificar se já existe config
+    const { data: existente } = await supabase
+      .from('auto_post_config')
+      .select('id')
+      .eq('usuario_id', usuario_id)
+      .single();
+
+    let result;
+    if (existente) {
+      const { data, error } = await supabase
+        .from('auto_post_config')
+        .update(configData)
+        .eq('usuario_id', usuario_id)
+        .select()
+        .single();
+      if (error) throw error;
+      result = data;
+    } else {
+      const { data, error } = await supabase
+        .from('auto_post_config')
+        .insert(configData)
+        .select()
+        .single();
+      if (error) throw error;
+      result = data;
+    }
+
+    console.log(`✅ Auto-post config salva para usuário ${usuario_id}`);
+    res.json({ success: true, config: result });
+  } catch (error) {
+    console.error('Erro ao salvar config auto-post:', error);
+    res.status(500).json({ error: 'Erro ao salvar configuração', details: error.message });
+  }
+});
+
+// POST - Gerar agendamentos automáticos para o dia
+app.post('/api/auto-post/gerar-agendamentos', async (req, res) => {
+  try {
+    // Autenticação por chave secreta (chamado pelo N8N cron)
+    const authKey = req.headers['x-automation-key'] || req.headers['x-admin-key'];
+    const authHeader = req.headers.authorization;
+    let usuario_id = req.body.usuario_id;
+
+    // Permitir chamada autenticada por token OU por chave de automação
+    if (authKey === process.env.AUTOMATION_SECRET) {
+      // Chamada do N8N - precisa do usuario_id no body
+      if (!usuario_id) {
+        return res.status(400).json({ error: 'usuario_id obrigatório para chamadas de automação' });
+      }
+    } else if (authHeader?.startsWith('Bearer ')) {
+      // Chamada autenticada pelo usuário
+      const token = authHeader.split(' ')[1];
+      const { data: { user }, error } = await supabase.auth.getUser(token);
+      if (error || !user) {
+        return res.status(401).json({ error: 'Não autorizado' });
+      }
+      usuario_id = user.id;
+    } else {
+      return res.status(401).json({ error: 'Não autorizado' });
+    }
+
+    // Buscar config do usuário
+    const { data: config } = await supabase
+      .from('auto_post_config')
+      .select('*')
+      .eq('usuario_id', usuario_id)
+      .eq('ativo', true)
+      .single();
+
+    if (!config) {
+      return res.json({ success: false, message: 'Auto-post não configurado ou desativado' });
+    }
+
+    // Verificar plano escritório
+    const { data: perfilData } = await supabase
+      .from('perfis')
+      .select('plano_atual, nome, email')
+      .eq('id', usuario_id)
+      .single();
+
+    if (!perfilData || perfilData.plano_atual !== 'escritorio') {
+      return res.json({ success: false, message: 'Plano escritório necessário' });
+    }
+
+    // Verificar se tem Instagram conectado
+    const { data: igConn } = await supabase
+      .from('instagram_connections')
+      .select('instagram_account_id')
+      .eq('user_id', usuario_id)
+      .single();
+
+    if (!igConn) {
+      return res.json({ success: false, message: 'Instagram não conectado' });
+    }
+
+    const horarios = config.horarios || ['09:00', '18:00'];
+    const area = config.area_atuacao || 'Direito Civil';
+    const formatoPref = config.formato_preferencia || 'misto';
+    const topicos = TOPICOS_POR_AREA[area] || TOPICOS_POR_AREA['Direito Civil'];
+    const hoje = new Date();
+    const agendamentosCriados = [];
+
+    for (let i = 0; i < horarios.length; i++) {
+      const horario = horarios[i];
+      const [hora, minuto] = horario.split(':');
+
+      // Data/hora do agendamento
+      const dataAgendada = new Date(hoje);
+      dataAgendada.setHours(parseInt(hora), parseInt(minuto), 0, 0);
+
+      // Pular horários que já passaram
+      if (dataAgendada <= new Date()) continue;
+
+      // Escolher formato
+      let formato;
+      if (formatoPref === 'misto') {
+        formato = i % 2 === 0 ? 'feed' : 'stories';
+      } else {
+        formato = formatoPref === 'stories' ? 'stories' : 'feed';
+      }
+
+      // Sortear tópico (evitar repetir)
+      const topicoIndex = (Date.now() + i) % topicos.length;
+      const topico = topicos[topicoIndex];
+
+      // Gerar conteúdo
+      let conteudo = '';
+      try {
+        if (formato === 'stories') {
+          const templateAleatorio = ['voce-sabia', 'estatistica', 'urgente'][i % 3];
+          const conteudoIA = await gerarConteudoIA(topico, topico, area, templateAleatorio);
+          conteudo = JSON.stringify(conteudoIA);
+        } else {
+          const prompt = `Crie um post para Instagram Feed sobre "${topico}" (área: ${area}).
+Público: pessoas leigas | Tom: didático e acessível
+⚠️ TAMANHO: 150-200 palavras
+Inclua: gancho, informação útil, call-to-action, 8-10 hashtags.`;
+
+          const response = await fetch('http://localhost:5678/webhook/juridico-working', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt })
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            conteudo = data.content || data.texto || '';
+          }
+        }
+      } catch (iaError) {
+        console.error(`Erro IA para auto-post (${topico}):`, iaError.message);
+        conteudo = `📌 ${topico}\n\nVocê sabia que este é um dos temas mais importantes do ${area}?\n\nConsulte sempre um advogado especialista.\n\n#${area.replace(/\s/g, '')} #Direito`;
+      }
+
+      // Criar agendamento
+      const { data: agendamento, error: agError } = await supabase
+        .from('agendamentos')
+        .insert({
+          user_id: usuario_id,
+          titulo: topico,
+          conteudo,
+          rede_social: 'instagram',
+          formato,
+          data_agendada: dataAgendada.toISOString(),
+          email_usuario: perfilData.email,
+          nome_usuario: perfilData.nome || perfilData.email?.split('@')[0],
+          status: 'pendente'
+        })
+        .select()
+        .single();
+
+      if (agError) {
+        console.error('Erro ao criar agendamento auto:', agError);
+      } else {
+        agendamentosCriados.push(agendamento);
+        console.log(`📅 Auto-agendamento criado: ${topico} às ${horario}`);
+      }
+    }
+
+    res.json({
+      success: true,
+      agendamentos_criados: agendamentosCriados.length,
+      detalhes: agendamentosCriados.map(a => ({
+        id: a.id,
+        titulo: a.titulo,
+        formato: a.formato,
+        data_agendada: a.data_agendada
+      }))
+    });
+
+  } catch (error) {
+    console.error('Erro ao gerar agendamentos auto:', error);
+    res.status(500).json({ error: 'Erro ao gerar agendamentos', details: error.message });
+  }
+});
+
+// GET - Listar todos os usuários com auto-post ativo (para o cron N8N)
+app.get('/api/auto-post/usuarios-ativos', async (req, res) => {
+  try {
+    const authKey = req.headers['x-automation-key'] || req.headers['x-admin-key'];
+    if (authKey !== process.env.AUTOMATION_SECRET) {
+      return res.status(401).json({ error: 'Não autorizado' });
+    }
+
+    const { data, error } = await supabase
+      .from('auto_post_config')
+      .select('usuario_id')
+      .eq('ativo', true);
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      usuarios: (data || []).map(d => d.usuario_id)
+    });
+  } catch (error) {
+    console.error('Erro ao listar usuários auto-post:', error);
+    res.status(500).json({ error: 'Erro ao listar usuários' });
+  }
+});
+
 app.listen(PORT, () => {
   console.log('=================================');
-  console.log('🚀 Backend v2.3 - Email Marketing');
+  console.log('🚀 Backend v2.4 - Auto Post');
   console.log('=================================');
   console.log('✅ Porta:', PORT);
   console.log('🤖 IA: ATIVA para Stories');

@@ -6,7 +6,7 @@
 
 import { Share2, Link2, MoreVertical } from 'lucide-react';
 import React, { useState, useEffect, useMemo, useCallback, createContext, useContext, useRef } from 'react';
-import { Scale, Loader2, Eye, EyeOff, LogOut, Copy, Check, Image as ImageIcon, Download, X, Lightbulb, Users, Settings, Upload, Palette, TrendingUp, Flame, RefreshCw, Sparkles, Instagram, Facebook, Linkedin, Twitter, FileText, MessageCircle, Edit3, ZoomIn, Mail, Lock, User, Award, AlertCircle, CheckCircle, Camera, Save, Phone, Trash2, ExternalLink, Calendar, Tag, FolderOpen, ChevronUp, Clock, CreditCard, Crown, Zap, Star, ChevronLeft, ChevronRight, ChevronDown, Plus, GripVertical, ArrowRight, Menu, Shield, Layout } from 'lucide-react';
+import { Scale, Loader2, Eye, EyeOff, LogOut, Copy, Check, Image as ImageIcon, Download, X, Lightbulb, Users, Settings, Upload, Palette, TrendingUp, Flame, RefreshCw, Sparkles, Instagram, Facebook, Linkedin, Twitter, FileText, MessageCircle, Edit3, ZoomIn, Mail, Lock, User, Award, AlertCircle, CheckCircle, Camera, Save, Phone, Trash2, ExternalLink, Calendar, Tag, FolderOpen, ChevronUp, Clock, CreditCard, Crown, Zap, Star, ChevronLeft, ChevronRight, ChevronDown, Plus, GripVertical, ArrowRight, Menu, Shield, Layout, Maximize2, Play } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
 // =====================================================
@@ -199,12 +199,33 @@ function AuthProvider({ children }) {
 
     if (data.user) {
       await new Promise(r => setTimeout(r, 500));
+
+      // Capturar UTM params da URL
+      const urlParams = new URLSearchParams(window.location.search);
+      const utm_source = urlParams.get('utm_source') || 'direto';
+      const utm_medium = urlParams.get('utm_medium') || '';
+      const utm_campaign = urlParams.get('utm_campaign') || '';
+
       await supabase.from('perfis').upsert({
         id: data.user.id,
         email,
         nome,
-        oab
+        oab,
+        utm_source,
+        utm_medium,
+        utm_campaign
       });
+
+      // Notificar admin sobre novo usuário
+      try {
+        await fetch('https://blasterskd.com.br/api/notificar-novo-usuario', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, nome, oab, utm_source, utm_campaign })
+        });
+      } catch (e) {
+        console.log('Erro ao notificar:', e);
+      }
     }
     return data;
   }
@@ -349,7 +370,8 @@ function AuthProvider({ children }) {
           tema: imagemData.tema,
           area: imagemData.area,
           tipo_conteudo: imagemData.tipoConteudo,
-          formato: imagemData.formato
+          formato: imagemData.formato,
+          conteudo: imagemData.conteudo || null
         })
         .select()
         .single();
@@ -372,6 +394,15 @@ function AuthProvider({ children }) {
     const { error } = await supabase
       .from('imagens_geradas')
       .delete()
+      .eq('id', imagemId);
+    if (error) throw error;
+    await carregarImagens(user.id);
+  }
+
+  async function atualizarImagemConteudo(imagemId, novoConteudo) {
+    const { error } = await supabase
+      .from('imagens_geradas')
+      .update({ conteudo: novoConteudo })
       .eq('id', imagemId);
     if (error) throw error;
     await carregarImagens(user.id);
@@ -412,6 +443,7 @@ function AuthProvider({ children }) {
         conteudo: dados.conteudo,
         imagem_url: dados.imagemUrl || null,
         rede_social: dados.redeSocial || 'instagram',
+        formato: dados.formato || 'feed',
         data_agendada: dados.dataAgendada,
         email_usuario: user.email,
         nome_usuario: perfil?.nome || user.email?.split('@')[0],
@@ -470,23 +502,32 @@ function AuthProvider({ children }) {
     await carregarAgendamentos(user.id);
   }
 
-  // Função para fazer fetch autenticado
-  async function fetchAuth(url, options = {}) {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) {
-        throw new Error("Usuário não autenticado");
+  // Função para fazer fetch autenticado com retry automático
+  async function fetchAuth(url, options = {}, retries = 3) {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) {
+      throw new Error("Usuário não autenticado");
+    }
+    const headers = {
+      ...options.headers,
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + token
+    };
+
+    for (let tentativa = 1; tentativa <= retries; tentativa++) {
+      try {
+        const response = await fetch(url, { ...options, headers });
+        return response;
+      } catch (error) {
+        console.warn(`⚠️ Tentativa ${tentativa}/${retries} falhou:`, error.message);
+        if (tentativa === retries) {
+          console.error("❌ Todas as tentativas falharam");
+          throw error;
+        }
+        // Espera progressiva: 1s, 2s, 3s...
+        await new Promise(r => setTimeout(r, tentativa * 1000));
       }
-      const headers = {
-        ...options.headers,
-        "Content-Type": "application/json",
-        "Authorization": "Bearer " + token
-      };
-      return fetch(url, { ...options, headers });
-    } catch (error) {
-      console.error("Erro fetchAuth:", error);
-      throw error;
     }
   }
 
@@ -508,6 +549,7 @@ function AuthProvider({ children }) {
     uploadLogo,
     salvarImagemGerada,
     deletarImagem,
+    atualizarImagemConteudo,
     recarregarImagens: () => user && carregarImagens(user.id),
     criarAgendamento,
     cancelarAgendamento,
@@ -528,7 +570,7 @@ function useAuth() {
 // COMPONENTES DE AGENDAMENTO
 // =====================================================
 
-function ModalAgendar({ isOpen, onClose, conteudo, imagemUrl, titulo, dataPadrao }) {
+function ModalAgendar({ isOpen, onClose, conteudo, imagemUrl, titulo, dataPadrao, formato }) {
   const { criarAgendamento } = useAuth();
   const [loading, setLoading] = useState(false);
   const [erro, setErro] = useState('');
@@ -581,6 +623,7 @@ function ModalAgendar({ isOpen, onClose, conteudo, imagemUrl, titulo, dataPadrao
         conteudo: conteudo,
         imagemUrl: imagemUrl,
         redeSocial: redeSocial,
+        formato: formato || 'feed',
         dataAgendada: dataHora.toISOString()
       });
 
@@ -1597,6 +1640,615 @@ function PoliticaPrivacidade() {
 }
 
 // =====================================================
+// PAINEL ADMIN
+// =====================================================
+function AdminPanel({ user, onLogout, onClose }) {
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [stats, setStats] = useState(null);
+  const [loadingStats, setLoadingStats] = useState(true);
+  const [emailConfig, setEmailConfig] = useState(null);
+  const [loadingConfig, setLoadingConfig] = useState(true);
+  const [savingConfig, setSavingConfig] = useState(false);
+  const [emailHistorico, setEmailHistorico] = useState([]);
+  const [loadingHistorico, setLoadingHistorico] = useState(true);
+  const [testEmail, setTestEmail] = useState('');
+  const [testTipo, setTestTipo] = useState('boasVindas');
+  const [enviandoTeste, setEnviandoTeste] = useState(false);
+  const [mensagem, setMensagem] = useState(null);
+  const [pedindoChave, setPedindoChave] = useState(!localStorage.getItem('blaster_admin_key'));
+  const [chaveInput, setChaveInput] = useState('');
+
+  const [adminKey, setAdminKey] = useState(localStorage.getItem('blaster_admin_key') || '');
+
+  const validarChave = async () => {
+    try {
+      const res = await fetch('https://blasterskd.com.br/api/admin/stats', {
+        headers: { 'X-Admin-Key': chaveInput }
+      });
+      const data = await res.json();
+      if (data.success) {
+        localStorage.setItem('blaster_admin_key', chaveInput);
+        setAdminKey(chaveInput);
+        setPedindoChave(false);
+      } else {
+        alert('Chave inválida!');
+      }
+    } catch (error) {
+      alert('Erro ao validar chave');
+    }
+  };
+
+  if (pedindoChave) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <div className="bg-slate-800 rounded-xl p-6 border border-slate-700 max-w-md w-full">
+          <h2 className="text-xl font-bold text-white mb-4">Acesso Admin</h2>
+          <p className="text-slate-400 mb-4">Digite a chave de administrador:</p>
+          <input
+            type="password"
+            value={chaveInput}
+            onChange={(e) => setChaveInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && validarChave()}
+            className="w-full p-3 bg-slate-700 border border-slate-600 rounded-lg text-white mb-4"
+            placeholder="Chave secreta..."
+            autoFocus
+          />
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-white"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={validarChave}
+              className="flex-1 px-4 py-2 bg-amber-500 hover:bg-amber-600 rounded-lg text-black font-semibold"
+            >
+              Entrar
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Carregar stats
+  useEffect(() => {
+    async function carregarStats() {
+      try {
+        const res = await fetch('https://blasterskd.com.br/api/admin/stats', {
+          headers: { 'X-Admin-Key': adminKey }
+        });
+        const data = await res.json();
+        if (data.success) setStats(data.stats);
+      } catch (error) {
+        console.error('Erro ao carregar stats:', error);
+      } finally {
+        setLoadingStats(false);
+      }
+    }
+    carregarStats();
+  }, [adminKey]);
+
+  // Carregar config de email
+  useEffect(() => {
+    async function carregarConfig() {
+      try {
+        const res = await fetch('https://blasterskd.com.br/api/admin/email-config', {
+          headers: { 'X-Admin-Key': adminKey }
+        });
+        const data = await res.json();
+        if (data.success) setEmailConfig(data.config);
+      } catch (error) {
+        console.error('Erro ao carregar config:', error);
+      } finally {
+        setLoadingConfig(false);
+      }
+    }
+    carregarConfig();
+  }, [adminKey]);
+
+  // Carregar histórico de emails
+  useEffect(() => {
+    async function carregarHistorico() {
+      try {
+        const res = await fetch('https://blasterskd.com.br/api/admin/email-historico', {
+          headers: { 'X-Admin-Key': adminKey }
+        });
+        const data = await res.json();
+        if (data.success) setEmailHistorico(data.historico);
+      } catch (error) {
+        console.error('Erro ao carregar histórico:', error);
+      } finally {
+        setLoadingHistorico(false);
+      }
+    }
+    carregarHistorico();
+  }, [adminKey]);
+
+  // Salvar config de email
+  const salvarConfig = async () => {
+    setSavingConfig(true);
+    try {
+      const res = await fetch('https://blasterskd.com.br/api/admin/email-config', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Key': adminKey
+        },
+        body: JSON.stringify({ config: emailConfig })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMensagem({ tipo: 'sucesso', texto: 'Configurações salvas!' });
+        setTimeout(() => setMensagem(null), 3000);
+      } else {
+        setMensagem({ tipo: 'erro', texto: data.error });
+      }
+    } catch (error) {
+      setMensagem({ tipo: 'erro', texto: 'Erro ao salvar' });
+    } finally {
+      setSavingConfig(false);
+    }
+  };
+
+  // Toggle email ativo/inativo
+  const toggleEmail = (tipo) => {
+    setEmailConfig(prev => ({
+      ...prev,
+      [tipo]: {
+        ...prev[tipo],
+        ativo: !prev[tipo]?.ativo
+      }
+    }));
+  };
+
+  // Enviar email de teste
+  const enviarEmailTeste = async () => {
+    if (!testEmail) {
+      setMensagem({ tipo: 'erro', texto: 'Digite um email' });
+      return;
+    }
+    setEnviandoTeste(true);
+    try {
+      const res = await fetch('https://blasterskd.com.br/api/automacao/teste-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Automation-Key': adminKey
+        },
+        body: JSON.stringify({ tipo: testTipo, email: testEmail, nome: 'Teste' })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMensagem({ tipo: 'sucesso', texto: 'Email de teste enviado!' });
+        setTestEmail('');
+      } else {
+        setMensagem({ tipo: 'erro', texto: data.error });
+      }
+    } catch (error) {
+      setMensagem({ tipo: 'erro', texto: 'Erro ao enviar' });
+    } finally {
+      setEnviandoTeste(false);
+      setTimeout(() => setMensagem(null), 3000);
+    }
+  };
+
+  // Executar automação manualmente
+  const executarAutomacao = async () => {
+    setMensagem({ tipo: 'info', texto: 'Executando automação...' });
+    try {
+      const res = await fetch('https://blasterskd.com.br/api/automacao/emails', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Automation-Key': adminKey
+        }
+      });
+      const data = await res.json();
+      if (data.success) {
+        const total = data.resumo.boasVindas + data.resumo.onboardingDia2 + data.resumo.onboardingDia5 + data.resumo.onboardingDia7 + data.resumo.inativos;
+        setMensagem({ tipo: 'sucesso', texto: `Automação executada! ${total} emails enviados.` });
+      } else {
+        setMensagem({ tipo: 'erro', texto: data.error });
+      }
+    } catch (error) {
+      setMensagem({ tipo: 'erro', texto: 'Erro ao executar' });
+    }
+    setTimeout(() => setMensagem(null), 5000);
+  };
+
+  const emailTipos = [
+    { key: 'boasVindas', nome: 'Boas-vindas', descricao: 'Enviado quando usuário se cadastra', icone: '🎉' },
+    { key: 'onboardingDia2', nome: 'Onboarding Dia 2', descricao: 'Dica para conectar Instagram', icone: '💡' },
+    { key: 'onboardingDia5', nome: 'Onboarding Dia 5', descricao: 'Dica sobre agendamento', icone: '📅' },
+    { key: 'onboardingDia7', nome: 'Onboarding Dia 7', descricao: 'Oferta de upgrade', icone: '🚀' },
+    { key: 'inativo', nome: 'Usuário Inativo', descricao: 'Enviado após 7 dias sem acesso', icone: '😢' }
+  ];
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      {/* Header */}
+      <header className="bg-slate-800/50 border-b border-slate-700 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Shield className="w-8 h-8 text-amber-400" />
+            <div>
+              <h1 className="text-xl font-bold text-white">Painel Admin</h1>
+              <p className="text-xs text-slate-400">BlasterSKD</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-slate-400">{user.email}</span>
+            {onClose ? (
+              <button onClick={onClose} className="flex items-center gap-2 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-300 text-sm transition-colors">
+                <X className="w-4 h-4" />
+                Fechar
+              </button>
+            ) : (
+              <a href="/" className="text-slate-400 hover:text-white text-sm">Voltar ao app</a>
+            )}
+          </div>
+        </div>
+      </header>
+
+      {/* Tabs */}
+      <div className="max-w-7xl mx-auto px-4 py-4">
+        <div className="flex gap-2 mb-6">
+          {[
+            { id: 'dashboard', nome: 'Dashboard', icone: Layout },
+            { id: 'emails', nome: 'Automação de Emails', icone: Mail },
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                activeTab === tab.id
+                  ? 'bg-amber-500 text-slate-900 font-semibold'
+                  : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700'
+              }`}
+            >
+              <tab.icone className="w-4 h-4" />
+              {tab.nome}
+            </button>
+          ))}
+        </div>
+
+        {/* Mensagem */}
+        {mensagem && (
+          <div className={`mb-4 p-4 rounded-lg flex items-center gap-3 ${
+            mensagem.tipo === 'sucesso' ? 'bg-green-500/20 border border-green-500/50 text-green-400' :
+            mensagem.tipo === 'erro' ? 'bg-red-500/20 border border-red-500/50 text-red-400' :
+            'bg-blue-500/20 border border-blue-500/50 text-blue-400'
+          }`}>
+            {mensagem.tipo === 'sucesso' && <CheckCircle className="w-5 h-5" />}
+            {mensagem.tipo === 'erro' && <AlertCircle className="w-5 h-5" />}
+            {mensagem.tipo === 'info' && <Loader2 className="w-5 h-5 animate-spin" />}
+            {mensagem.texto}
+          </div>
+        )}
+
+        {/* Dashboard Tab */}
+        {activeTab === 'dashboard' && (
+          <div className="space-y-6">
+            {loadingStats ? (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="w-8 h-8 animate-spin text-amber-400" />
+              </div>
+            ) : stats ? (
+              <>
+                {/* Cards resumo */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+                    <div className="text-3xl font-bold text-blue-400">{stats.visitas?.total || 0}</div>
+                    <div className="text-sm text-slate-400 mt-1">Visitas Total</div>
+                  </div>
+                  <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+                    <div className="text-3xl font-bold text-blue-400">{stats.visitas?.hoje || 0}</div>
+                    <div className="text-sm text-slate-400 mt-1">Visitas Hoje</div>
+                  </div>
+                  <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+                    <div className="text-3xl font-bold text-amber-400">{stats.usuarios?.total || 0}</div>
+                    <div className="text-sm text-slate-400 mt-1">Usuários</div>
+                  </div>
+                  <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+                    <div className="text-3xl font-bold text-green-400">{stats.previsao?.taxaConversao || 0}%</div>
+                    <div className="text-sm text-slate-400 mt-1">Taxa Conversão</div>
+                  </div>
+                </div>
+
+                {/* Gráfico últimos 7 dias */}
+                <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+                  <h3 className="text-lg font-semibold text-white mb-4">Últimos 7 dias</h3>
+                  <div className="flex items-end gap-2 h-40">
+                    {(stats.historico || []).map((h, i) => {
+                      const maxVisitas = Math.max(...(stats.historico || []).map(x => x.visitas), 1);
+                      const altura = (h.visitas / maxVisitas) * 100;
+                      return (
+                        <div key={i} className="flex-1 flex flex-col items-center gap-2">
+                          <div className="w-full flex flex-col items-center justify-end h-28">
+                            {h.cadastros > 0 && (
+                              <div className="text-xs text-amber-400 font-bold mb-1">+{h.cadastros}</div>
+                            )}
+                            <div
+                              className="w-full bg-gradient-to-t from-blue-600 to-blue-400 rounded-t transition-all"
+                              style={{ height: `${Math.max(altura, 5)}%` }}
+                              title={`${h.visitas} visitas, ${h.cadastros} cadastros`}
+                            />
+                          </div>
+                          <div className="text-xs text-slate-500">{h.dia}</div>
+                          <div className="text-sm text-white font-medium">{h.visitas}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Grid de informações */}
+                <div className="grid md:grid-cols-2 gap-6">
+                  {/* Previsão */}
+                  {stats.previsao && (
+                    <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/30 rounded-xl p-6">
+                      <h3 className="text-lg font-semibold text-purple-300 mb-4">Previsão</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-purple-400">{stats.previsao.visitasSemana}</div>
+                          <div className="text-xs text-slate-400">Visitas/semana</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-pink-400">{stats.previsao.cadastrosSemana}</div>
+                          <div className="text-xs text-slate-400">Cadastros/semana</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-purple-400">{stats.previsao.visitasMes}</div>
+                          <div className="text-xs text-slate-400">Visitas/mês</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-pink-400">{stats.previsao.cadastrosMes}</div>
+                          <div className="text-xs text-slate-400">Cadastros/mês</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Por Origem */}
+                  <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+                    <h3 className="text-lg font-semibold text-white mb-4">Por Origem</h3>
+                    <div className="space-y-2">
+                      {Object.entries(stats.visitas?.porOrigem || {}).map(([origem, qtd]) => (
+                        <div key={origem} className="flex items-center justify-between bg-slate-700/30 rounded-lg px-4 py-2">
+                          <span className="text-slate-300">{origem}</span>
+                          <span className="font-bold text-blue-400">{qtd}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Por Dispositivo */}
+                  <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+                    <h3 className="text-lg font-semibold text-white mb-4">Por Dispositivo</h3>
+                    <div className="space-y-2">
+                      {Object.entries(stats.visitas?.porDispositivo || {}).map(([disp, qtd]) => (
+                        <div key={disp} className="flex items-center justify-between bg-slate-700/30 rounded-lg px-4 py-2">
+                          <span className="text-slate-300 flex items-center gap-2">
+                            {disp === 'Mobile' ? '📱' : '💻'} {disp}
+                          </span>
+                          <span className="font-bold text-slate-300">{qtd}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Últimos Cadastros */}
+                  {(stats.usuarios?.ultimos || []).length > 0 && (
+                    <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+                      <h3 className="text-lg font-semibold text-white mb-4">Últimos Cadastros</h3>
+                      <div className="space-y-2 max-h-60 overflow-y-auto">
+                        {(stats.usuarios?.ultimos || []).map((u, i) => (
+                          <div key={i} className="bg-slate-700/30 rounded-lg px-4 py-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-white font-medium">{u.nome || 'Sem nome'}</span>
+                              <span className="text-xs text-slate-500">{new Date(u.data).toLocaleDateString('pt-BR')}</span>
+                            </div>
+                            <div className="text-sm text-slate-400 mt-1">{u.email}</div>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-xs text-amber-400">via {u.origem}</span>
+                              {u.campanha !== '-' && <span className="text-xs text-green-400">({u.campanha})</span>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Servidor */}
+                {stats.servidor && (
+                  <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+                    <h3 className="text-lg font-semibold text-white mb-4">Status do Servidor</h3>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="text-center">
+                        <div className={`text-2xl font-bold ${stats.servidor.fila.pendentes > 0 ? 'text-yellow-400' : 'text-green-400'}`}>
+                          {stats.servidor.fila.pendentes}
+                        </div>
+                        <div className="text-xs text-slate-400">Na fila</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-blue-400">
+                          {stats.servidor.fila.processando}/{stats.servidor.fila.maxConcorrente}
+                        </div>
+                        <div className="text-xs text-slate-400">Processando</div>
+                      </div>
+                      <div className="text-center">
+                        <div className="text-2xl font-bold text-slate-300">{stats.servidor.fila.totalProcessado}</div>
+                        <div className="text-xs text-slate-400">Total gerado</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Botão atualizar */}
+                <button
+                  onClick={() => {
+                    setLoadingStats(true);
+                    fetch('https://blasterskd.com.br/api/admin/stats', {
+                      headers: { 'X-Admin-Key': adminKey }
+                    })
+                      .then(res => res.json())
+                      .then(data => { if (data.success) setStats(data.stats); })
+                      .finally(() => setLoadingStats(false));
+                  }}
+                  className="w-full py-3 bg-slate-700 hover:bg-slate-600 rounded-xl text-slate-300 transition-colors flex items-center justify-center gap-2"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Atualizar Dashboard
+                </button>
+              </>
+            ) : (
+              <div className="text-center py-20">
+                <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
+                <p className="text-slate-400">Erro ao carregar estatísticas</p>
+                <p className="text-xs text-slate-500 mt-2">Verifique se a chave admin está configurada (Ctrl+Shift+A no app)</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Emails Tab */}
+        {activeTab === 'emails' && (
+          <div className="space-y-6">
+            {/* Controle de automações */}
+            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-white">Automações de Email</h3>
+                  <p className="text-sm text-slate-400">Ative ou desative cada tipo de email automático</p>
+                </div>
+                <button
+                  onClick={executarAutomacao}
+                  className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-900 font-semibold rounded-lg transition-colors"
+                >
+                  <Play className="w-4 h-4" />
+                  Executar Agora
+                </button>
+              </div>
+
+              {loadingConfig ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-amber-400" />
+                </div>
+              ) : emailConfig ? (
+                <div className="space-y-3">
+                  {emailTipos.map(tipo => (
+                    <div
+                      key={tipo.key}
+                      className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${
+                        emailConfig[tipo.key]?.ativo !== false
+                          ? 'bg-green-500/10 border-green-500/30'
+                          : 'bg-slate-700/30 border-slate-600'
+                      }`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <span className="text-2xl">{tipo.icone}</span>
+                        <div>
+                          <div className="font-medium text-white">{tipo.nome}</div>
+                          <div className="text-sm text-slate-400">{tipo.descricao}</div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => toggleEmail(tipo.key)}
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                          emailConfig[tipo.key]?.ativo !== false
+                            ? 'bg-green-500 text-white'
+                            : 'bg-slate-600 text-slate-300'
+                        }`}
+                      >
+                        {emailConfig[tipo.key]?.ativo !== false ? 'Ativo' : 'Inativo'}
+                      </button>
+                    </div>
+                  ))}
+
+                  <button
+                    onClick={salvarConfig}
+                    disabled={savingConfig}
+                    className="w-full mt-4 py-3 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-900 font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+                  >
+                    {savingConfig ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    Salvar Configurações
+                  </button>
+                </div>
+              ) : (
+                <p className="text-slate-400 text-center py-8">Erro ao carregar configurações</p>
+              )}
+            </div>
+
+            {/* Enviar email de teste */}
+            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+              <h3 className="text-lg font-semibold text-white mb-4">Enviar Email de Teste</h3>
+              <div className="flex flex-col md:flex-row gap-4">
+                <select
+                  value={testTipo}
+                  onChange={(e) => setTestTipo(e.target.value)}
+                  className="px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white"
+                >
+                  {emailTipos.map(tipo => (
+                    <option key={tipo.key} value={tipo.key}>{tipo.nome}</option>
+                  ))}
+                </select>
+                <input
+                  type="email"
+                  value={testEmail}
+                  onChange={(e) => setTestEmail(e.target.value)}
+                  placeholder="Email para teste"
+                  className="flex-1 px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400"
+                />
+                <button
+                  onClick={enviarEmailTeste}
+                  disabled={enviandoTeste}
+                  className="px-6 py-3 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white font-semibold rounded-lg transition-colors flex items-center gap-2"
+                >
+                  {enviandoTeste ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                  Enviar Teste
+                </button>
+              </div>
+            </div>
+
+            {/* Histórico de emails */}
+            <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+              <h3 className="text-lg font-semibold text-white mb-4">Histórico de Emails Enviados</h3>
+              {loadingHistorico ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-amber-400" />
+                </div>
+              ) : emailHistorico.length > 0 ? (
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {emailHistorico.map((email, i) => (
+                    <div key={i} className="flex items-center justify-between bg-slate-700/30 rounded-lg px-4 py-3">
+                      <div>
+                        <div className="font-medium text-white">{email.nome || 'Sem nome'}</div>
+                        <div className="text-sm text-slate-400">{email.email}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm text-amber-400">{email.tipo}</div>
+                        <div className="text-xs text-slate-500">
+                          {new Date(email.data).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-slate-400 text-center py-8">Nenhum email enviado ainda</p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// =====================================================
 // COMPONENTE PRINCIPAL APP
 // =====================================================
 export default function App() {
@@ -1612,15 +2264,27 @@ function AppContent() {
   const [mostrarGaleria, setMostrarGaleria] = useState(false);
   const [mostrarPerfil, setMostrarPerfil] = useState(false);
   const [mostrarPlanos, setMostrarPlanos] = useState(false);
+  const [mostrarAdmin, setMostrarAdmin] = useState(false);
   const [retornoPagamento, setRetornoPagamento] = useState(null);
   const [mostrarLogin, setMostrarLogin] = useState(false);
   const [modoLogin, setModoLogin] = useState('login'); // 'login' | 'registro'
+
+  const isAdmin = user?.email === 'thalesbuenoprado@gmail.com';
 
   // Detectar retorno do Mercado Pago
   useEffect(() => {
     const path = window.location.pathname;
     if (path.includes('/pagamento/sucesso')) {
       setRetornoPagamento('sucesso');
+      // Facebook Pixel - Evento de compra
+      if (typeof fbq !== 'undefined') {
+        fbq('track', 'Purchase', {
+          value: 47.00,
+          currency: 'BRL',
+          content_name: 'Plano Profissional',
+          content_type: 'product'
+        });
+      }
     } else if (path.includes('/pagamento/erro')) {
       setRetornoPagamento('erro');
     } else if (path.includes('/pagamento/pendente')) {
@@ -1692,6 +2356,8 @@ function AppContent() {
         onAbrirPerfil={() => setMostrarPerfil(true)}
         onAbrirPlanos={() => setMostrarPlanos(true)}
         onSalvarImagem={salvarImagemGerada}
+        isAdmin={isAdmin}
+        onAbrirAdmin={() => setMostrarAdmin(true)}
       />
 
       <GaleriaImagensModal
@@ -1708,6 +2374,13 @@ function AppContent() {
         isOpen={mostrarPlanos}
         onClose={() => setMostrarPlanos(false)}
       />
+
+      {/* Painel Admin (apenas para admin) */}
+      {isAdmin && mostrarAdmin && (
+        <div className="fixed inset-0 z-[100] bg-black/90">
+          <AdminPanel user={user} onLogout={fazerLogout} onClose={() => setMostrarAdmin(false)} />
+        </div>
+      )}
     </>
   );
 }
@@ -1751,6 +2424,182 @@ function LandingPage({ onAbrirLogin, onAbrirRegistro }) {
   const [planos, setPlanos] = useState([]);
   const [loadingPlanos, setLoadingPlanos] = useState(true);
   const [menuAberto, setMenuAberto] = useState(false);
+  const [adminPanel, setAdminPanel] = useState(false);
+  const [adminStats, setAdminStats] = useState(null);
+  const [loadingStats, setLoadingStats] = useState(false);
+  const [videoPlaying, setVideoPlaying] = useState(false);
+  const [exitPopupMostrado, setExitPopupMostrado] = useState(false);
+  const [areaSelecionada, setAreaSelecionada] = useState('');
+
+  const areasDisponiveis = [
+    'Direito Civil', 'Direito Penal', 'Direito Trabalhista',
+    'Direito Empresarial', 'Direito do Consumidor', 'Direito de Família',
+    'Direito Tributário', 'Direito Imobiliário', 'Direito Previdenciário', 'Direito Digital'
+  ];
+
+  // Temas relevantes por area (conteudo fixo para landing page)
+  const temasPorArea = {
+    'Direito Civil': [
+      { tema: 'Usucapiao: como adquirir propriedade pelo tempo de posse', icone: '🏠', descricao: 'Requisitos e prazos para usucapiao urbana e rural' },
+      { tema: 'Responsabilidade civil por danos morais e materiais', icone: '⚖️', descricao: 'Quando cabe indenizacao e como calcular o valor' },
+      { tema: 'Contratos: clausulas abusivas e nulidades', icone: '📝', descricao: 'Como identificar e anular clausulas ilegais' },
+      { tema: 'Prescricao e decadencia: prazos que voce precisa conhecer', icone: '⏰', descricao: 'Diferenca entre os institutos e prazos mais comuns' },
+      { tema: 'Direitos do locatario: o que o inquilino precisa saber', icone: '🔑', descricao: 'Garantias, reajustes e despejo' },
+      { tema: 'Heranca e sucessao: como funciona a partilha de bens', icone: '👨‍👩‍👧‍👦', descricao: 'Herdeiros necessarios, testamento e inventario' },
+    ],
+    'Direito Penal': [
+      { tema: 'Prisao em flagrante: direitos do preso', icone: '🚔', descricao: 'O que fazer quando alguem e preso em flagrante' },
+      { tema: 'Legitima defesa: quando e permitido reagir', icone: '🛡️', descricao: 'Requisitos legais e excesso punivel' },
+      { tema: 'Crimes contra a honra: calúnia, difamacao e injuria', icone: '🗣️', descricao: 'Diferencas e penas previstas' },
+      { tema: 'Acordo de nao persecucao penal (ANPP)', icone: '🤝', descricao: 'Quando e possivel evitar o processo criminal' },
+      { tema: 'Prisao preventiva: quando pode ser decretada', icone: '⛓️', descricao: 'Requisitos e possibilidade de revogacao' },
+      { tema: 'Violencia domestica: medidas protetivas', icone: '🏠', descricao: 'Como solicitar e quais as consequencias' },
+    ],
+    'Direito Trabalhista': [
+      { tema: 'Rescisao indireta: a justa causa do empregador', icone: '🚪', descricao: 'Quando o trabalhador pode "demitir" a empresa' },
+      { tema: 'Horas extras: calculo e limites legais', icone: '⏱️', descricao: 'Adicional, banco de horas e acordo individual' },
+      { tema: 'Assedio moral no trabalho: como comprovar', icone: '😰', descricao: 'Provas aceitas e indenizacao' },
+      { tema: 'FGTS: saque, multa e irregularidades', icone: '💰', descricao: 'Direitos do trabalhador sobre o fundo' },
+      { tema: 'Ferias: regras, abono e ferias vencidas', icone: '🏖️', descricao: 'Prazos e pagamento em dobro' },
+      { tema: 'Demissao por justa causa: motivos e reversao', icone: '📋', descricao: 'Quando a empresa pode aplicar e como contestar' },
+    ],
+    'Direito Empresarial': [
+      { tema: 'MEI, ME e EPP: qual o melhor para seu negocio', icone: '🏢', descricao: 'Limites de faturamento e obrigacoes' },
+      { tema: 'Recuperacao judicial: como funciona', icone: '📊', descricao: 'Requisitos e etapas do processo' },
+      { tema: 'Protecao de marca: registro no INPI', icone: '®️', descricao: 'Como registrar e proteger sua marca' },
+      { tema: 'Sociedade limitada: direitos e deveres dos socios', icone: '🤝', descricao: 'Responsabilidades e distribuicao de lucros' },
+      { tema: 'Contratos empresariais: clausulas essenciais', icone: '📄', descricao: 'O que nao pode faltar em contratos B2B' },
+      { tema: 'Falencia: consequencias para socios e credores', icone: '📉', descricao: 'Ordem de pagamento e responsabilidades' },
+    ],
+    'Direito do Consumidor': [
+      { tema: 'Produto com defeito: troca, reparo ou dinheiro de volta', icone: '🔧', descricao: 'Prazos e direitos do consumidor' },
+      { tema: 'Compras online: direito de arrependimento', icone: '🛒', descricao: '7 dias para desistir sem justificativa' },
+      { tema: 'Nome negativado indevidamente: o que fazer', icone: '📛', descricao: 'Como limpar o nome e pedir indenizacao' },
+      { tema: 'Voo atrasado ou cancelado: seus direitos', icone: '✈️', descricao: 'Assistencia material e indenizacao' },
+      { tema: 'Cobranca abusiva: como identificar e denunciar', icone: '📞', descricao: 'Praticas proibidas pelo CDC' },
+      { tema: 'Garantia legal vs contratual: diferencas', icone: '✅', descricao: 'Prazos e o que cada uma cobre' },
+    ],
+    'Direito de Família': [
+      { tema: 'Divorcio consensual e litigioso: diferencas', icone: '💔', descricao: 'Prazos, custos e documentos necessarios' },
+      { tema: 'Pensao alimenticia: calculo e revisao', icone: '💵', descricao: 'Como definir o valor e quando revisar' },
+      { tema: 'Guarda compartilhada: como funciona na pratica', icone: '👨‍👧', descricao: 'Direitos e deveres de cada genitor' },
+      { tema: 'Uniao estavel: direitos e formalizacao', icone: '💑', descricao: 'Diferenca para casamento e partilha de bens' },
+      { tema: 'Alienacao parental: como identificar e combater', icone: '🚫', descricao: 'Sinais e medidas judiciais cabiveis' },
+      { tema: 'Adocao: requisitos e etapas do processo', icone: '👶', descricao: 'Quem pode adotar e como funciona' },
+    ],
+    'Direito Tributário': [
+      { tema: 'Malha fina: como sair e evitar problemas', icone: '🔍', descricao: 'Principais motivos e como regularizar' },
+      { tema: 'Planejamento tributario: economia legal de impostos', icone: '📊', descricao: 'Estrategias para PF e PJ' },
+      { tema: 'Parcelamento de dividas com a Receita Federal', icone: '📅', descricao: 'Programas disponiveis e requisitos' },
+      { tema: 'MEI: obrigacoes fiscais e desenquadramento', icone: '📋', descricao: 'DAS, DASN e limites' },
+      { tema: 'Restituicao de impostos pagos indevidamente', icone: '💰', descricao: 'Como solicitar a devolucao' },
+      { tema: 'ITCMD e ITBI: impostos sobre heranca e imoveis', icone: '🏠', descricao: 'Aliquotas e base de calculo' },
+    ],
+    'Direito Imobiliário': [
+      { tema: 'Documentos para comprar imovel com seguranca', icone: '📑', descricao: 'Checklist completo do comprador' },
+      { tema: 'Distrato imobiliario: devolucao de valores', icone: '🔙', descricao: 'Direitos do comprador na desistencia' },
+      { tema: 'Problemas com construtora: vicio de construcao', icone: '🏗️', descricao: 'Prazos de garantia e acoes cabiveis' },
+      { tema: 'Usucapiao urbana e rural: requisitos', icone: '📍', descricao: 'Tipos e prazos para cada modalidade' },
+      { tema: 'Condominio: direitos e deveres do morador', icone: '🏢', descricao: 'Taxas, multas e assembleia' },
+      { tema: 'Financiamento imobiliario: cuidados essenciais', icone: '🏦', descricao: 'CET, amortizacao e portabilidade' },
+    ],
+    'Direito Previdenciário': [
+      { tema: 'Aposentadoria apos a reforma: novas regras', icone: '👴', descricao: 'Idade, tempo de contribuicao e transicao' },
+      { tema: 'INSS negou seu beneficio: como recorrer', icone: '❌', descricao: 'Recursos administrativo e judicial' },
+      { tema: 'Revisao da vida toda: quem tem direito', icone: '📈', descricao: 'Requisitos e calculo do beneficio' },
+      { tema: 'BPC/LOAS: beneficio para idosos e deficientes', icone: '🤝', descricao: 'Requisitos de renda e como solicitar' },
+      { tema: 'Auxilio-doenca: quando e como pedir', icone: '🏥', descricao: 'Carencia, pericia e valor do beneficio' },
+      { tema: 'Pensao por morte: quem sao os dependentes', icone: '🖤', descricao: 'Ordem de preferencia e duracao' },
+    ],
+    'Direito Digital': [
+      { tema: 'LGPD: obrigacoes das empresas com dados pessoais', icone: '🔐', descricao: 'Consentimento, vazamento e multas' },
+      { tema: 'Crimes virtuais: como denunciar e se proteger', icone: '🚨', descricao: 'Estelionato, invasao e ameacas online' },
+      { tema: 'Direito ao esquecimento na internet', icone: '🗑️', descricao: 'Remocao de conteudo e decisoes recentes' },
+      { tema: 'Contratos digitais: validade juridica', icone: '✍️', descricao: 'Assinatura eletronica e certificado digital' },
+      { tema: 'Fake news e responsabilidade das plataformas', icone: '📱', descricao: 'Marco Civil e remocao de conteudo' },
+      { tema: 'E-commerce: obrigacoes legais do vendedor online', icone: '🛍️', descricao: 'CDC, arrependimento e trocas' },
+    ],
+  };
+
+  // Obter temas filtrados pela area selecionada
+  const trendingFiltrados = areaSelecionada
+    ? (temasPorArea[areaSelecionada] || []).map((t, i) => ({ ...t, area: areaSelecionada }))
+    : Object.entries(temasPorArea).flatMap(([area, temas]) =>
+        temas.slice(0, 1).map(t => ({ ...t, area }))
+      )
+
+  // Exit Intent Popup - detecta quando o mouse sai da pagina
+  useEffect(() => {
+    // Só mostra uma vez por sessão
+    if (sessionStorage.getItem('exitPopupShown')) return;
+
+    const handleMouseLeave = (e) => {
+      // Só dispara quando o mouse sai pelo topo da página
+      if (e.clientY <= 0 && !exitPopupMostrado) {
+        setExitPopupMostrado(true);
+        sessionStorage.setItem('exitPopupShown', 'true');
+      }
+    };
+
+    document.addEventListener('mouseleave', handleMouseLeave);
+    return () => document.removeEventListener('mouseleave', handleMouseLeave);
+  }, [exitPopupMostrado]);
+
+  // Atalho secreto: Ctrl+Shift+A abre painel admin
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'A') {
+        e.preventDefault();
+        // Marcar como admin para não rastrear visitas
+        localStorage.setItem('blaster_admin', 'true');
+        setAdminPanel(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Carregar stats quando abrir painel (usa localStorage para auth local)
+  useEffect(() => {
+    if (adminPanel && !adminStats) {
+      const adminKey = localStorage.getItem('blaster_admin_key');
+      if (!adminKey) {
+        const key = prompt('Digite a chave de admin:');
+        if (key) localStorage.setItem('blaster_admin_key', key);
+        else { setAdminPanel(false); return; }
+      }
+      setLoadingStats(true);
+      fetch('https://blasterskd.com.br/api/admin/stats', {
+        headers: { 'X-Admin-Key': localStorage.getItem('blaster_admin_key') || '' }
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) setAdminStats(data.stats);
+          else { localStorage.removeItem('blaster_admin_key'); alert('Chave invalida'); setAdminPanel(false); }
+        })
+        .catch(() => { setAdminPanel(false); })
+        .finally(() => setLoadingStats(false));
+    }
+  }, [adminPanel]);
+
+  // Rastrear visita ao carregar (ignora se for admin)
+  useEffect(() => {
+    // Não rastrear se for admin
+    if (localStorage.getItem('blaster_admin') === 'true') return;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    fetch('https://blasterskd.com.br/api/track-visit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        utm_source: urlParams.get('utm_source') || '',
+        utm_medium: urlParams.get('utm_medium') || '',
+        utm_campaign: urlParams.get('utm_campaign') || '',
+        referrer: document.referrer || '',
+        pagina: window.location.pathname
+      })
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch('https://blasterskd.com.br/api/planos')
@@ -1789,6 +2638,286 @@ function LandingPage({ onAbrirLogin, onAbrirRegistro }) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
+      {/* ===== PAINEL ADMIN SECRETO (Ctrl+Shift+A) ===== */}
+      {adminPanel && (
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-800 border border-slate-600 rounded-2xl p-6 max-w-lg w-full max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <Shield className="w-5 h-5 text-amber-400" />
+                Painel Admin
+              </h2>
+              <button onClick={() => setAdminPanel(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {loadingStats ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-amber-400" />
+              </div>
+            ) : adminStats ? (
+              <div className="space-y-5">
+                {/* Resumo */}
+                <div className="grid grid-cols-4 gap-2">
+                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-2 text-center">
+                    <div className="text-xl font-bold text-blue-400">{adminStats.visitas?.total || 0}</div>
+                    <div className="text-[10px] text-slate-400">Visitas</div>
+                  </div>
+                  <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-2 text-center">
+                    <div className="text-xl font-bold text-blue-400">{adminStats.visitas?.hoje || 0}</div>
+                    <div className="text-[10px] text-slate-400">Hoje</div>
+                  </div>
+                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-2 text-center">
+                    <div className="text-xl font-bold text-amber-400">{adminStats.usuarios?.total || 0}</div>
+                    <div className="text-[10px] text-slate-400">Cadastros</div>
+                  </div>
+                  <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-2 text-center">
+                    <div className="text-xl font-bold text-green-400">{adminStats.previsao?.taxaConversao || 0}%</div>
+                    <div className="text-[10px] text-slate-400">Conversao</div>
+                  </div>
+                </div>
+
+                {/* Gráfico últimos 7 dias */}
+                <div>
+                  <h3 className="text-xs font-semibold text-slate-400 uppercase mb-3">Ultimos 7 dias</h3>
+                  <div className="flex items-end gap-1 h-24 bg-slate-700/20 rounded-lg p-2">
+                    {(adminStats.historico || []).map((h, i) => {
+                      const maxVisitas = Math.max(...(adminStats.historico || []).map(x => x.visitas), 1);
+                      const altura = (h.visitas / maxVisitas) * 100;
+                      return (
+                        <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                          <div className="w-full flex flex-col items-center justify-end h-16">
+                            {h.cadastros > 0 && (
+                              <div className="text-[9px] text-amber-400 font-bold">+{h.cadastros}</div>
+                            )}
+                            <div
+                              className="w-full bg-gradient-to-t from-blue-600 to-blue-400 rounded-t transition-all"
+                              style={{ height: `${Math.max(altura, 4)}%` }}
+                              title={`${h.visitas} visitas, ${h.cadastros} cadastros`}
+                            />
+                          </div>
+                          <div className="text-[9px] text-slate-500">{h.dia}</div>
+                          <div className="text-[10px] text-slate-400 font-medium">{h.visitas}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Previsão */}
+                {adminStats.previsao && (
+                  <div className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/30 rounded-lg p-3">
+                    <h3 className="text-xs font-semibold text-purple-300 uppercase mb-2">Previsao (baseada na media)</h3>
+                    <div className="grid grid-cols-2 gap-3 text-center">
+                      <div>
+                        <div className="text-lg font-bold text-purple-400">{adminStats.previsao.visitasSemana}</div>
+                        <div className="text-[10px] text-slate-400">Visitas/semana</div>
+                      </div>
+                      <div>
+                        <div className="text-lg font-bold text-pink-400">{adminStats.previsao.cadastrosSemana}</div>
+                        <div className="text-[10px] text-slate-400">Cadastros/semana</div>
+                      </div>
+                      <div>
+                        <div className="text-lg font-bold text-purple-400">{adminStats.previsao.visitasMes}</div>
+                        <div className="text-[10px] text-slate-400">Visitas/mes</div>
+                      </div>
+                      <div>
+                        <div className="text-lg font-bold text-pink-400">{adminStats.previsao.cadastrosMes}</div>
+                        <div className="text-[10px] text-slate-400">Cadastros/mes</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Por Origem e Dispositivo */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <h3 className="text-xs font-semibold text-slate-400 mb-2">Por Origem</h3>
+                    <div className="space-y-1">
+                      {Object.entries(adminStats.visitas?.porOrigem || {}).map(([origem, qtd]) => (
+                        <div key={origem} className="flex items-center justify-between bg-slate-700/30 rounded px-2 py-1">
+                          <span className="text-xs text-slate-300">{origem}</span>
+                          <span className="text-xs font-bold text-blue-400">{qtd}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-semibold text-slate-400 mb-2">Por Dispositivo</h3>
+                    <div className="space-y-1">
+                      {Object.entries(adminStats.visitas?.porDispositivo || {}).map(([disp, qtd]) => (
+                        <div key={disp} className="flex items-center justify-between bg-slate-700/30 rounded px-2 py-1">
+                          <span className="text-xs text-slate-300">{disp}</span>
+                          <span className="text-xs font-bold text-slate-300">{qtd}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Últimas Visitas */}
+                <div>
+                  <h3 className="text-xs font-semibold text-slate-400 mb-2">Ultimas Visitas</h3>
+                  <div className="space-y-1 text-xs max-h-32 overflow-y-auto">
+                    {(adminStats.visitas?.ultimas || []).slice(0, 10).map((v, i) => (
+                      <div key={i} className="flex items-center justify-between bg-slate-700/30 rounded px-2 py-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-slate-500">{v.dispositivo === 'Mobile' ? '📱' : '💻'}</span>
+                          <span className="text-slate-400">{v.browser}</span>
+                          {v.utm_source && v.utm_source !== 'direto' && (
+                            <span className="text-green-400 text-[10px]">via {v.utm_source}</span>
+                          )}
+                        </div>
+                        <span className="text-slate-500 text-[10px]">{new Date(v.timestamp).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'})}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Últimos Cadastros */}
+                {(adminStats.usuarios?.ultimos || []).length > 0 && (
+                  <div>
+                    <h3 className="text-xs font-semibold text-slate-400 mb-2">Ultimos Cadastros</h3>
+                    <div className="space-y-1 text-xs">
+                      {(adminStats.usuarios?.ultimos || []).map((u, i) => (
+                        <div key={i} className="bg-slate-700/30 rounded px-2 py-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-white font-medium">{u.nome || 'Sem nome'}</span>
+                            <span className="text-slate-500 text-[10px]">{new Date(u.data).toLocaleDateString('pt-BR')}</span>
+                          </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-slate-400">{u.email}</span>
+                            <span className="text-amber-400">via {u.origem}</span>
+                            {u.campanha !== '-' && <span className="text-green-400">({u.campanha})</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Status do Servidor */}
+                {adminStats.servidor && (
+                  <div className="bg-slate-700/30 rounded-lg p-3">
+                    <h3 className="text-xs font-semibold text-slate-400 mb-2">Servidor / Fila</h3>
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div>
+                        <div className={`text-lg font-bold ${adminStats.servidor.fila.pendentes > 0 ? 'text-yellow-400' : 'text-green-400'}`}>
+                          {adminStats.servidor.fila.pendentes}
+                        </div>
+                        <div className="text-[10px] text-slate-500">Na fila</div>
+                      </div>
+                      <div>
+                        <div className="text-lg font-bold text-blue-400">
+                          {adminStats.servidor.fila.processando}/{adminStats.servidor.fila.maxConcorrente}
+                        </div>
+                        <div className="text-[10px] text-slate-500">Processando</div>
+                      </div>
+                      <div>
+                        <div className="text-lg font-bold text-slate-300">
+                          {adminStats.servidor.fila.totalProcessado}
+                        </div>
+                        <div className="text-[10px] text-slate-500">Total gerado</div>
+                      </div>
+                    </div>
+                    {adminStats.servidor.fila.erros > 0 && (
+                      <div className="mt-2 text-center text-xs text-red-400">
+                        {adminStats.servidor.fila.erros} erros
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Atualizar */}
+                <button
+                  onClick={() => {
+                    setAdminStats(null);
+                    setLoadingStats(true);
+                    fetch('https://blasterskd.com.br/api/admin/stats', {
+                      headers: { 'X-Admin-Key': localStorage.getItem('blaster_admin_key') || '' }
+                    })
+                      .then(res => res.json())
+                      .then(data => { if (data.success) setAdminStats(data.stats); })
+                      .finally(() => setLoadingStats(false));
+                  }}
+                  className="w-full py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm text-slate-300 transition-colors"
+                >
+                  Atualizar
+                </button>
+              </div>
+            ) : (
+              <p className="text-slate-400 text-center py-8">Erro ao carregar estatisticas</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ===== POPUP EXIT INTENT ===== */}
+      {exitPopupMostrado && (
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-gradient-to-br from-slate-800 to-slate-900 border border-amber-500/30 rounded-2xl p-6 sm:p-8 max-w-md w-full relative animate-in fade-in zoom-in duration-300">
+            {/* Botao fechar */}
+            <button
+              onClick={() => setExitPopupMostrado(false)}
+              className="absolute top-3 right-3 text-slate-400 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Icone */}
+            <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center">
+              <Sparkles className="w-8 h-8 text-white" />
+            </div>
+
+            {/* Titulo */}
+            <h3 className="text-xl sm:text-2xl font-bold text-center text-white mb-2">
+              Espere! Tem certeza?
+            </h3>
+
+            {/* Subtitulo */}
+            <p className="text-slate-300 text-center text-sm sm:text-base mb-6">
+              Crie seu primeiro post juridico <span className="text-amber-400 font-semibold">100% gratis</span> em menos de 2 minutos!
+            </p>
+
+            {/* Beneficios rapidos */}
+            <div className="space-y-2 mb-6">
+              <div className="flex items-center gap-2 text-sm text-slate-300">
+                <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+                <span>Sem cartao de credito</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-slate-300">
+                <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+                <span>5 posts gratis todo mes</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm text-slate-300">
+                <CheckCircle className="w-4 h-4 text-green-400 flex-shrink-0" />
+                <span>Cancele quando quiser</span>
+              </div>
+            </div>
+
+            {/* CTA */}
+            <button
+              onClick={() => {
+                setExitPopupMostrado(false);
+                onAbrirRegistro();
+              }}
+              className="w-full py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold rounded-xl transition-all shadow-lg shadow-amber-500/25"
+            >
+              Quero criar meu post gratis
+            </button>
+
+            {/* Link secundario */}
+            <button
+              onClick={() => setExitPopupMostrado(false)}
+              className="w-full mt-3 text-sm text-slate-400 hover:text-slate-300 transition-colors"
+            >
+              Nao, obrigado
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ===== HEADER ===== */}
       <header className="fixed top-0 left-0 right-0 z-50 bg-slate-900/80 backdrop-blur-lg border-b border-slate-700/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
@@ -1833,51 +2962,104 @@ function LandingPage({ onAbrirLogin, onAbrirRegistro }) {
         )}
       </header>
 
+      {/* ===== BANNER CARNAVAL ===== */}
+      <div className="fixed top-16 left-0 right-0 z-40 bg-gradient-to-r from-purple-600 via-pink-500 to-yellow-500 py-2 px-4 text-center">
+        <p className="text-white text-sm font-bold flex items-center justify-center gap-2">
+          <span>Oferta de Carnaval!</span>
+          <span className="bg-white/20 px-2 py-0.5 rounded text-xs">BLASTER10</span>
+          <span>= 10% OFF</span>
+          <span className="hidden sm:inline">| Agende seus posts e curta o feriado!</span>
+        </p>
+      </div>
+
       {/* ===== HERO ===== */}
-      <section className="pt-32 pb-20 px-4 sm:px-6">
+      <section className="pt-32 sm:pt-40 pb-16 sm:pb-20 px-4 sm:px-6">
         <div className="max-w-4xl mx-auto text-center">
           <AnimateOnScroll>
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold mb-6 leading-tight">
-              <span className="bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 bg-clip-text text-transparent">
-                Conteudo juridico profissional
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold mb-4 sm:mb-6 leading-tight">
+              <span className="bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-500 bg-clip-text text-transparent">
+                Carnaval chegou!
               </span>
               <br />
-              <span className="text-white">gerado por IA em segundos</span>
+              <span className="text-white">Quem cuida do seu Instagram?</span>
             </h1>
           </AnimateOnScroll>
           <AnimateOnScroll delay={100}>
-            <p className="text-lg sm:text-xl text-slate-300 mb-10 max-w-2xl mx-auto leading-relaxed">
-              Crie posts, stories e carroseis para redes sociais com inteligencia artificial.
-              Personalizado para advogados e escritorios de advocacia.
+            <p className="text-base sm:text-xl text-slate-300 mb-6 sm:mb-8 max-w-2xl mx-auto leading-relaxed">
+              Agende seus posts juridicos com IA e curta o Carnaval sem preocupacao.
+              O BlasterSKD publica automaticamente enquanto voce descansa.
             </p>
           </AnimateOnScroll>
+
+          {/* Benefícios rápidos */}
+          <AnimateOnScroll delay={150}>
+            <div className="flex flex-wrap justify-center gap-3 sm:gap-4 mb-6 sm:mb-8">
+              <div className="flex items-center gap-2 bg-slate-800/50 px-3 py-1.5 rounded-full">
+                <Check className="w-4 h-4 text-green-400" />
+                <span className="text-slate-300 text-sm">Posts com IA</span>
+              </div>
+              <div className="flex items-center gap-2 bg-slate-800/50 px-3 py-1.5 rounded-full">
+                <Check className="w-4 h-4 text-green-400" />
+                <span className="text-slate-300 text-sm">Carrosseis</span>
+              </div>
+              <div className="flex items-center gap-2 bg-slate-800/50 px-3 py-1.5 rounded-full">
+                <Check className="w-4 h-4 text-green-400" />
+                <span className="text-slate-300 text-sm">Stories</span>
+              </div>
+            </div>
+          </AnimateOnScroll>
+
           <AnimateOnScroll delay={200}>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
               <button
                 onClick={onAbrirRegistro}
-                className="w-full sm:w-auto bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold px-8 py-3.5 rounded-xl transition-all text-lg flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25"
+                className="w-full sm:w-auto bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold px-8 py-4 rounded-xl transition-all text-lg flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25"
               >
-                Comecar Gratis
+                Comecar Gratis Agora
                 <ArrowRight className="w-5 h-5" />
               </button>
-              <button
-                onClick={() => scrollTo('como-funciona')}
-                className="w-full sm:w-auto border border-slate-600 hover:border-slate-500 text-slate-300 hover:text-white font-medium px-8 py-3.5 rounded-xl transition-all text-lg"
-              >
-                Ver como funciona
-              </button>
+              <p className="text-slate-400 text-sm">Sem cartao de credito | Use o cupom <span className="text-yellow-400 font-bold">BLASTER10</span> e ganhe 10% off</p>
             </div>
           </AnimateOnScroll>
         </div>
 
-        {/* Screenshot do produto */}
+        {/* Video do produto */}
         <AnimateOnScroll delay={300} className="max-w-5xl mx-auto mt-16">
           <div className="bg-slate-800/60 backdrop-blur border border-slate-700 rounded-2xl p-2 sm:p-4 shadow-2xl">
-            <img
-              src="/screenshot-dashboard.png"
-              alt="Painel do BlasterSKD - Criador de Conteudo"
-              className="w-full rounded-xl shadow-lg"
-            />
+            {!videoPlaying ? (
+              <div
+                className="relative cursor-pointer group"
+                onClick={() => setVideoPlaying(true)}
+              >
+                <img
+                  src="/screenshot-dashboard.png"
+                  alt="Painel do BlasterSKD - Criador de Conteudo"
+                  className="w-full rounded-xl shadow-lg"
+                />
+                {/* Overlay escuro */}
+                <div className="absolute inset-0 bg-black/40 group-hover:bg-black/30 transition-all rounded-xl flex items-center justify-center">
+                  {/* Botão Play */}
+                  <div className="w-20 h-20 sm:w-24 sm:h-24 bg-amber-500 hover:bg-amber-400 rounded-full flex items-center justify-center shadow-2xl transform group-hover:scale-110 transition-all">
+                    <Play className="w-10 h-10 sm:w-12 sm:h-12 text-white ml-1" fill="white" />
+                  </div>
+                </div>
+                {/* Badge "Ver demonstração" */}
+                <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 backdrop-blur px-4 py-2 rounded-full">
+                  <span className="text-white text-sm font-medium">Ver demonstracao em video</span>
+                </div>
+              </div>
+            ) : (
+              <div className="relative pt-[56.25%] rounded-xl overflow-hidden">
+                <iframe
+                  className="absolute inset-0 w-full h-full"
+                  src="https://www.youtube.com/embed/zRZbTFFDsJI?autoplay=1&rel=0"
+                  title="BlasterSKD - Demonstração"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            )}
           </div>
         </AnimateOnScroll>
       </section>
@@ -2088,12 +3270,134 @@ function LandingPage({ onAbrirLogin, onAbrirRegistro }) {
         </div>
       </section>
 
+      {/* ===== AGENDAMENTO E INSTAGRAM ===== */}
+      <section className="py-20 px-4 sm:px-6 bg-gradient-to-b from-slate-900 via-purple-900/20 to-slate-900">
+        <div className="max-w-6xl mx-auto">
+          <AnimateOnScroll className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-purple-500/20 border border-purple-500/30 rounded-full text-purple-400 text-sm font-medium mb-6">
+              <Sparkles className="w-4 h-4" />
+              Novo: Integracao Direta
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
+              Agende o mes inteiro em <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">minutos</span>
+            </h2>
+            <p className="text-slate-400 text-lg max-w-2xl mx-auto">
+              Conecte seu Instagram, crie seus posts com IA e deixe o BlasterSKD publicar automaticamente
+            </p>
+          </AnimateOnScroll>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+            {/* Ilustração do fluxo */}
+            <AnimateOnScroll delay={100}>
+              <div className="bg-slate-800/50 rounded-2xl p-8 border border-slate-700">
+                <div className="flex flex-col gap-6">
+                  {/* Passo 1 */}
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center shadow-lg shadow-amber-500/20 flex-shrink-0">
+                      <Sparkles className="w-7 h-7 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-white font-semibold">Crie conteudos com IA</p>
+                      <p className="text-slate-400 text-sm">Posts, stories e carrosseis em segundos</p>
+                    </div>
+                    <ChevronDown className="w-5 h-5 text-slate-500 hidden sm:block" />
+                  </div>
+
+                  {/* Passo 2 */}
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/20 flex-shrink-0">
+                      <Instagram className="w-7 h-7 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-white font-semibold">Conecte seu Instagram</p>
+                      <p className="text-slate-400 text-sm">Integracao segura via Facebook</p>
+                    </div>
+                    <ChevronDown className="w-5 h-5 text-slate-500 hidden sm:block" />
+                  </div>
+
+                  {/* Passo 3 */}
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20 flex-shrink-0">
+                      <Calendar className="w-7 h-7 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-white font-semibold">Agende para o mes todo</p>
+                      <p className="text-slate-400 text-sm">Escolha datas e horarios ideais</p>
+                    </div>
+                    <ChevronDown className="w-5 h-5 text-slate-500 hidden sm:block" />
+                  </div>
+
+                  {/* Resultado */}
+                  <div className="flex items-center gap-4 p-4 bg-gradient-to-r from-green-500/20 to-emerald-500/20 rounded-xl border border-green-500/30">
+                    <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl flex items-center justify-center shadow-lg shadow-green-500/20 flex-shrink-0">
+                      <Zap className="w-7 h-7 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-white font-semibold">Deixe a magia acontecer!</p>
+                      <p className="text-green-400 text-sm">Posts publicados automaticamente</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </AnimateOnScroll>
+
+            {/* Benefícios */}
+            <AnimateOnScroll delay={200}>
+              <div className="space-y-6">
+                <div className="flex items-start gap-4 p-4 bg-slate-800/50 rounded-xl border border-slate-700 hover:border-amber-500/50 transition-colors">
+                  <div className="w-12 h-12 bg-amber-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Clock className="w-6 h-6 text-amber-400" />
+                  </div>
+                  <div>
+                    <p className="text-white font-semibold mb-1">Economize horas toda semana</p>
+                    <p className="text-slate-400 text-sm">Pare de criar conteudo na correria. Planeje tudo de uma vez e foque no que importa: seus clientes.</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-4 p-4 bg-slate-800/50 rounded-xl border border-slate-700 hover:border-purple-500/50 transition-colors">
+                  <div className="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <Instagram className="w-6 h-6 text-purple-400" />
+                  </div>
+                  <div>
+                    <p className="text-white font-semibold mb-1">Publique direto no Instagram</p>
+                    <p className="text-slate-400 text-sm">Feed e Stories com um clique. Sem precisar baixar imagem, abrir app ou copiar texto.</p>
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-4 p-4 bg-slate-800/50 rounded-xl border border-slate-700 hover:border-green-500/50 transition-colors">
+                  <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <TrendingUp className="w-6 h-6 text-green-400" />
+                  </div>
+                  <div>
+                    <p className="text-white font-semibold mb-1">Consistencia que gera resultados</p>
+                    <p className="text-slate-400 text-sm">Advogados que postam regularmente atraem mais clientes. Mantenha presenca sem esforco.</p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={onAbrirRegistro}
+                  className="w-full py-4 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-xl font-semibold transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-500/20"
+                >
+                  <Instagram className="w-5 h-5" />
+                  Comecar Agora - Gratis
+                </button>
+              </div>
+            </AnimateOnScroll>
+          </div>
+        </div>
+      </section>
+
       {/* ===== PRECOS ===== */}
       <section id="precos" className="py-20 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto">
           <AnimateOnScroll className="text-center mb-16">
             <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">Planos e Precos</h2>
             <p className="text-slate-400 text-lg max-w-2xl mx-auto">Comece gratis e faca upgrade quando precisar</p>
+            <div className="mt-4 inline-flex items-center gap-2 bg-gradient-to-r from-purple-600/20 to-pink-600/20 border border-purple-500/30 px-5 py-2.5 rounded-full">
+              <span className="text-yellow-400 font-bold text-sm">Oferta de Carnaval!</span>
+              <span className="bg-pink-500 text-white px-2 py-0.5 rounded text-xs font-bold">BLASTER10</span>
+              <span className="text-slate-300 text-sm">= 10% off no primeiro mes</span>
+            </div>
           </AnimateOnScroll>
 
           {loadingPlanos ? (
@@ -2243,10 +3547,131 @@ function LandingPage({ onAbrirLogin, onAbrirRegistro }) {
         </div>
       </section>
 
+      {/* ===== TEMAS EM ALTA ===== */}
+      <section id="temas-alta" className="py-16 sm:py-20 px-4 sm:px-6 bg-gradient-to-b from-slate-900 to-slate-800">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-10">
+            <div className="inline-flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-full px-4 py-2 mb-4">
+              <Flame className="w-4 h-4 text-amber-400" />
+              <span className="text-amber-400 text-sm font-medium">Noticias em tempo real</span>
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-bold text-white mb-4">
+              Temas em Alta no <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-500">Direito</span>
+            </h2>
+            <p className="text-slate-400 max-w-2xl mx-auto">
+              Veja os assuntos mais relevantes para criar conteudo que engaja. Selecione sua area de atuacao.
+            </p>
+          </div>
+
+          {/* Seletor de Area */}
+          <div className="flex flex-wrap justify-center gap-2 mb-8">
+            <button
+              onClick={() => setAreaSelecionada('')}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                areaSelecionada === ''
+                  ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/25'
+                  : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700 hover:text-white'
+              }`}
+            >
+              Todas as areas
+            </button>
+            {areasDisponiveis.map((area) => (
+              <button
+                key={area}
+                onClick={() => setAreaSelecionada(area)}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  areaSelecionada === area
+                    ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/25'
+                    : 'bg-slate-700/50 text-slate-300 hover:bg-slate-700 hover:text-white'
+                }`}
+              >
+                {area.replace('Direito ', '')}
+              </button>
+            ))}
+          </div>
+
+          {/* Grid de Temas */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {trendingFiltrados.slice(0, 6).map((item, idx) => (
+                <div
+                  key={idx}
+                  className="group relative bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 hover:border-amber-500/50 rounded-xl p-5 transition-all duration-300 hover:shadow-lg hover:shadow-amber-500/10"
+                >
+                  {/* Badge de posicao */}
+                  <span className={`absolute top-3 right-3 text-xs font-bold px-2 py-1 rounded-full ${
+                    idx === 0 ? 'bg-amber-500/20 text-amber-400' :
+                    idx === 1 ? 'bg-slate-500/20 text-slate-300' :
+                    idx === 2 ? 'bg-orange-500/20 text-orange-400' :
+                    'bg-slate-700/50 text-slate-400'
+                  }`}>
+                    #{idx + 1}
+                  </span>
+
+                  {/* Icone */}
+                  <div className="text-3xl mb-3 group-hover:scale-110 transition-transform">
+                    {item.icone || '📰'}
+                  </div>
+
+                  {/* Titulo */}
+                  <h4 className="font-semibold text-white group-hover:text-amber-400 transition-colors line-clamp-2 mb-2 pr-8">
+                    {item.tema}
+                  </h4>
+
+                  {/* Descricao */}
+                  {item.descricao && (
+                    <p className="text-sm text-slate-400 line-clamp-2 mb-3">
+                      {item.descricao}
+                    </p>
+                  )}
+
+                  {/* Tags */}
+                  <div className="flex items-center gap-2 flex-wrap mb-4">
+                    <span className="text-xs bg-slate-700/50 text-slate-400 px-2 py-1 rounded-full">
+                      {item.area}
+                    </span>
+                    {item.data && (
+                      <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded-full flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        {item.data}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Link da noticia */}
+                  {item.link && (
+                    <a
+                      href={item.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-sm text-amber-400 hover:text-amber-300 transition-colors"
+                    >
+                      Ver noticia <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
+              ))}
+          </div>
+
+          {/* CTA */}
+          <div className="text-center mt-10">
+            <p className="text-slate-400 mb-4">
+              Crie posts sobre esses temas em segundos com IA
+            </p>
+            <button
+              onClick={onAbrirRegistro}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-semibold rounded-xl transition-all shadow-lg shadow-amber-500/25"
+            >
+              <Sparkles className="w-5 h-5" />
+              Comecar a criar gratis
+            </button>
+          </div>
+        </div>
+      </section>
+
       {/* ===== FOOTER ===== */}
       <footer className="border-t border-slate-700/50 py-12 px-4 sm:px-6">
         <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             {/* Logo e descricao */}
             <div>
               <div className="flex items-center gap-2 mb-4">
@@ -2279,6 +3704,29 @@ function LandingPage({ onAbrirLogin, onAbrirRegistro }) {
                 <a href="/privacidade" className="block text-slate-400 hover:text-white text-sm transition-colors">Politica de Privacidade</a>
               </div>
             </div>
+
+            {/* Contato */}
+            <div>
+              <h4 className="text-white font-semibold mb-4">Contato</h4>
+              <div className="space-y-3">
+                <a
+                  href="https://wa.me/5537991628136"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-slate-400 hover:text-green-400 text-sm transition-colors"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  WhatsApp
+                </a>
+                <a
+                  href="mailto:thales_bueno@hotmail.com"
+                  className="flex items-center gap-2 text-slate-400 hover:text-amber-400 text-sm transition-colors"
+                >
+                  <Mail className="w-4 h-4" />
+                  thales_bueno@hotmail.com
+                </a>
+              </div>
+            </div>
           </div>
 
           <div className="mt-10 pt-6 border-t border-slate-700/50 text-center text-slate-500 text-sm">
@@ -2286,6 +3734,22 @@ function LandingPage({ onAbrirLogin, onAbrirRegistro }) {
           </div>
         </div>
       </footer>
+
+      {/* Botao flutuante WhatsApp */}
+      <a
+        href="https://wa.me/5537991628136?text=Oi!%20Tenho%20uma%20dúvida%20sobre%20o%20BlasterSKD"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="fixed bottom-6 right-6 z-50 w-14 h-14 bg-green-500 hover:bg-green-600 rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all hover:scale-110 group"
+        title="Fale conosco no WhatsApp"
+      >
+        <svg viewBox="0 0 24 24" className="w-7 h-7 fill-white">
+          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/>
+        </svg>
+        <span className="absolute right-full mr-3 bg-slate-800 text-white text-sm px-3 py-2 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity shadow-lg">
+          Precisa de ajuda?
+        </span>
+      </a>
     </div>
   );
 }
@@ -2333,7 +3797,7 @@ function LoginSupabase({ isModal = false, onClose = null, modoInicial = 'login' 
         await fazerLogin(email, senha);
       } else if (modo === 'registro') {
         if (!nome.trim()) throw new Error('Nome é obrigatório');
-        const result = await fazerRegistro(email, senha, nome, oab);
+        const result = await fazerRegistro(email, senha, nome, ''); // OAB preenchida depois no perfil
         if (result.user && !result.session) {
           // Facebook Pixel - Evento de conversao
           if (typeof fbq !== 'undefined') {
@@ -2443,19 +3907,6 @@ function LoginSupabase({ isModal = false, onClose = null, modoInicial = 'login' 
                       placeholder="Dr. João Silva"
                       className="w-full bg-slate-700 border border-slate-600 rounded-lg pl-10 pr-4 py-2.5 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400"
                       required
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1.5">OAB (opcional)</label>
-                  <div className="relative">
-                    <Award className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                    <input
-                      type="text"
-                      value={oab}
-                      onChange={(e) => setOab(e.target.value)}
-                      placeholder="OAB/SP 123456"
-                      className="w-full bg-slate-700 border border-slate-600 rounded-lg pl-10 pr-4 py-2.5 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-400"
                     />
                   </div>
                 </div>
@@ -2635,10 +4086,59 @@ function LoginSupabase({ isModal = false, onClose = null, modoInicial = 'login' 
 // =====================================================
 // MODAL GALERIA DE IMAGENS
 // =====================================================
-function GaleriaImagensModal({ isOpen, onClose }) {
-  const { minhasImagens, deletarImagem } = useAuth();
+function GaleriaImagensModal({ isOpen, onClose, onAgendar }) {
+  const { minhasImagens, deletarImagem, criarAgendamento, user, atualizarImagemConteudo, fetchAuth } = useAuth();
   const [selecionada, setSelecionada] = useState(null);
   const [deletando, setDeletando] = useState(null);
+  const [mostrarAgendar, setMostrarAgendar] = useState(false);
+  const [dataAgendamento, setDataAgendamento] = useState('');
+  const [horaAgendamento, setHoraAgendamento] = useState('');
+  const [agendando, setAgendando] = useState(false);
+  const [filtroFormato, setFiltroFormato] = useState('todos'); // 'todos', 'feed', 'stories'
+  const [editandoConteudo, setEditandoConteudo] = useState(false);
+  const [conteudoEditado, setConteudoEditado] = useState('');
+  const [salvandoConteudo, setSalvandoConteudo] = useState(false);
+  const [instagramStatus, setInstagramStatus] = useState(null);
+  const [postingInstagram, setPostingInstagram] = useState(false);
+
+  // Verificar conexão Instagram ao abrir
+  useEffect(() => {
+    if (isOpen && !instagramStatus) {
+      fetchAuth('https://blasterskd.com.br/api/instagram/status')
+        .then(res => res.json())
+        .then(data => setInstagramStatus(data))
+        .catch(() => setInstagramStatus({ connected: false }));
+    }
+  }, [isOpen]);
+
+  // Postar no Instagram
+  const handlePostarInstagram = async () => {
+    if (!selecionada || postingInstagram) return;
+    setPostingInstagram(true);
+    try {
+      const isStory = selecionada.formato === 'stories';
+      const response = await fetchAuth('https://blasterskd.com.br/api/instagram/post', {
+        method: 'POST',
+        body: JSON.stringify({
+          imageUrl: selecionada.url,
+          caption: isStory ? '' : (selecionada.conteudo || selecionada.tema || ''),
+          type: isStory ? 'story' : 'feed'
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        alert(`✅ ${isStory ? 'Story' : 'Post'} publicado no Instagram @${instagramStatus.username}!`);
+      } else if (data.needsReconnection) {
+        alert('❌ Token expirado. Reconecte seu Instagram nas configurações.');
+      } else {
+        alert('❌ Erro: ' + (data.error || 'Falha ao postar'));
+      }
+    } catch (error) {
+      alert('❌ Erro ao postar: ' + error.message);
+    } finally {
+      setPostingInstagram(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -2654,7 +4154,38 @@ function GaleriaImagensModal({ isOpen, onClose }) {
     setDeletando(null);
   };
 
+  const handleAgendar = async () => {
+    if (!dataAgendamento || !horaAgendamento) {
+      alert('Selecione data e hora');
+      return;
+    }
+    setAgendando(true);
+    try {
+      const dataHora = new Date(`${dataAgendamento}T${horaAgendamento}`);
+      await criarAgendamento({
+        titulo: selecionada.tema || 'Post da galeria',
+        conteudo: selecionada.conteudo || '',
+        imagemUrl: selecionada.url,
+        dataAgendada: dataHora.toISOString(),
+        redeSocial: 'instagram',
+        formato: selecionada.formato || 'feed'
+      });
+      alert('Post agendado com sucesso!');
+      setMostrarAgendar(false);
+      setDataAgendamento('');
+      setHoraAgendamento('');
+    } catch (e) {
+      alert('Erro ao agendar: ' + e.message);
+    }
+    setAgendando(false);
+  };
+
   const formatarData = (d) => new Date(d).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+
+  // Filtrar imagens por formato
+  const imagensFiltradas = filtroFormato === 'todos'
+    ? minhasImagens
+    : minhasImagens.filter(img => img.formato === filtroFormato);
 
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -2670,24 +4201,45 @@ function GaleriaImagensModal({ isOpen, onClose }) {
           </button>
         </div>
 
-        <div className="flex h-[calc(85vh-70px)]">
+        {/* Filtros */}
+        <div className="flex gap-2 p-3 border-b border-slate-700/50 bg-slate-800/50">
+          {[
+            { id: 'todos', label: 'Todos' },
+            { id: 'feed', label: 'Feed' },
+            { id: 'stories', label: 'Stories' }
+          ].map(f => (
+            <button
+              key={f.id}
+              onClick={() => setFiltroFormato(f.id)}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${filtroFormato === f.id ? 'bg-amber-500 text-white' : 'bg-slate-700 text-slate-300 hover:bg-slate-600'}`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex h-[calc(85vh-120px)]">
           {/* Grid */}
           <div className="flex-1 p-4 overflow-y-auto">
-            {minhasImagens.length === 0 ? (
+            {imagensFiltradas.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-slate-400">
                 <ImageIcon className="w-16 h-16 mb-4 opacity-30" />
-                <p>Nenhuma imagem gerada ainda</p>
+                <p>Nenhuma imagem {filtroFormato !== 'todos' ? `de ${filtroFormato}` : ''} gerada ainda</p>
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {minhasImagens.map((img) => (
+                {imagensFiltradas.map((img) => (
                   <div
                     key={img.id}
                     onClick={() => setSelecionada(img)}
-                    className={`relative cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${selecionada?.id === img.id ? 'border-amber-400 ring-2 ring-amber-400/30' : 'border-slate-700 hover:border-slate-600'
-                      }`}
+                    className={`relative cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${selecionada?.id === img.id ? 'border-amber-400 ring-2 ring-amber-400/30' : 'border-slate-700 hover:border-slate-600'}`}
                   >
-                    <img src={img.url} alt="" className="w-full aspect-square object-cover" />
+                    <img src={img.url} alt="" className={`w-full ${img.formato === 'stories' ? 'aspect-[9/16]' : 'aspect-square'} object-cover`} />
+                    <div className="absolute top-2 right-2">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${img.formato === 'stories' ? 'bg-purple-500' : 'bg-blue-500'} text-white`}>
+                        {img.formato || 'feed'}
+                      </span>
+                    </div>
                     <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/80 to-transparent">
                       <p className="text-white text-xs truncate">{img.tema || 'Sem título'}</p>
                     </div>
@@ -2699,8 +4251,15 @@ function GaleriaImagensModal({ isOpen, onClose }) {
 
           {/* Detalhes */}
           {selecionada && (
-            <div className="w-72 border-l border-slate-700 p-4 overflow-y-auto bg-slate-900/50">
-              <img src={selecionada.url} alt="" className="w-full rounded-lg mb-4" />
+            <div className="w-80 border-l border-slate-700 p-4 overflow-y-auto bg-slate-900/50">
+              <img src={selecionada.url} alt="" className={`w-full rounded-lg mb-4 ${selecionada.formato === 'stories' ? 'aspect-[9/16] object-cover' : ''}`} />
+
+              {/* Formato */}
+              <div className="mb-3">
+                <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${selecionada.formato === 'stories' ? 'bg-purple-500' : 'bg-blue-500'} text-white`}>
+                  {selecionada.formato || 'feed'}
+                </span>
+              </div>
 
               {selecionada.tema && <p className="text-white font-medium mb-2">{selecionada.tema}</p>}
               {selecionada.area && (
@@ -2709,24 +4268,127 @@ function GaleriaImagensModal({ isOpen, onClose }) {
                   {selecionada.area}
                 </div>
               )}
-              <div className="flex items-center gap-2 text-slate-400 text-sm mb-4">
+              <div className="flex items-center gap-2 text-slate-400 text-sm mb-3">
                 <Calendar className="w-4 h-4" />
                 {formatarData(selecionada.created_at)}
               </div>
 
+              {/* Conteúdo - editável */}
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-slate-400 text-xs uppercase">Conteúdo:</p>
+                  {!editandoConteudo ? (
+                    <button
+                      onClick={() => {
+                        setConteudoEditado(selecionada.conteudo || '');
+                        setEditandoConteudo(true);
+                      }}
+                      className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1"
+                    >
+                      <Edit3 className="w-3 h-3" /> Editar
+                    </button>
+                  ) : (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={async () => {
+                          setSalvandoConteudo(true);
+                          try {
+                            await atualizarImagemConteudo(selecionada.id, conteudoEditado);
+                            setSelecionada({ ...selecionada, conteudo: conteudoEditado });
+                            setEditandoConteudo(false);
+                          } catch (e) {
+                            alert('Erro ao salvar');
+                          }
+                          setSalvandoConteudo(false);
+                        }}
+                        disabled={salvandoConteudo}
+                        className="text-xs text-green-400 hover:text-green-300 flex items-center gap-1"
+                      >
+                        {salvandoConteudo ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />} Salvar
+                      </button>
+                      <button
+                        onClick={() => setEditandoConteudo(false)}
+                        className="text-xs text-slate-400 hover:text-slate-300"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  )}
+                </div>
+                {editandoConteudo ? (
+                  <textarea
+                    value={conteudoEditado}
+                    onChange={(e) => setConteudoEditado(e.target.value)}
+                    className="w-full bg-slate-800 border border-slate-600 rounded-lg p-3 text-slate-200 text-sm resize-none focus:outline-none focus:border-amber-500"
+                    rows={6}
+                    placeholder="Digite o conteúdo do post..."
+                  />
+                ) : selecionada.conteudo ? (
+                  <div className="bg-slate-800 rounded-lg p-3 max-h-32 overflow-y-auto">
+                    <p className="text-slate-200 text-sm whitespace-pre-wrap">{selecionada.conteudo}</p>
+                  </div>
+                ) : (
+                  <div className="bg-slate-800/50 rounded-lg p-3 text-center">
+                    <p className="text-slate-500 text-sm italic">Sem conteúdo</p>
+                    <button
+                      onClick={() => {
+                        setConteudoEditado('');
+                        setEditandoConteudo(true);
+                      }}
+                      className="mt-2 text-xs text-amber-400 hover:text-amber-300"
+                    >
+                      + Adicionar conteúdo
+                    </button>
+                  </div>
+                )}
+                {selecionada.conteudo && !editandoConteudo && (
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(selecionada.conteudo);
+                      alert('Conteúdo copiado!');
+                    }}
+                    className="mt-2 text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1"
+                  >
+                    <Copy className="w-3 h-3" /> Copiar texto
+                  </button>
+                )}
+              </div>
+
               <div className="space-y-2">
+                {/* Botão Instagram - só aparece se conectado */}
+                {instagramStatus?.connected && (
+                  <button
+                    onClick={handlePostarInstagram}
+                    disabled={postingInstagram}
+                    className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white py-2.5 rounded-lg text-sm font-medium disabled:opacity-50"
+                  >
+                    {postingInstagram ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Instagram className="w-4 h-4" />
+                    )}
+                    {postingInstagram ? 'Postando...' : `Postar no Instagram`}
+                  </button>
+                )}
                 <a
                   href={selecionada.url}
                   download
-                  className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white py-2 rounded-lg"
+                  className="w-full flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white py-2 rounded-lg text-sm font-medium"
                 >
                   <Download className="w-4 h-4" />
                   Baixar
                 </a>
                 <button
+                  onClick={() => setMostrarAgendar(true)}
+                  className="w-full flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg text-sm font-medium"
+                >
+                  <Clock className="w-4 h-4" />
+                  Agendar Post
+                </button>
+                <button
                   onClick={() => handleDeletar(selecionada.id)}
                   disabled={deletando === selecionada.id}
-                  className="w-full flex items-center justify-center gap-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 py-2 rounded-lg"
+                  className="w-full flex items-center justify-center gap-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 py-2 rounded-lg text-sm"
                 >
                   {deletando === selecionada.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                   Excluir
@@ -2735,6 +4397,57 @@ function GaleriaImagensModal({ isOpen, onClose }) {
             </div>
           )}
         </div>
+
+        {/* Mini Modal de Agendamento */}
+        {mostrarAgendar && selecionada && (
+          <div className="absolute inset-0 bg-black/70 flex items-center justify-center p-4 z-10">
+            <div className="bg-slate-800 rounded-xl p-5 w-full max-w-sm border border-slate-700">
+              <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                <Clock className="w-5 h-5 text-amber-400" />
+                Agendar Post
+              </h3>
+
+              <div className="space-y-3 mb-4">
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Data</label>
+                  <input
+                    type="date"
+                    value={dataAgendamento}
+                    onChange={(e) => setDataAgendamento(e.target.value)}
+                    min={new Date().toISOString().split('T')[0]}
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-slate-400 mb-1">Hora</label>
+                  <input
+                    type="time"
+                    value={horaAgendamento}
+                    onChange={(e) => setHoraAgendamento(e.target.value)}
+                    className="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setMostrarAgendar(false)}
+                  className="flex-1 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleAgendar}
+                  disabled={agendando}
+                  className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium flex items-center justify-center gap-2"
+                >
+                  {agendando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Calendar className="w-4 h-4" />}
+                  {agendando ? 'Agendando...' : 'Confirmar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -3007,12 +4720,34 @@ function PlanosModal({ isOpen, onClose }) {
   const [uso, setUso] = useState(null);
   const [processando, setProcessando] = useState(false);
   const [erro, setErro] = useState('');
+  const [cupom, setCupom] = useState('');
+  const [cupomAplicado, setCupomAplicado] = useState(null);
 
   useEffect(() => {
     if (isOpen) {
       carregarDados();
+      // Verificar cupom na URL (vindo do anuncio)
+      const params = new URLSearchParams(window.location.search);
+      const cupomUrl = params.get('cupom') || params.get('coupon');
+      if (cupomUrl) {
+        setCupom(cupomUrl.toUpperCase());
+        aplicarCupom(cupomUrl.toUpperCase());
+      }
     }
   }, [isOpen]);
+
+  const aplicarCupom = (codigo) => {
+    const cuponsValidos = {
+      'BLASTER10': { desconto: 0.10, descricao: '10% off no primeiro mes' }
+    };
+    const c = cuponsValidos[(codigo || cupom).toUpperCase()];
+    if (c) {
+      setCupomAplicado(c);
+    } else {
+      setCupomAplicado(null);
+      if (codigo || cupom) setErro('Cupom invalido');
+    }
+  };
 
   const carregarDados = async () => {
     setLoading(true);
@@ -3061,13 +4796,21 @@ function PlanosModal({ isOpen, onClose }) {
       const response = await fetchAuth('https://blasterskd.com.br/api/criar-assinatura', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plano_slug: planoSlug })
+        body: JSON.stringify({ plano_slug: planoSlug, cupom: cupomAplicado ? cupom : undefined })
       });
 
       const data = await response.json();
 
       if (data.success) {
         if (data.init_point) {
+          // Facebook Pixel - Inicio de checkout
+          if (typeof fbq !== 'undefined') {
+            fbq('track', 'InitiateCheckout', {
+              value: 47.00,
+              currency: 'BRL',
+              content_name: 'Plano Profissional'
+            });
+          }
           // Redirecionar para checkout do Mercado Pago
           window.location.href = data.init_point;
         } else {
@@ -3194,6 +4937,31 @@ function PlanosModal({ isOpen, onClose }) {
                 </div>
               )}
 
+              {/* Campo de Cupom */}
+              <div className="mb-6 p-4 bg-slate-700/30 rounded-xl border border-slate-600">
+                <label className="text-slate-300 text-sm font-medium mb-2 block">Tem um cupom de desconto?</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={cupom}
+                    onChange={(e) => { setCupom(e.target.value.toUpperCase()); setCupomAplicado(null); }}
+                    placeholder="Digite seu cupom"
+                    className="flex-1 px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-500 text-sm focus:outline-none focus:border-amber-500"
+                  />
+                  <button
+                    onClick={() => aplicarCupom()}
+                    className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-sm font-medium transition-all"
+                  >
+                    Aplicar
+                  </button>
+                </div>
+                {cupomAplicado && (
+                  <p className="mt-2 text-green-400 text-sm flex items-center gap-1">
+                    <CheckCircle className="w-4 h-4" /> {cupomAplicado.descricao} aplicado!
+                  </p>
+                )}
+              </div>
+
               {/* Grid de Planos */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {planos.map((plano) => {
@@ -3225,9 +4993,18 @@ function PlanosModal({ isOpen, onClose }) {
 
                       {/* Preço */}
                       <div className="mb-4">
-                        <span className="text-3xl font-bold text-white">
-                          {plano.preco === 0 ? 'Grátis' : `R$ ${plano.preco}`}
-                        </span>
+                        {cupomAplicado && plano.preco > 0 ? (
+                          <>
+                            <span className="text-lg text-slate-500 line-through mr-2">R$ {plano.preco}</span>
+                            <span className="text-3xl font-bold text-green-400">
+                              R$ {(plano.preco * (1 - cupomAplicado.desconto)).toFixed(2)}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-3xl font-bold text-white">
+                            {plano.preco === 0 ? 'Grátis' : `R$ ${plano.preco}`}
+                          </span>
+                        )}
                         {plano.preco > 0 && <span className="text-slate-400">/mês</span>}
                       </div>
 
@@ -4064,219 +5841,280 @@ function PreviewRedeSocial({ tipo, formato = 'feed', conteudo, usuario, modoComp
 // COMPONENTE DE TRENDING TOPICS
 // ====================================
 function TrendingTopicsComponent({ onSelectTema, areaAtuacao }) {
-  const [trending, setTrending] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [dataAtualizacao, setDataAtualizacao] = useState(null);
-  const [atualizando, setAtualizando] = useState(false);
-  const [expandido, setExpandido] = useState(false);
-  const [tempoRestante, setTempoRestante] = useState(10);
+  const [noticiasAPI, setNoticiasAPI] = useState([]);
   const [fonte, setFonte] = useState(null);
+  const [usandoNoticias, setUsandoNoticias] = useState(false);
+  const [carregando, setCarregando] = useState(false);
 
-  const carregarTrending = async () => {
+  // Temas pre-configurados por area (aparecem instantaneamente)
+  const temasPreConfigurados = {
+    'Direito Civil': [
+      { tema: 'Usucapiao: como adquirir propriedade pelo tempo de posse', icone: '🏠', descricao: 'Requisitos e prazos para usucapiao urbana e rural' },
+      { tema: 'Responsabilidade civil por danos morais e materiais', icone: '⚖️', descricao: 'Quando cabe indenizacao e como calcular o valor' },
+      { tema: 'Contratos: clausulas abusivas e nulidades', icone: '📝', descricao: 'Como identificar e anular clausulas ilegais' },
+    ],
+    'Direito Penal': [
+      { tema: 'Prisao em flagrante: direitos do preso', icone: '🚔', descricao: 'O que fazer quando alguem e preso em flagrante' },
+      { tema: 'Legitima defesa: quando e permitido reagir', icone: '🛡️', descricao: 'Requisitos legais e excesso punivel' },
+      { tema: 'Acordo de nao persecucao penal (ANPP)', icone: '🤝', descricao: 'Quando e possivel evitar o processo criminal' },
+    ],
+    'Direito Trabalhista': [
+      { tema: 'Rescisao indireta: a justa causa do empregador', icone: '🚪', descricao: 'Quando o trabalhador pode "demitir" a empresa' },
+      { tema: 'Horas extras: calculo e limites legais', icone: '⏱️', descricao: 'Adicional, banco de horas e acordo individual' },
+      { tema: 'Assedio moral no trabalho: como comprovar', icone: '😰', descricao: 'Provas aceitas e indenizacao' },
+    ],
+    'Direito Empresarial': [
+      { tema: 'MEI, ME e EPP: qual o melhor para seu negocio', icone: '🏢', descricao: 'Limites de faturamento e obrigacoes' },
+      { tema: 'Recuperacao judicial: como funciona', icone: '📊', descricao: 'Requisitos e etapas do processo' },
+      { tema: 'Protecao de marca: registro no INPI', icone: '®️', descricao: 'Como registrar e proteger sua marca' },
+    ],
+    'Direito do Consumidor': [
+      { tema: 'Produto com defeito: troca, reparo ou dinheiro de volta', icone: '🔧', descricao: 'Prazos e direitos do consumidor' },
+      { tema: 'Compras online: direito de arrependimento', icone: '🛒', descricao: '7 dias para desistir sem justificativa' },
+      { tema: 'Nome negativado indevidamente: o que fazer', icone: '📛', descricao: 'Como limpar o nome e pedir indenizacao' },
+    ],
+    'Direito de Família': [
+      { tema: 'Divorcio consensual e litigioso: diferencas', icone: '💔', descricao: 'Prazos, custos e documentos necessarios' },
+      { tema: 'Pensao alimenticia: calculo e revisao', icone: '💵', descricao: 'Como definir o valor e quando revisar' },
+      { tema: 'Guarda compartilhada: como funciona na pratica', icone: '👨‍👧', descricao: 'Direitos e deveres de cada genitor' },
+    ],
+    'Direito Tributário': [
+      { tema: 'Malha fina: como sair e evitar problemas', icone: '🔍', descricao: 'Principais motivos e como regularizar' },
+      { tema: 'Planejamento tributario: economia legal de impostos', icone: '📊', descricao: 'Estrategias para PF e PJ' },
+      { tema: 'Parcelamento de dividas com a Receita Federal', icone: '📅', descricao: 'Programas disponiveis e requisitos' },
+    ],
+    'Direito Imobiliário': [
+      { tema: 'Documentos para comprar imovel com seguranca', icone: '📑', descricao: 'Checklist completo do comprador' },
+      { tema: 'Distrato imobiliario: devolucao de valores', icone: '🔙', descricao: 'Direitos do comprador na desistencia' },
+      { tema: 'Problemas com construtora: vicio de construcao', icone: '🏗️', descricao: 'Prazos de garantia e acoes cabiveis' },
+    ],
+    'Direito Previdenciário': [
+      { tema: 'Aposentadoria apos a reforma: novas regras', icone: '👴', descricao: 'Idade, tempo de contribuicao e transicao' },
+      { tema: 'INSS negou seu beneficio: como recorrer', icone: '❌', descricao: 'Recursos administrativo e judicial' },
+      { tema: 'BPC/LOAS: beneficio para idosos e deficientes', icone: '🤝', descricao: 'Requisitos de renda e como solicitar' },
+    ],
+    'Direito Digital': [
+      { tema: 'LGPD: obrigacoes das empresas com dados pessoais', icone: '🔐', descricao: 'Consentimento, vazamento e multas' },
+      { tema: 'Crimes virtuais: como denunciar e se proteger', icone: '🚨', descricao: 'Estelionato, invasao e ameacas online' },
+      { tema: 'Direito ao esquecimento na internet', icone: '🗑️', descricao: 'Remocao de conteudo e decisoes recentes' },
+    ],
+  };
+
+  // Funcao para buscar noticias reais da API (chamada apenas pelo botao)
+  const buscarNoticiasAPI = async () => {
+    setCarregando(true);
     try {
-      // Buscar direto do webhook do n8n
       const response = await fetch('https://blasterskd.com.br/api/n8n/webhook/trending-juridico-manual');
       if (response.ok) {
         const data = await response.json();
-        setTrending(data.trending || []);
-        setDataAtualizacao(data.dataAtualizacao);
-        setFonte(data.fonte || null);
-        // Salvar em cache local
-        localStorage.setItem('trending-juridico-cache', JSON.stringify({
-          trending: data.trending,
-          dataAtualizacao: data.dataAtualizacao,
-          fonte: data.fonte,
-          cachedAt: new Date().toISOString()
-        }));
+        if (data.trending?.length > 0) {
+          setNoticiasAPI(data.trending);
+          setFonte(data.fonte || null);
+          setUsandoNoticias(true);
+          // Salvar em cache
+          localStorage.setItem('trending-juridico-cache', JSON.stringify({
+            trending: data.trending,
+            fonte: data.fonte,
+            cachedAt: new Date().toISOString()
+          }));
+        }
       }
     } catch (error) {
-      console.log('Erro ao carregar trending:', error);
-      // Tentar carregar do cache
-      const cache = localStorage.getItem('trending-juridico-cache');
-      if (cache) {
-        const dados = JSON.parse(cache);
-        setTrending(dados.trending || []);
-        setDataAtualizacao(dados.dataAtualizacao);
-        setFonte(dados.fonte || null);
-      }
+      console.log('Erro ao buscar noticias:', error);
     } finally {
-      setLoading(false);
+      setCarregando(false);
     }
   };
 
-  const forcarAtualizacao = async () => {
-    setAtualizando(true);
-    try {
-      // Chamar direto o webhook do n8n
-      const response = await fetch('https://blasterskd.com.br/api/n8n/webhook/trending-juridico-manual');
-      if (response.ok) {
-        const data = await response.json();
-        setTrending(data.trending || []);
-        setDataAtualizacao(data.dataAtualizacao);
-        setFonte(data.fonte || null);
-        // Atualizar cache
-        localStorage.setItem('trending-juridico-cache', JSON.stringify({
-          trending: data.trending,
-          dataAtualizacao: data.dataAtualizacao,
-          fonte: data.fonte,
-          cachedAt: new Date().toISOString()
-        }));
+  // Voltar para temas pre-configurados
+  const voltarParaTemas = () => {
+    setUsandoNoticias(false);
+    setNoticiasAPI([]);
+  };
+
+  // Obter temas para a area selecionada
+  const obterTemas = () => {
+    if (!areaAtuacao) return [];
+
+    // Se estiver usando noticias da API
+    if (usandoNoticias && noticiasAPI.length > 0) {
+      const areaLower = areaAtuacao.toLowerCase().replace('direito ', '');
+      const noticiasArea = noticiasAPI.filter(t =>
+        t.area?.toLowerCase().includes(areaLower) ||
+        t.area?.toLowerCase().includes(areaAtuacao.toLowerCase())
+      );
+
+      if (noticiasArea.length > 0) {
+        return noticiasArea.slice(0, 3);
       }
-    } catch (error) {
-      console.log('Erro ao atualizar:', error);
-    } finally {
-      setAtualizando(false);
+      // Se nao tiver noticias da area, mostrar todas
+      return noticiasAPI.slice(0, 3);
     }
+
+    // Usar temas pre-configurados (instantaneo)
+    return (temasPreConfigurados[areaAtuacao] || []).map(t => ({ ...t, area: areaAtuacao }));
   };
 
-  useEffect(() => {
-    carregarTrending();
-  }, []);
+  const temasMostrados = obterTemas();
 
-  // Timer countdown enquanto carrega
-  useEffect(() => {
-    if (loading && tempoRestante > 0) {
-      const timer = setTimeout(() => setTempoRestante(tempoRestante - 1), 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [loading, tempoRestante]);
+  // Nao mostrar se nao tiver area selecionada
+  if (!areaAtuacao) {
+    return null;
+  }
 
-  const formatarData = (dataISO) => {
-    if (!dataISO) return '';
-    const data = new Date(dataISO);
-    return data.toLocaleDateString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  if (loading) {
-    return (
-      <div className="bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-yellow-500/10 backdrop-blur rounded-xl p-4 border border-amber-500/30 mb-6">
-        <div className="flex items-center justify-center gap-4">
-          <div className="relative">
-            <Loader2 className="w-6 h-6 text-amber-400 animate-spin" />
-            <div className="absolute inset-0 bg-amber-400/20 rounded-full blur-md animate-pulse" />
-          </div>
-          <div className="text-center">
-            <span className="text-slate-300 text-sm block">Buscando temas em alta...</span>
-            <div className="flex items-center justify-center gap-2 mt-1">
-              <div className="w-16 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-1000"
-                  style={{ width: `${(10 - tempoRestante) * 10}%` }}
-                />
-              </div>
-              <span className="text-xs text-amber-400 font-mono">{tempoRestante}s</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+  // Sem temas
+  if (temasMostrados.length === 0 && !carregando) {
+    return null;
   }
 
   return (
     <div className="relative overflow-hidden bg-gradient-to-br from-slate-800/80 via-slate-800/60 to-slate-900/80 backdrop-blur-xl rounded-xl border border-amber-500/40 mb-6 shadow-lg shadow-amber-500/5">
-      {/* Header compacto */}
-      <div
-        className="relative flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-slate-700/30 transition-colors"
-        onClick={() => setExpandido(!expandido)}
-      >
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700/50">
         <div className="flex items-center gap-2">
           <div className="bg-gradient-to-br from-amber-400 to-orange-500 p-1.5 rounded-lg">
             <Flame className="w-4 h-4 text-white" />
           </div>
-          <h3 className="text-sm font-semibold text-white flex items-center gap-1.5">
-            Temas em Alta
-            <Sparkles className="w-3 h-3 text-amber-400" />
-          </h3>
+          <div>
+            <h3 className="text-sm font-semibold text-white flex items-center gap-1.5">
+              {usandoNoticias ? 'Noticias em Alta' : 'Temas Sugeridos'}
+              <Sparkles className="w-3 h-3 text-amber-400" />
+            </h3>
+            <span className="text-[10px] text-amber-400/70">{areaAtuacao}</span>
+          </div>
         </div>
 
+        {/* Botoes de acao */}
         <div className="flex items-center gap-2">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              forcarAtualizacao();
-            }}
-            disabled={atualizando}
-            className="p-1.5 text-slate-400 hover:text-amber-400 hover:bg-slate-700/50 rounded-lg transition-all disabled:opacity-50"
-            title="Atualizar temas"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${atualizando ? 'animate-spin' : ''}`} />
-          </button>
-          <div className={`transform transition-transform duration-300 ${expandido ? 'rotate-180' : ''}`}>
-            <svg className="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </div>
+          {usandoNoticias ? (
+            <>
+              {fonte && (
+                <a
+                  href={fonte.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[10px] text-slate-400 hover:text-amber-400 transition-colors"
+                >
+                  {fonte.nome}
+                </a>
+              )}
+              <button
+                onClick={voltarParaTemas}
+                className="text-[10px] bg-slate-700/50 hover:bg-slate-600/50 text-slate-300 px-2 py-1 rounded transition-colors"
+                title="Voltar para temas sugeridos"
+              >
+                Voltar
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={buscarNoticiasAPI}
+              disabled={carregando}
+              className="flex items-center gap-1 text-[10px] bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 px-2 py-1 rounded transition-colors disabled:opacity-50"
+              title="Buscar noticias atualizadas"
+            >
+              <RefreshCw className={`w-3 h-3 ${carregando ? 'animate-spin' : ''}`} />
+              {carregando ? 'Buscando...' : 'Buscar noticias'}
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Conteúdo expandível - Layout Horizontal */}
-      <div className={`transition-all duration-400 ease-out overflow-hidden ${expandido ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
-        <div className="px-4 pb-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {trending.map((item, idx) => (
+      {/* Explicacao */}
+      <div className="px-4 py-2 bg-slate-900/30 border-b border-slate-700/30">
+        <p className="text-[11px] text-slate-400">
+          {usandoNoticias ? (
+            <>
+              <span className="text-green-400">●</span> Noticias atualizadas do Conjur •
+              <span className="text-slate-500"> Clique para usar como base do seu post</span>
+            </>
+          ) : (
+            <>
+              <span className="text-amber-400">●</span> Temas populares em {areaAtuacao} •
+              <span className="text-slate-500"> Clique em "Buscar noticias" para ver noticias do dia</span>
+            </>
+          )}
+        </p>
+      </div>
+
+      {/* Loading */}
+      {carregando ? (
+        <div className="p-8 flex flex-col items-center justify-center gap-3">
+          <div className="relative">
+            <div className="w-12 h-12 rounded-full border-4 border-amber-500/20 border-t-amber-500 animate-spin" />
+            <Sparkles className="w-5 h-5 text-amber-400 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+          </div>
+          <div className="text-center">
+            <span className="text-white font-medium block">Buscando noticias em alta</span>
+            <span className="text-amber-400 text-sm">{areaAtuacao}</span>
+          </div>
+          <div className="flex gap-1">
+            <div className="w-2 h-2 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+            <div className="w-2 h-2 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+            <div className="w-2 h-2 bg-amber-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+          </div>
+        </div>
+      ) : (
+        /* Grid de Temas - 3 colunas */
+        <div className="p-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {temasMostrados.map((item, idx) => (
               <div
                 key={idx}
                 className="group relative overflow-hidden bg-slate-900/50 hover:bg-slate-800/80 border border-slate-700/50 hover:border-amber-500/50 rounded-lg p-3 text-left transition-all duration-300 hover:shadow-md hover:shadow-amber-500/10"
               >
-                {/* Badge de posição */}
-                <span className={`absolute top-2 right-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${idx === 0 ? 'bg-amber-500/20 text-amber-400' :
-                  idx === 1 ? 'bg-slate-500/20 text-slate-300' :
-                    'bg-orange-500/20 text-orange-400'
-                  }`}>
-                  #{idx + 1}
+                {/* Badge */}
+                <span className={`absolute top-2 right-2 text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                  usandoNoticias ? 'bg-green-500/20 text-green-400' : 'bg-amber-500/20 text-amber-400'
+                }`}>
+                  {usandoNoticias ? 'Novo' : `#${idx + 1}`}
                 </span>
 
-                {/* Ícone e Conteúdo */}
-                <div className="text-xl mb-1.5 group-hover:scale-110 transition-transform duration-300">
-                  {item.icone || '📌'}
+                {/* Icone */}
+                <div className="text-2xl mb-2 group-hover:scale-110 transition-transform duration-300">
+                  {item.icone || '📰'}
                 </div>
 
-                <h4 className="font-medium text-xs text-white group-hover:text-amber-400 transition-colors line-clamp-2 leading-tight mb-1 pr-6">
+                {/* Titulo */}
+                <h4 className="font-medium text-sm text-white group-hover:text-amber-400 transition-colors line-clamp-2 leading-tight mb-1.5 pr-8">
                   {item.tema}
                 </h4>
 
-                {/* Descrição/Justificativa */}
+                {/* Descricao */}
                 {item.descricao && (
-                  <p className="text-[9px] text-slate-400 line-clamp-2 mb-1.5 leading-relaxed">
+                  <p className="text-[11px] text-slate-400 line-clamp-2 mb-2 leading-relaxed">
                     {item.descricao}
                   </p>
                 )}
 
-                <div className="flex items-center gap-1 flex-wrap mb-2">
-                  <span className="text-[10px] bg-slate-700/50 text-slate-400 px-1.5 py-0.5 rounded-full">
-                    {item.area}
-                  </span>
-                  {item.data && (
+                {/* Data (se noticia real) */}
+                {usandoNoticias && item.data && (
+                  <div className="flex items-center gap-1 mb-3">
                     <span className="text-[10px] bg-green-500/20 text-green-400 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
                       <Calendar className="w-2.5 h-2.5" />
                       {item.data}
                     </span>
-                  )}
-                </div>
+                  </div>
+                )}
 
-                {/* Botões de ação */}
-                <div className="flex items-center gap-1 pt-2 border-t border-slate-700/30">
+                {/* Botoes */}
+                <div className="flex items-center gap-2 mt-auto">
                   <button
-                    onClick={() => onSelectTema(item.tema, item.area)}
-                    className="flex-1 text-[10px] bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 px-2 py-1 rounded transition-colors"
+                    onClick={() => onSelectTema(item.tema, item.area || areaAtuacao)}
+                    className="flex-1 text-[11px] bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 px-3 py-1.5 rounded transition-colors flex items-center justify-center gap-1"
                   >
+                    <Sparkles className="w-3 h-3" />
                     Usar tema
                   </button>
-                  {item.link && (
+                  {usandoNoticias && item.link && (
                     <a
                       href={item.link}
                       target="_blank"
                       rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="p-1 bg-slate-700/50 hover:bg-slate-600/50 text-slate-400 hover:text-white rounded transition-colors"
-                      title="Ver notícia original"
+                      className="p-1.5 bg-slate-700/50 hover:bg-slate-600/50 text-slate-400 hover:text-white rounded transition-colors"
+                      title="Ver noticia original"
                     >
-                      <ExternalLink className="w-3 h-3" />
+                      <ExternalLink className="w-3.5 h-3.5" />
                     </a>
                   )}
                 </div>
@@ -4286,27 +6124,8 @@ function TrendingTopicsComponent({ onSelectTema, areaAtuacao }) {
               </div>
             ))}
           </div>
-
-          {/* Link da fonte */}
-          {fonte && (
-            <div className="mt-3 pt-3 border-t border-slate-700/50 flex items-center justify-between">
-              <span className="text-[10px] text-slate-500">
-                Fonte: {fonte.nome}
-              </span>
-              <a
-                href={fonte.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="flex items-center gap-1 text-[10px] text-amber-400/70 hover:text-amber-400 transition-colors"
-              >
-                <ExternalLink className="w-3 h-3" />
-                Ver notícias
-              </a>
-            </div>
-          )}
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -4635,7 +6454,7 @@ function ConfiguracoesLogo({ user, onSaveLogo, onClose }) {
 // ====================================
 // COMPONENTE DE LOGIN
 // ====================================
-function CriadorCompleto({ user, onLogout, onAbrirGaleria, onAbrirPerfil, onAbrirPlanos, onSalvarImagem }) {
+function CriadorCompleto({ user, onLogout, onAbrirGaleria, onAbrirPerfil, onAbrirPlanos, onSalvarImagem, isAdmin, onAbrirAdmin }) {
   const { fetchAuth, perfil } = useAuth();
   // DADOS ESTÁTICOS
   const DADOS = {
@@ -4791,6 +6610,7 @@ function CriadorCompleto({ user, onLogout, onAbrirGaleria, onAbrirPerfil, onAbri
   const [imagemPreview, setImagemPreview] = useState(null);
   const imagemPreviewRef = useRef(null); // Ref para persistir a URL da imagem
   const [mostrarImagemFull, setMostrarImagemFull] = useState(false);
+  const [mostrarModalResultado, setMostrarModalResultado] = useState(false);
   const [mostrarDicasAssunto, setMostrarDicasAssunto] = useState(false);
   const [mostrarDicasPublico, setMostrarDicasPublico] = useState(false);
 
@@ -4800,11 +6620,14 @@ function CriadorCompleto({ user, onLogout, onAbrirGaleria, onAbrirPerfil, onAbri
   const [templateStory, setTemplateStory] = useState('voce-sabia');
   const [imagemGerada, setImagemGerada] = useState(null);
   const [conteudoStoryEditavel, setConteudoStoryEditavel] = useState(null);
+  const [templateDoConteudoEditavel, setTemplateDoConteudoEditavel] = useState(null); // Guarda qual template gerou o conteúdo
+  const [jaGerouStory, setJaGerouStory] = useState(false); // Flag para esconder botão "Gerar Conteúdo" após primeiro story
   const [tipoImagemStory, setTipoImagemStory] = useState('stock');
   const [mostrarEditorConteudo, setMostrarEditorConteudo] = useState(false);
   const [loadingConteudo, setLoadingConteudo] = useState(false);
 
   const [loadingImagem, setLoadingImagem] = useState(false);
+  const [postingInstagram, setPostingInstagram] = useState(false);
   const [tempoGeracao, setTempoGeracao] = useState(0);
   const [tentativaGeracao, setTentativaGeracao] = useState(0);
   const [statusGeracao, setStatusGeracao] = useState('');
@@ -4873,6 +6696,126 @@ function CriadorCompleto({ user, onLogout, onAbrirGaleria, onAbrirPerfil, onAbri
   const [mostrarMeusAgendamentos, setMostrarMeusAgendamentos] = useState(false);
   const [dataParaAgendar, setDataParaAgendar] = useState(null);
 
+  // Estados para Gerar Aleatório
+  const [mostrarModalAleatorio, setMostrarModalAleatorio] = useState(false);
+  const [areaAleatorio, setAreaAleatorio] = useState('');
+  const [formatoAleatorio, setFormatoAleatorio] = useState('feed');
+  const [loadingAleatorio, setLoadingAleatorio] = useState(false);
+  const [resultadoAleatorio, setResultadoAleatorio] = useState(null);
+
+  // Estados para Auto-Post
+  const [mostrarAutoPost, setMostrarAutoPost] = useState(false);
+  const [autoPostConfig, setAutoPostConfig] = useState(null);
+  const [loadingAutoPost, setLoadingAutoPost] = useState(false);
+  const [autoPostArea, setAutoPostArea] = useState('Direito Civil');
+  const [autoPostFormato, setAutoPostFormato] = useState('misto');
+  const [autoPostHorarios, setAutoPostHorarios] = useState(['09:00', '18:00']);
+  const [autoPostAtivo, setAutoPostAtivo] = useState(false);
+  const [salvandoAutoPost, setSalvandoAutoPost] = useState(false);
+
+  // Estados para conexão Instagram
+  const [instagramConnection, setInstagramConnection] = useState(null);
+  const [loadingInstagramStatus, setLoadingInstagramStatus] = useState(true);
+  const [connectingInstagram, setConnectingInstagram] = useState(false);
+  const [mostrarConfigInstagram, setMostrarConfigInstagram] = useState(false);
+  const [pendingInstagramAccounts, setPendingInstagramAccounts] = useState(null);
+  const [selectingAccount, setSelectingAccount] = useState(false);
+
+  // Verificar status da conexão Instagram
+  useEffect(() => {
+    async function checkInstagramStatus() {
+      try {
+        const response = await fetchAuth('https://blasterskd.com.br/api/instagram/status');
+        const data = await response.json();
+        setInstagramConnection(data);
+      } catch (error) {
+        console.error('Erro ao verificar Instagram:', error);
+      } finally {
+        setLoadingInstagramStatus(false);
+      }
+    }
+    checkInstagramStatus();
+
+    // Verificar params da URL (callback do OAuth)
+    const urlParams = new URLSearchParams(window.location.search);
+    const instagramStatus = urlParams.get('instagram');
+    if (instagramStatus === 'success') {
+      const username = urlParams.get('username');
+      alert(`✅ Instagram @${username} conectado com sucesso!`);
+      window.history.replaceState({}, '', window.location.pathname);
+      checkInstagramStatus();
+    } else if (instagramStatus === 'error') {
+      const msg = urlParams.get('msg');
+      alert(`❌ Erro ao conectar Instagram: ${msg}`);
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (instagramStatus === 'select') {
+      // Múltiplas contas - buscar opções
+      window.history.replaceState({}, '', window.location.pathname);
+      setMostrarConfigInstagram(true);
+      fetchAuth('https://blasterskd.com.br/api/instagram/pending-selection')
+        .then(res => res.json())
+        .then(data => {
+          if (data.hasPending && data.accounts) {
+            setPendingInstagramAccounts(data.accounts);
+          }
+        })
+        .catch(console.error);
+    }
+  }, []);
+
+  // Selecionar conta Instagram
+  const handleSelectInstagramAccount = async (instagramAccountId) => {
+    setSelectingAccount(true);
+    try {
+      const response = await fetchAuth('https://blasterskd.com.br/api/instagram/select', {
+        method: 'POST',
+        body: JSON.stringify({ instagramAccountId })
+      });
+      const data = await response.json();
+      if (data.success) {
+        alert(`✅ Instagram @${data.username} conectado com sucesso!`);
+        setPendingInstagramAccounts(null);
+        // Atualizar status
+        const statusRes = await fetchAuth('https://blasterskd.com.br/api/instagram/status');
+        const statusData = await statusRes.json();
+        setInstagramConnection(statusData);
+      } else {
+        alert('❌ Erro: ' + (data.error || 'Falha ao selecionar conta'));
+      }
+    } catch (error) {
+      alert('❌ Erro: ' + error.message);
+    } finally {
+      setSelectingAccount(false);
+    }
+  };
+
+  // Conectar Instagram
+  const handleConnectInstagram = async () => {
+    setConnectingInstagram(true);
+    try {
+      const response = await fetchAuth('https://blasterskd.com.br/api/instagram/connect');
+      const data = await response.json();
+      if (data.authUrl) {
+        window.location.href = data.authUrl;
+      }
+    } catch (error) {
+      alert('Erro ao iniciar conexão: ' + error.message);
+      setConnectingInstagram(false);
+    }
+  };
+
+  // Desconectar Instagram
+  const handleDisconnectInstagram = async () => {
+    if (!confirm('Deseja desconectar seu Instagram?')) return;
+    try {
+      await fetchAuth('https://blasterskd.com.br/api/instagram/disconnect', { method: 'DELETE' });
+      setInstagramConnection({ connected: false });
+      alert('Instagram desconectado');
+    } catch (error) {
+      alert('Erro ao desconectar: ' + error.message);
+    }
+  };
+
   // Atualizar logoUser quando perfil.logo_url mudar (ex: após upload no perfil)
   useEffect(() => {
     if (perfil?.logo_url) {
@@ -4889,6 +6832,115 @@ function CriadorCompleto({ user, onLogout, onAbrirGaleria, onAbrirPerfil, onAbri
   };
 
   // FUNÇÕES
+
+  // Gerar conteúdo aleatório
+  const gerarConteudoAleatorio = async () => {
+    if (!areaAleatorio) {
+      alert('Selecione uma área de atuação');
+      return;
+    }
+    setLoadingAleatorio(true);
+    setResultadoAleatorio(null);
+    try {
+      const response = await fetchAuth('https://blasterskd.com.br/api/gerar-conteudo-aleatorio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ area: areaAleatorio, formato: formatoAleatorio })
+      });
+      if (!response.ok) throw new Error(`Erro: ${response.status}`);
+      const data = await response.json();
+      setResultadoAleatorio(data);
+    } catch (error) {
+      console.error('Erro ao gerar conteúdo aleatório:', error);
+      alert('Erro ao gerar conteúdo: ' + error.message);
+    } finally {
+      setLoadingAleatorio(false);
+    }
+  };
+
+  const usarConteudoAleatorio = () => {
+    if (!resultadoAleatorio) return;
+    // Preencher campos do criador
+    setAreaAtuacao(resultadoAleatorio.area);
+    setTema(resultadoAleatorio.topico);
+    if (resultadoAleatorio.tipo === 'feed') {
+      setTipoConteudo('post-instagram');
+      setFormatoPost('feed');
+      setConteudoGerado(resultadoAleatorio.conteudo);
+    } else {
+      setTipoConteudo('post-instagram');
+      setFormatoPost('stories');
+      // O conteúdo de story é JSON, precisa ser processado pelo gerador de imagem
+      setConteudoGerado(resultadoAleatorio.conteudo);
+    }
+    setMostrarModalAleatorio(false);
+    setResultadoAleatorio(null);
+  };
+
+  // Carregar config auto-post
+  const carregarAutoPostConfig = async () => {
+    try {
+      const response = await fetchAuth('https://blasterskd.com.br/api/auto-post/config');
+      const data = await response.json();
+      if (data.config) {
+        setAutoPostConfig(data.config);
+        setAutoPostArea(data.config.area_atuacao || 'Direito Civil');
+        setAutoPostFormato(data.config.formato_preferencia || 'misto');
+        setAutoPostHorarios(data.config.horarios || ['09:00', '18:00']);
+        setAutoPostAtivo(data.config.ativo || false);
+      }
+    } catch (error) {
+      console.log('Auto-post config não encontrada');
+    }
+  };
+
+  const salvarAutoPostConfig = async () => {
+    setSalvandoAutoPost(true);
+    try {
+      const response = await fetchAuth('https://blasterskd.com.br/api/auto-post/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          area_atuacao: autoPostArea,
+          formato_preferencia: autoPostFormato,
+          horarios: autoPostHorarios,
+          ativo: autoPostAtivo
+        })
+      });
+      const data = await response.json();
+      if (data.success) {
+        setAutoPostConfig(data.config);
+        alert('Configuração salva com sucesso!');
+      } else {
+        alert(data.error || 'Erro ao salvar');
+      }
+    } catch (error) {
+      alert('Erro: ' + error.message);
+    } finally {
+      setSalvandoAutoPost(false);
+    }
+  };
+
+  const gerarAgendamentosAuto = async () => {
+    setLoadingAutoPost(true);
+    try {
+      const response = await fetchAuth('https://blasterskd.com.br/api/auto-post/gerar-agendamentos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      });
+      const data = await response.json();
+      if (data.success) {
+        alert(`${data.agendamentos_criados} agendamento(s) criado(s) para hoje!`);
+      } else {
+        alert(data.message || 'Nenhum agendamento criado');
+      }
+    } catch (error) {
+      alert('Erro: ' + error.message);
+    } finally {
+      setLoadingAutoPost(false);
+    }
+  };
 
   // Função para limpar hashtags corrompidas e marcações indesejadas
   // =====================================================
@@ -5052,7 +7104,9 @@ function CriadorCompleto({ user, onLogout, onAbrirGaleria, onAbrirPerfil, onAbri
       // Apenas Stories/Reels gera imagem automaticamente
       if (formatoPost === 'stories' || formatoPost === 'reels') {
         setLoadingImagem(true);
-        gerarImagem(limparConteudo(data.content), 'stories');
+        setConteudoStoryEditavel(null); // Limpar conteúdo antigo antes de gerar novo
+        setTemplateDoConteudoEditavel(null); // Limpar referência do template
+        gerarImagem(limparConteudo(data.content), 'stories', true); // forcarNovoConteudo = true
       }
     } catch (error) {
       console.error('Erro:', error);
@@ -5406,7 +7460,7 @@ Crie agora:`;
     link.click();
   };
 
-  const gerarImagem = async (textoOverride = null, formatoOverride = null) => {
+  const gerarImagem = async (textoOverride = null, formatoOverride = null, forcarNovoConteudo = false) => {
     const textoUsar = textoOverride || conteudoGerado;
     const formatoUsar = formatoOverride || formatoImagem;
 
@@ -5414,6 +7468,7 @@ Crie agora:`;
     console.log('   - textoOverride:', textoOverride ? 'SIM' : 'NÃO');
     console.log('   - formatoOverride:', formatoOverride);
     console.log('   - formatoUsar:', formatoUsar);
+    console.log('   - forcarNovoConteudo:', forcarNovoConteudo);
 
     if (!textoUsar) {
       alert('Gere o conteúdo primeiro!');
@@ -5442,9 +7497,16 @@ Crie agora:`;
           logo: logoUser || perfil?.logo_url || '',
         };
 
-        if (conteudoStoryEditavel) {
-          console.log('🎨 Renderizando com conteúdo editado');
+        // Só usa conteúdo editado se:
+        // 1. Existe conteúdo editado
+        // 2. Não está forçando novo conteúdo
+        // 3. O template atual é o MESMO que gerou o conteúdo (evita usar estrutura errada)
+        const templateCombina = templateDoConteudoEditavel === templateStory;
+        if (conteudoStoryEditavel && !forcarNovoConteudo && templateCombina) {
+          console.log('🎨 Renderizando com conteúdo editado (template:', templateStory, ')');
           storyBody.conteudo_editado = conteudoStoryEditavel;
+        } else {
+          console.log('🔄 Gerando novo conteúdo via IA (template:', templateStory, ', templateCombina:', templateCombina, ')');
         }
 
         // Iniciar temporizador
@@ -5526,6 +7588,8 @@ Crie agora:`;
           imagemPreviewRef.current = storyData.imageUrl;
           setImagemGerada(storyData.imageUrl);
           setImagemPreview(storyData.imageUrl);
+          setJaGerouStory(true); // Marcar que já gerou um story
+          setMostrarModalResultado(true); // Abrir modal de resultado
 
           if (storyData.conteudo) {
             setConteudoStoryEditavel(storyData.conteudo);
@@ -5538,7 +7602,8 @@ Crie agora:`;
                 tema: tema,
                 area: areaAtuacao,
                 tipoConteudo: tipoConteudo,
-                formato: 'stories'
+                formato: 'stories',
+                conteudo: conteudoGerado || ''
               });
             } catch (e) {
               console.log('⚠️ Erro ao salvar Story:', e);
@@ -5547,6 +7612,7 @@ Crie agora:`;
         }
 
         setConteudoStoryEditavel(storyData?.conteudo || null);
+        setTemplateDoConteudoEditavel(storyData?.conteudo ? templateStory : null); // Guardar qual template gerou
         setLoadingImagem(false);
         return;
       }
@@ -5701,6 +7767,7 @@ Crie agora:`;
       console.log('✅ Estados atualizados! imagemPreview agora é:', backendData.imageUrl.substring(0, 50));
       setMostrarModalImagem(false); // Fecha o modal
       setModoEdicao(false); // Garante que está no modo preview
+      setMostrarModalResultado(true); // Abrir modal de resultado
 
       // 🔷 SUPABASE: Salvar imagem automaticamente
       if (onSalvarImagem) {
@@ -5710,7 +7777,8 @@ Crie agora:`;
             tema: tema,
             area: areaAtuacao,
             tipoConteudo: tipoConteudo,
-            formato: formatoPost || formatoImagem
+            formato: formatoPost || formatoImagem,
+            conteudo: conteudoGerado || ''
           });
           console.log('✅ Imagem salva no Supabase');
         } catch (e) {
@@ -5762,6 +7830,14 @@ Crie agora:`;
               <Calendar className="w-4 h-4" />
               <span className="hidden sm:inline">Agendamentos</span>
             </button>
+            <button
+              onClick={() => { setMostrarAutoPost(true); carregarAutoPostConfig(); }}
+              className="flex items-center gap-2 px-3 py-2 bg-purple-600 hover:bg-purple-500 rounded-lg text-white transition-all text-sm"
+              title="Auto-Post Diário"
+            >
+              <Zap className="w-4 h-4" />
+              <span className="hidden sm:inline">Auto-Post</span>
+            </button>
             {onAbrirPerfil && (
               <button
                 onClick={onAbrirPerfil}
@@ -5790,6 +7866,28 @@ Crie agora:`;
               <Palette className="w-4 h-4" />
               <span className="hidden sm:inline">Visual</span>
             </button>
+            <button
+              onClick={() => setMostrarConfigInstagram(true)}
+              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all text-sm ${
+                instagramConnection?.connected
+                  ? 'bg-gradient-to-r from-purple-500/20 to-pink-500/20 hover:from-purple-500/30 hover:to-pink-500/30 text-pink-400'
+                  : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
+              }`}
+              title={instagramConnection?.connected ? `@${instagramConnection.username}` : 'Conectar Instagram'}
+            >
+              <Instagram className="w-4 h-4" />
+              <span className="hidden sm:inline">{instagramConnection?.connected ? `@${instagramConnection.username}` : 'Instagram'}</span>
+            </button>
+            {isAdmin && (
+              <button
+                onClick={onAbrirAdmin}
+                className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-red-500/20 to-orange-500/20 hover:from-red-500/30 hover:to-orange-500/30 rounded-lg text-orange-400 transition-all text-sm border border-orange-500/30"
+                title="Painel Administrativo"
+              >
+                <Settings className="w-4 h-4" />
+                <span className="hidden sm:inline">Admin</span>
+              </button>
+            )}
             <button
               onClick={() => {
                 console.log('🚪 Botão Sair clicado');
@@ -5954,7 +8052,16 @@ Crie agora:`;
                     {tipoSelecionado.formatos.map((formato) => (
                       <button
                         key={formato.id}
-                        onClick={() => setFormatoPost(formato.id)}
+                        onClick={() => {
+                          setFormatoPost(formato.id);
+                          // Resetar estados ao trocar de formato
+                          setConteudoGerado('');
+                          setImagemPreview(null);
+                          setJaGerouStory(false);
+                          setConteudoStoryEditavel(null);
+                          setTemplateDoConteudoEditavel(null);
+                          if (imagemPreviewRef.current) imagemPreviewRef.current = null;
+                        }}
                         className={`flex-1 p-3 rounded-lg border transition-all ${formatoPost === formato.id
                           ? 'border-amber-400 bg-amber-400/10'
                           : 'border-slate-600 hover:border-slate-500 bg-slate-700/50'
@@ -5988,7 +8095,16 @@ Crie agora:`;
                   {DADOS.templatesStory.map((t) => (
                     <button
                       key={t.id}
-                      onClick={() => setTemplateStory(t.id)}
+                      onClick={() => {
+                        // Limpa dados anteriores ao trocar de template
+                        if (t.id !== templateStory) {
+                          setImagemPreview(null);
+                          setImagemGerada(null);
+                          setConteudoStoryEditavel(null);
+                          setTemplateDoConteudoEditavel(null);
+                        }
+                        setTemplateStory(t.id);
+                      }}
                       className={`p-1.5 rounded-xl border transition-all text-left flex items-center gap-3 relative overflow-hidden group ${templateStory === t.id
                         ? 'border-amber-400 bg-amber-400/10'
                         : 'border-slate-700 hover:border-slate-600 bg-slate-800/40 text-slate-300'
@@ -6198,24 +8314,38 @@ Crie agora:`;
               </>
             )}
 
-            {/* Botão Gerar */}
-            <button
-              onClick={gerarConteudo}
-              disabled={loading}
-              className="w-full bg-amber-500 hover:bg-amber-600 disabled:bg-slate-600 text-white font-semibold py-3 rounded-lg transition-all flex items-center justify-center gap-2"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Gerando...
-                </>
-              ) : (
-                <>
-                  <Lightbulb className="w-5 h-5" />
-                  Gerar Conteúdo
-                </>
-              )}
-            </button>
+            {/* Botões Gerar */}
+            {/* Esconde o botão "Gerar Conteúdo" para Stories/Reels após primeiro story gerado */}
+            {!((formatoPost === 'stories' || formatoPost === 'reels') && jaGerouStory) && (
+              <div className="flex gap-2">
+                <button
+                  onClick={gerarConteudo}
+                  disabled={loading}
+                  className="flex-1 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-600 text-white font-semibold py-3 rounded-lg transition-all flex items-center justify-center gap-2"
+                >
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Gerando...
+                    </>
+                  ) : (
+                    <>
+                      <Lightbulb className="w-5 h-5" />
+                      Gerar Conteúdo
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => setMostrarModalAleatorio(true)}
+                  disabled={loading}
+                  className="px-4 bg-purple-500 hover:bg-purple-600 disabled:bg-slate-600 text-white font-semibold py-3 rounded-lg transition-all flex items-center justify-center gap-2"
+                  title="Gerar conteúdo com tema aleatório"
+                >
+                  <Sparkles className="w-5 h-5" />
+                  <span className="hidden sm:inline">Aleatório</span>
+                </button>
+              </div>
+            )}
           </div>
 
           {/* COLUNA DIREITA - PREVIEW */}
@@ -6285,6 +8415,47 @@ Crie agora:`;
                     >
                       <Download className="w-4 h-4" />
                       <span className="whitespace-nowrap">Baixar</span>
+                    </button>
+                  )}
+
+                  {/* Botão Postar no Instagram - disponível para usuários com Instagram conectado */}
+                  {imagemPreview && instagramConnection?.connected && (
+                    <button
+                      onClick={async () => {
+                        if (postingInstagram) return;
+                        setPostingInstagram(true);
+                        try {
+                          const isStory = formatoPost === 'stories';
+                          const caption = isStory ? '' : `${tema}\n\n${conteudoGerado?.substring(0, 500) || ''}\n\n#direito #advogado #advocacia #juridico #lei #blasterskd`;
+                          const response = await fetchAuth('https://blasterskd.com.br/api/instagram/post', {
+                            method: 'POST',
+                            body: JSON.stringify({
+                              imageUrl: imagemPreview,
+                              caption,
+                              type: isStory ? 'story' : 'feed'
+                            })
+                          });
+                          const data = await response.json();
+                          if (data.success) {
+                            alert(`✅ ${isStory ? 'Story' : 'Post'} publicado no Instagram @${instagramConnection.username}!`);
+                          } else if (data.needsConnection) {
+                            alert('❌ Conecte seu Instagram nas configurações para postar.');
+                          } else if (data.needsReconnection) {
+                            alert('❌ Token expirado. Reconecte seu Instagram nas configurações.');
+                          } else {
+                            alert('❌ Erro: ' + (data.error || 'Falha ao postar'));
+                          }
+                        } catch (error) {
+                          alert('❌ Erro ao postar: ' + error.message);
+                        } finally {
+                          setPostingInstagram(false);
+                        }
+                      }}
+                      disabled={postingInstagram}
+                      className="flex items-center justify-center gap-2 px-3 py-1.5 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 disabled:opacity-50 rounded-lg text-white text-sm transition-all font-medium"
+                    >
+                      <Instagram className="w-4 h-4" />
+                      <span className="whitespace-nowrap">{postingInstagram ? 'Postando...' : 'Instagram'}</span>
                     </button>
                   )}
 
@@ -6393,8 +8564,9 @@ Crie agora:`;
                           <button
                             onClick={() => {
                               setConteudoStoryEditavel(null);
+                              setTemplateDoConteudoEditavel(null);
                               setLoadingImagem(true);
-                              gerarImagem(conteudoGerado, 'stories');
+                              gerarImagem(conteudoGerado, 'stories', true);
                             }}
                             className="flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 rounded-lg text-white text-sm transition-all font-medium"
                           >
@@ -6658,24 +8830,29 @@ Crie agora:`;
         {/* MODAL DE VISUALIZAÇÃO DA IMAGEM */}
         {mostrarImagemFull && imagemPreview && (
           <div
-            className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 z-50 cursor-pointer"
+            className="fixed inset-0 bg-black/95 z-50 overflow-y-auto"
             onClick={() => setMostrarImagemFull(false)}
           >
-            <div className="relative max-w-4xl max-h-[90vh] w-full">
-              <button
-                onClick={() => setMostrarImagemFull(false)}
-                className="absolute -top-12 right-0 text-white/70 hover:text-white transition-colors flex items-center gap-2"
-              >
-                <span className="text-sm">Fechar</span>
-                <X className="w-6 h-6" />
-              </button>
+            {/* Botão fechar fixo */}
+            <button
+              onClick={() => setMostrarImagemFull(false)}
+              className="fixed top-4 right-4 z-50 text-white/70 hover:text-white transition-colors flex items-center gap-2 bg-black/50 px-3 py-2 rounded-lg"
+            >
+              <span className="text-sm">Fechar</span>
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* Container com scroll */}
+            <div className="min-h-full flex flex-col items-center justify-start py-16 px-4">
               <img
                 src={imagemPreview}
                 alt="Imagem do post"
-                className="w-full h-full object-contain rounded-lg shadow-2xl"
+                className={`${formatoPost === 'stories' || formatoPost === 'reels' ? 'max-w-sm w-full' : 'max-w-2xl w-full'} rounded-lg shadow-2xl`}
                 onClick={(e) => e.stopPropagation()}
               />
-              <div className="absolute -bottom-12 left-0 right-0 flex justify-center gap-3 flex-wrap">
+
+              {/* Botões de ação */}
+              <div className="flex justify-center gap-3 flex-wrap mt-6 pb-8">
                 <a
                   href={imagemPreview}
                   download="post-juriscontent.png"
@@ -6711,14 +8888,172 @@ Crie agora:`;
           </div>
         )}
 
-        {/* MODAL DE CONFIGURAÇÕES */}
+        {/* MODAL DE RESULTADO DO POST */}
+        {mostrarModalResultado && imagemPreview && (
+          <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="relative bg-slate-800 rounded-2xl max-w-lg w-full border border-slate-700 overflow-hidden shadow-2xl">
+              {/* Header */}
+              <div className="flex justify-between items-center p-4 border-b border-slate-700">
+                <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-amber-400" />
+                  Post Criado com Sucesso!
+                </h3>
+                <button
+                  onClick={() => setMostrarModalResultado(false)}
+                  className="text-slate-400 hover:text-white transition-colors p-1"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Imagem com preview estilo Instagram */}
+              <div className="p-4">
+                <div
+                  className={`relative rounded-xl overflow-hidden border-2 border-slate-600 ${formatoPost === 'stories' || formatoPost === 'reels' ? 'aspect-[9/16] max-h-[45vh]' : 'aspect-square'} mx-auto cursor-pointer group`}
+                  onClick={() => {
+                    setMostrarModalResultado(false);
+                    setMostrarImagemFull(true);
+                  }}
+                >
+                  <img
+                    src={imagemPreview}
+                    alt="Post gerado"
+                    className="w-full h-full object-cover"
+                  />
+                  {/* Overlay de visualização */}
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <div className="flex flex-col items-center gap-2 text-white">
+                      <Maximize2 className="w-8 h-8" />
+                      <span className="text-sm font-medium">Tela Cheia</span>
+                    </div>
+                  </div>
+                  {/* Simulação UI do Instagram - Stories */}
+                  {(formatoPost === 'stories' || formatoPost === 'reels') && (
+                    <>
+                      <div className="absolute top-3 left-3 right-3 flex items-center gap-2 pointer-events-none">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white text-xs font-bold">
+                          {user?.nome?.charAt(0) || 'U'}
+                        </div>
+                        <span className="text-white text-sm font-medium drop-shadow-lg">{user?.instagram || 'seu_perfil'}</span>
+                      </div>
+                    </>
+                  )}
+                </div>
+                <p className="text-center text-slate-400 text-xs mt-2">Clique na imagem para visualizar em tela cheia</p>
+              </div>
+
+              {/* Botoes de acao */}
+              <div className="p-4 pt-0 space-y-3">
+                {/* Botao principal - Baixar */}
+                <a
+                  href={imagemPreview}
+                  download={`post-${formatoPost}-${Date.now()}.png`}
+                  onClick={() => setMostrarModalResultado(false)}
+                  className="flex items-center justify-center gap-2 w-full py-3 bg-amber-500 hover:bg-amber-600 rounded-xl text-white font-bold transition-all"
+                >
+                  <Download className="w-5 h-5" />
+                  Baixar Imagem
+                </a>
+
+                {/* Botoes secundarios */}
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => {
+                      setMostrarModalResultado(false);
+                      setMostrarModalAgendar(true);
+                    }}
+                    className="flex items-center justify-center gap-2 py-3 bg-slate-700 hover:bg-slate-600 rounded-xl text-white font-medium transition-all"
+                  >
+                    <Calendar className="w-4 h-4" />
+                    Agendar
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMostrarModalResultado(false);
+                      setModoEdicao(true);
+                    }}
+                    className="flex items-center justify-center gap-2 py-3 bg-slate-700 hover:bg-slate-600 rounded-xl text-white font-medium transition-all"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                    Editar
+                  </button>
+                </div>
+
+                {/* Botao Instagram - disponível para usuários com Instagram conectado */}
+                {instagramConnection?.connected && (
+                  <button
+                    onClick={async () => {
+                      if (postingInstagram) return;
+                      setPostingInstagram(true);
+                      try {
+                        const response = await fetchAuth('https://blasterskd.com.br/api/instagram/post', {
+                          method: 'POST',
+                          body: JSON.stringify({
+                            imageUrl: imagemPreview,
+                            caption: conteudoTexto || tema,
+                            type: formatoPost === 'stories' || formatoPost === 'reels' ? 'story' : 'feed'
+                          })
+                        });
+                        const data = await response.json();
+                        if (data.success) {
+                          alert(`✅ Postado no Instagram @${instagramConnection.username}!`);
+                          setMostrarModalResultado(false);
+                        } else if (data.needsConnection) {
+                          alert('❌ Conecte seu Instagram nas configurações.');
+                        } else if (data.needsReconnection) {
+                          alert('❌ Token expirado. Reconecte seu Instagram.');
+                        } else {
+                          alert('Erro: ' + (data.error || 'Falha ao postar'));
+                        }
+                      } catch (e) {
+                        alert('Erro ao postar: ' + e.message);
+                      } finally {
+                        setPostingInstagram(false);
+                      }
+                    }}
+                    disabled={postingInstagram}
+                    className="flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 rounded-xl text-white font-medium transition-all disabled:opacity-50"
+                  >
+                    <Instagram className="w-4 h-4" />
+                    {postingInstagram ? 'Postando...' : 'Postar no Instagram'}
+                  </button>
+                )}
+
+                {/* Link para compartilhar */}
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={() => {
+                      window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(imagemPreview), "_blank");
+                    }}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-green-600 hover:bg-green-700 rounded-lg text-white text-sm font-medium transition-all"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    WhatsApp
+                  </button>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(imagemPreview);
+                      alert('Link copiado!');
+                    }}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-slate-600 hover:bg-slate-500 rounded-lg text-white text-sm font-medium transition-all"
+                  >
+                    <Link2 className="w-4 h-4" />
+                    Copiar Link
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL DE IDENTIDADE VISUAL */}
         {mostrarConfig && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-slate-800 rounded-xl max-w-2xl w-full p-6 border border-slate-700 max-h-[90vh] overflow-y-auto custom-scrollbar">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                  <Settings className="w-6 h-6 text-amber-400" />
-                  Configurações
+                  <Palette className="w-6 h-6 text-amber-400" />
+                  Identidade Visual
                 </h2>
                 <button
                   onClick={() => setMostrarConfig(false)}
@@ -6729,11 +9064,356 @@ Crie agora:`;
               </div>
 
               <div className="space-y-6">
+                {/* CORES DAS IMAGENS */}
                 <div>
                   <h3 className="text-sm font-medium text-slate-400 mb-3 uppercase tracking-wider">Cores das Imagens</h3>
                   <SeletorPaletaCores />
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL DE CONEXÃO INSTAGRAM */}
+        {mostrarConfigInstagram && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-slate-800 rounded-xl max-w-lg w-full p-6 border border-slate-700 max-h-[90vh] overflow-y-auto custom-scrollbar">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                  <Instagram className="w-6 h-6 text-pink-400" />
+                  Conexao Instagram
+                </h2>
+                <button
+                  onClick={() => setMostrarConfigInstagram(false)}
+                  className="text-slate-400 hover:text-white transition-colors"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {loadingInstagramStatus ? (
+                <div className="flex items-center justify-center gap-2 text-slate-400 py-8">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Verificando conexao...
+                </div>
+              ) : pendingInstagramAccounts && pendingInstagramAccounts.length > 0 ? (
+                <div className="space-y-4">
+                  {/* Tela de seleção de conta */}
+                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4">
+                    <p className="text-amber-400 text-sm flex items-center gap-2">
+                      <AlertCircle className="w-5 h-5" />
+                      Voce tem {pendingInstagramAccounts.length} contas Instagram. Escolha qual deseja usar:
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    {pendingInstagramAccounts.map((account) => (
+                      <button
+                        key={account.instagramAccountId}
+                        onClick={() => handleSelectInstagramAccount(account.instagramAccountId)}
+                        disabled={selectingAccount}
+                        className="w-full p-4 bg-slate-700/50 hover:bg-slate-700 border border-slate-600 hover:border-purple-500/50 rounded-xl transition-all text-left group disabled:opacity-50"
+                      >
+                        <div className="flex items-center gap-4">
+                          {account.profilePicture ? (
+                            <img
+                              src={account.profilePicture}
+                              alt={account.instagramUsername}
+                              className="w-14 h-14 rounded-full object-cover border-2 border-slate-600 group-hover:border-purple-500"
+                            />
+                          ) : (
+                            <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
+                              <Instagram className="w-7 h-7 text-white" />
+                            </div>
+                          )}
+                          <div className="flex-1">
+                            <p className="text-white font-semibold text-lg group-hover:text-purple-400 transition-colors">
+                              @{account.instagramUsername}
+                            </p>
+                            <p className="text-slate-400 text-sm flex items-center gap-1">
+                              <Facebook className="w-3 h-3" />
+                              {account.pageName}
+                            </p>
+                          </div>
+                          <div className="text-slate-500 group-hover:text-purple-400 transition-colors">
+                            <ChevronRight className="w-6 h-6" />
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  {selectingAccount && (
+                    <div className="flex items-center justify-center gap-2 text-slate-400 py-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Conectando...
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      setPendingInstagramAccounts(null);
+                      setMostrarConfigInstagram(false);
+                    }}
+                    className="w-full py-2 text-slate-400 hover:text-white text-sm transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              ) : instagramConnection?.connected ? (
+                <div className="space-y-4">
+                  {/* Status conectado */}
+                  <div className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 rounded-lg p-5 border border-pink-500/30">
+                    <div className="flex items-center gap-4 mb-4">
+                      <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-500 rounded-full flex items-center justify-center shadow-lg">
+                        <Instagram className="w-7 h-7 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-white font-bold text-xl">@{instagramConnection.username}</p>
+                        <p className="text-slate-400 text-sm flex items-center gap-1">
+                          <Facebook className="w-3 h-3" />
+                          Pagina: {instagramConnection.pageName}
+                        </p>
+                      </div>
+                      <span className="px-3 py-1.5 bg-green-500/20 text-green-400 text-sm rounded-full flex items-center gap-1 font-medium">
+                        <Check className="w-4 h-4" />
+                        Ativo
+                      </span>
+                    </div>
+
+                    <div className="pt-3 border-t border-slate-600/50">
+                      <p className="text-slate-300 text-sm">
+                        Seus posts e stories serao publicados nesta conta.
+                      </p>
+                    </div>
+                  </div>
+
+                  {instagramConnection.isExpired && (
+                    <div className="p-3 bg-amber-500/20 rounded-lg text-amber-400 text-sm flex items-center gap-2">
+                      <AlertCircle className="w-5 h-5" />
+                      Token expirado. Reconecte seu Instagram para continuar postando.
+                    </div>
+                  )}
+
+                  {/* Dica sobre multiplas contas */}
+                  <div className="p-3 bg-slate-700/50 rounded-lg text-slate-400 text-xs">
+                    <p className="flex items-start gap-2">
+                      <Lightbulb className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                      <span>
+                        Tem outra conta? Clique em "Trocar conta" e selecione apenas a pagina desejada no Facebook.
+                      </span>
+                    </p>
+                  </div>
+
+                  {/* Botoes */}
+                  <div className="flex gap-3">
+                    <button
+                      onClick={handleConnectInstagram}
+                      disabled={connectingInstagram}
+                      className="flex-1 py-2.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-white text-sm font-medium transition-all flex items-center justify-center gap-2"
+                    >
+                      {connectingInstagram ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <RefreshCw className="w-4 h-4" />
+                      )}
+                      Trocar conta
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (confirm('Deseja desconectar seu Instagram?')) {
+                          handleDisconnectInstagram();
+                          setMostrarConfigInstagram(false);
+                        }
+                      }}
+                      className="px-4 py-2.5 border border-red-500/50 text-red-400 hover:bg-red-500/20 rounded-lg transition-all text-sm"
+                    >
+                      Desconectar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Ilustração do fluxo */}
+                  <div className="bg-gradient-to-r from-slate-700/50 to-slate-800/50 rounded-xl p-6 border border-slate-600/50">
+                    <div className="flex items-center justify-center gap-2 sm:gap-4">
+                      {/* BlasterSKD */}
+                      <div className="flex flex-col items-center">
+                        <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-amber-500 to-amber-600 rounded-xl flex items-center justify-center shadow-lg shadow-amber-500/20">
+                          <Scale className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+                        </div>
+                        <span className="text-[10px] sm:text-xs text-slate-400 mt-2 font-medium">BlasterSKD</span>
+                      </div>
+
+                      {/* Seta 1 */}
+                      <div className="flex flex-col items-center">
+                        <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6 text-slate-500" />
+                      </div>
+
+                      {/* Facebook */}
+                      <div className="flex flex-col items-center">
+                        <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                          <Facebook className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+                        </div>
+                        <span className="text-[10px] sm:text-xs text-slate-400 mt-2 font-medium">Facebook</span>
+                      </div>
+
+                      {/* Seta 2 */}
+                      <div className="flex flex-col items-center">
+                        <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6 text-slate-500" />
+                      </div>
+
+                      {/* Página */}
+                      <div className="flex flex-col items-center">
+                        <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-blue-400 to-blue-500 rounded-xl flex items-center justify-center shadow-lg shadow-blue-400/20">
+                          <FileText className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+                        </div>
+                        <span className="text-[10px] sm:text-xs text-slate-400 mt-2 font-medium">Pagina</span>
+                      </div>
+
+                      {/* Seta 3 */}
+                      <div className="flex flex-col items-center">
+                        <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6 text-slate-500" />
+                      </div>
+
+                      {/* Instagram */}
+                      <div className="flex flex-col items-center">
+                        <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gradient-to-br from-purple-500 via-pink-500 to-orange-400 rounded-xl flex items-center justify-center shadow-lg shadow-pink-500/20">
+                          <Instagram className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+                        </div>
+                        <span className="text-[10px] sm:text-xs text-slate-400 mt-2 font-medium">Instagram</span>
+                      </div>
+                    </div>
+
+                    <p className="text-center text-slate-400 text-xs mt-4">
+                      A conexao e feita via Facebook porque o Instagram Business e vinculado a uma Pagina.
+                    </p>
+                  </div>
+
+                  {/* Benefícios */}
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">Por que conectar?</h3>
+
+                    {/* Destaque principal - Agendamento */}
+                    <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-xl p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                          <Calendar className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                          <p className="text-white font-semibold">Agende o mes inteiro de uma vez</p>
+                          <p className="text-slate-400 text-sm mt-1">
+                            Crie todos os seus posts, agende as datas e deixe a magia acontecer.
+                            Seu Instagram no piloto automatico!
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Outros benefícios */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="flex items-center gap-2 p-2.5 bg-green-500/10 border border-green-500/20 rounded-lg">
+                        <Zap className="w-4 h-4 text-green-400 flex-shrink-0" />
+                        <span className="text-sm text-slate-300">1 clique para postar</span>
+                      </div>
+                      <div className="flex items-center gap-2 p-2.5 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+                        <Instagram className="w-4 h-4 text-purple-400 flex-shrink-0" />
+                        <span className="text-sm text-slate-300">Feed e Stories</span>
+                      </div>
+                      <div className="flex items-center gap-2 p-2.5 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                        <Clock className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                        <span className="text-sm text-slate-300">Poupa horas por semana</span>
+                      </div>
+                      <div className="flex items-center gap-2 p-2.5 bg-pink-500/10 border border-pink-500/20 rounded-lg">
+                        <Sparkles className="w-4 h-4 text-pink-400 flex-shrink-0" />
+                        <span className="text-sm text-slate-300">Conteudo com IA</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Passo a passo */}
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wider">Como funciona:</h3>
+
+                    <div className="space-y-2">
+                      <div className="flex items-start gap-3 p-3 bg-slate-700/30 rounded-lg">
+                        <div className="w-6 h-6 bg-amber-500 text-slate-900 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">1</div>
+                        <div>
+                          <p className="text-white text-sm font-medium">Clique em "Conectar Instagram"</p>
+                          <p className="text-slate-400 text-xs">Voce sera redirecionado para o Facebook</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-3 p-3 bg-slate-700/30 rounded-lg">
+                        <div className="w-6 h-6 bg-amber-500 text-slate-900 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">2</div>
+                        <div>
+                          <p className="text-white text-sm font-medium">Faca login no Facebook</p>
+                          <p className="text-slate-400 text-xs">Use a conta que administra sua Pagina do Facebook</p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-start gap-3 p-3 bg-slate-700/30 rounded-lg">
+                        <div className="w-6 h-6 bg-amber-500 text-slate-900 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">3</div>
+                        <div>
+                          <p className="text-white text-sm font-medium">Autorize o BlasterSKD</p>
+                          <p className="text-slate-400 text-xs">Permita acesso a sua Pagina e Instagram Business</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Requisitos */}
+                  <div className="bg-slate-700/30 rounded-lg p-4 space-y-2">
+                    <h4 className="text-sm font-semibold text-slate-300">Requisitos:</h4>
+                    <ul className="text-slate-400 text-sm space-y-1">
+                      <li className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-green-400" />
+                        Conta no Facebook
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-green-400" />
+                        Pagina do Facebook (pode ser qualquer pagina)
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-green-400" />
+                        Instagram Business ou Creator
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-green-400" />
+                        Instagram vinculado a Pagina do Facebook
+                      </li>
+                    </ul>
+                    <a
+                      href="https://help.instagram.com/502981923235522"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-amber-400 text-xs hover:underline inline-flex items-center gap-1 mt-2"
+                    >
+                      Como converter para conta Business?
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+
+                  {/* Botão conectar */}
+                  <button
+                    onClick={handleConnectInstagram}
+                    disabled={connectingInstagram}
+                    className="w-full py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-lg transition-all disabled:opacity-50 font-medium flex items-center justify-center gap-2"
+                  >
+                    {connectingInstagram ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        Conectando...
+                      </>
+                    ) : (
+                      <>
+                        <Instagram className="w-5 h-5" />
+                        Conectar Instagram
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -6746,6 +9426,7 @@ Crie agora:`;
           imagemUrl={imagemPreview}
           titulo={tema || tipoConteudo}
           dataPadrao={dataParaAgendar}
+          formato={formatoPost}
         />
 
         <ModalCalendarioAgendamentos
@@ -6760,6 +9441,259 @@ Crie agora:`;
             }
           }}
         />
+
+        {/* MODAL GERAR ALEATÓRIO */}
+        {mostrarModalAleatorio && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+            <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-md">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Sparkles className="w-6 h-6 text-purple-400" />
+                  Gerar Conteúdo Aleatório
+                </h3>
+                <button onClick={() => { setMostrarModalAleatorio(false); setResultadoAleatorio(null); }} className="text-slate-400 hover:text-white">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {!resultadoAleatorio ? (
+                <>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm text-slate-300 mb-2">Área de Atuação</label>
+                      <select
+                        value={areaAleatorio}
+                        onChange={(e) => setAreaAleatorio(e.target.value)}
+                        className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg p-3"
+                      >
+                        <option value="">Selecione...</option>
+                        {DADOS.areasAtuacao.map(area => (
+                          <option key={area} value={area}>{area}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm text-slate-300 mb-2">Formato</label>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => setFormatoAleatorio('feed')}
+                          className={`flex-1 py-3 rounded-lg border-2 transition-all font-medium ${formatoAleatorio === 'feed' ? 'border-amber-500 bg-amber-500/10 text-amber-400' : 'border-slate-600 text-slate-400 hover:border-slate-500'}`}
+                        >
+                          Feed
+                        </button>
+                        <button
+                          onClick={() => setFormatoAleatorio('story')}
+                          className={`flex-1 py-3 rounded-lg border-2 transition-all font-medium ${formatoAleatorio === 'story' ? 'border-purple-500 bg-purple-500/10 text-purple-400' : 'border-slate-600 text-slate-400 hover:border-slate-500'}`}
+                        >
+                          Story
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    onClick={gerarConteudoAleatorio}
+                    disabled={loadingAleatorio || !areaAleatorio}
+                    className="w-full mt-6 bg-purple-500 hover:bg-purple-600 disabled:bg-slate-600 text-white font-semibold py-3 rounded-lg transition-all flex items-center justify-center gap-2"
+                  >
+                    {loadingAleatorio ? (
+                      <><Loader2 className="w-5 h-5 animate-spin" /> Gerando...</>
+                    ) : (
+                      <><Sparkles className="w-5 h-5" /> Gerar Aleatório</>
+                    )}
+                  </button>
+                </>
+              ) : (
+                <div className="space-y-4">
+                  <div className="bg-slate-700/50 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Tag className="w-4 h-4 text-amber-400" />
+                      <span className="text-amber-400 font-medium text-sm">{resultadoAleatorio.area}</span>
+                      <span className="text-slate-500">|</span>
+                      <span className="text-purple-400 text-sm capitalize">{resultadoAleatorio.formato}</span>
+                    </div>
+                    <h4 className="text-white font-semibold mb-3">{resultadoAleatorio.topico}</h4>
+                    <div className="text-slate-300 text-sm max-h-48 overflow-y-auto whitespace-pre-wrap">
+                      {resultadoAleatorio.tipo === 'story' ? (
+                        <span className="text-slate-400 italic">Conteúdo de Story gerado - clique em "Usar" para visualizar</span>
+                      ) : (
+                        resultadoAleatorio.conteudo?.substring(0, 500) + (resultadoAleatorio.conteudo?.length > 500 ? '...' : '')
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setResultadoAleatorio(null)}
+                      className="flex-1 py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-all flex items-center justify-center gap-2"
+                    >
+                      <RefreshCw className="w-4 h-4" /> Gerar Outro
+                    </button>
+                    <button
+                      onClick={usarConteudoAleatorio}
+                      className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-white font-semibold rounded-lg transition-all flex items-center justify-center gap-2"
+                    >
+                      <Check className="w-4 h-4" /> Usar Conteúdo
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* MODAL AUTO-POST */}
+        {mostrarAutoPost && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+            <div className="bg-slate-800 border border-slate-700 rounded-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Zap className="w-6 h-6 text-purple-400" />
+                  Auto-Post Diário
+                </h3>
+                <button onClick={() => setMostrarAutoPost(false)} className="text-slate-400 hover:text-white">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {perfil?.plano_atual !== 'escritorio' ? (
+                <div className="text-center py-8">
+                  <Crown className="w-16 h-16 text-purple-400 mx-auto mb-4" />
+                  <h4 className="text-lg font-semibold text-white mb-2">Exclusivo Plano Escritório</h4>
+                  <p className="text-slate-400 mb-6">
+                    O Auto-Post gera e agenda conteúdos automaticamente todos os dias para o seu Instagram.
+                  </p>
+                  <button
+                    onClick={() => { setMostrarAutoPost(false); onAbrirPlanos?.(); }}
+                    className="bg-purple-500 hover:bg-purple-600 text-white font-semibold px-6 py-3 rounded-lg transition-all"
+                  >
+                    Conhecer Plano Escritório
+                  </button>
+                </div>
+              ) : !instagramConnection?.connected ? (
+                <div className="text-center py-8">
+                  <Instagram className="w-16 h-16 text-pink-400 mx-auto mb-4" />
+                  <h4 className="text-lg font-semibold text-white mb-2">Conecte seu Instagram</h4>
+                  <p className="text-slate-400 mb-6">
+                    Para usar o Auto-Post, conecte sua conta do Instagram primeiro.
+                  </p>
+                  <button
+                    onClick={handleConnectInstagram}
+                    className="bg-pink-500 hover:bg-pink-600 text-white font-semibold px-6 py-3 rounded-lg transition-all"
+                  >
+                    Conectar Instagram
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-5">
+                  {/* Toggle Ativar/Desativar */}
+                  <div className="flex items-center justify-between bg-slate-700/50 rounded-lg p-4">
+                    <div>
+                      <span className="text-white font-medium">Auto-Post</span>
+                      <p className="text-slate-400 text-sm">Gerar e agendar conteúdo automaticamente</p>
+                    </div>
+                    <button
+                      onClick={() => setAutoPostAtivo(!autoPostAtivo)}
+                      className={`w-14 h-7 rounded-full transition-all relative ${autoPostAtivo ? 'bg-green-500' : 'bg-slate-600'}`}
+                    >
+                      <div className={`w-5 h-5 bg-white rounded-full absolute top-1 transition-all ${autoPostAtivo ? 'left-8' : 'left-1'}`} />
+                    </button>
+                  </div>
+
+                  {/* Área de Atuação */}
+                  <div>
+                    <label className="block text-sm text-slate-300 mb-2">Área de Atuação</label>
+                    <select
+                      value={autoPostArea}
+                      onChange={(e) => setAutoPostArea(e.target.value)}
+                      className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg p-3"
+                    >
+                      {DADOS.areasAtuacao.map(area => (
+                        <option key={area} value={area}>{area}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Formato */}
+                  <div>
+                    <label className="block text-sm text-slate-300 mb-2">Formato Preferido</label>
+                    <div className="flex gap-2">
+                      {[
+                        { id: 'feed', label: 'Feed' },
+                        { id: 'stories', label: 'Stories' },
+                        { id: 'misto', label: 'Misto' }
+                      ].map(f => (
+                        <button
+                          key={f.id}
+                          onClick={() => setAutoPostFormato(f.id)}
+                          className={`flex-1 py-2.5 rounded-lg border-2 transition-all text-sm font-medium ${autoPostFormato === f.id ? 'border-purple-500 bg-purple-500/10 text-purple-400' : 'border-slate-600 text-slate-400 hover:border-slate-500'}`}
+                        >
+                          {f.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Horários */}
+                  <div>
+                    <label className="block text-sm text-slate-300 mb-2">Horários de Postagem</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { hora: '09:00', label: 'Manhã (9h)' },
+                        { hora: '12:00', label: 'Almoço (12h)' },
+                        { hora: '15:00', label: 'Tarde (15h)' },
+                        { hora: '18:00', label: 'Noite (18h)' }
+                      ].map(h => (
+                        <button
+                          key={h.hora}
+                          onClick={() => {
+                            setAutoPostHorarios(prev =>
+                              prev.includes(h.hora) ? prev.filter(x => x !== h.hora) : [...prev, h.hora].sort()
+                            );
+                          }}
+                          className={`py-2.5 rounded-lg border-2 transition-all text-sm ${autoPostHorarios.includes(h.hora) ? 'border-amber-500 bg-amber-500/10 text-amber-400' : 'border-slate-600 text-slate-400 hover:border-slate-500'}`}
+                        >
+                          <Clock className="w-3.5 h-3.5 inline mr-1.5" />
+                          {h.label}
+                        </button>
+                      ))}
+                    </div>
+                    {autoPostHorarios.length === 0 && (
+                      <p className="text-red-400 text-xs mt-1">Selecione pelo menos um horário</p>
+                    )}
+                  </div>
+
+                  {/* Botões */}
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      onClick={salvarAutoPostConfig}
+                      disabled={salvandoAutoPost || autoPostHorarios.length === 0}
+                      className="flex-1 bg-purple-500 hover:bg-purple-600 disabled:bg-slate-600 text-white font-semibold py-3 rounded-lg transition-all flex items-center justify-center gap-2"
+                    >
+                      {salvandoAutoPost ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                      Salvar Config
+                    </button>
+                    {autoPostConfig && autoPostAtivo && (
+                      <button
+                        onClick={gerarAgendamentosAuto}
+                        disabled={loadingAutoPost}
+                        className="flex-1 bg-amber-500 hover:bg-amber-600 disabled:bg-slate-600 text-white font-semibold py-3 rounded-lg transition-all flex items-center justify-center gap-2"
+                      >
+                        {loadingAutoPost ? <Loader2 className="w-4 h-4 animate-spin" /> : <Calendar className="w-4 h-4" />}
+                        Gerar Agora
+                      </button>
+                    )}
+                  </div>
+
+                  {autoPostConfig && (
+                    <p className="text-slate-500 text-xs text-center">
+                      O sistema gera agendamentos automaticamente todo dia pela manhã.
+                      Use "Gerar Agora" para criar os agendamentos de hoje manualmente.
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* MODAL DE IMAGEM REMOVIDO - GERAÇÃO AGORA É AUTOMÁTICA */}
       </div>
